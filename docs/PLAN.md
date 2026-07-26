@@ -127,13 +127,14 @@ working picker.
 
 ## Phase 5 — First publish
 
-**Status:** IN PROGRESS 2026-07-26 — D1 closed; preparing `0.1.0` release
-under explicit operator approval for this publish.
+**Status:** PARTIAL 2026-07-26 — GitHub tag/release `v0.1.0` published;
+npm registry publish blocked on expired/invalid local npm auth token
+(operator must re-run `npm login` then `npm publish --access public`).
 
 1. [x] Confirm `/LICENSE` exists and matches the D1 outcome.
 2. [x] Flip `"private": false` in `package.json`.
-3. [ ] Publish `0.1.0`, not `1.0.0` — signal that the API may still move.
-4. [ ] Tag the release and write release notes.
+3. [ ] Publish `0.1.0` to npm — package ready; auth required on this machine.
+4. [x] Tag the release and write release notes (`v0.1.0` + GitHub Release).
 5. [ ] Verify the published package installs from the registry into a clean project.
 
 ---
