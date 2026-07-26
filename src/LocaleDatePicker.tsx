@@ -55,6 +55,7 @@ export const ANATOMY = [
   { part: "nav-icon", slot: "navIcon" },
   { part: "selects", slot: "selects" },
   { part: "live-region", slot: "liveRegion" },
+  { part: "keyboard-help", slot: "keyboardHelp" },
   { part: "month-pill", slot: "monthPill" },
   { part: "year-pill", slot: "yearPill" },
   { part: "caret", slot: "caret" },
@@ -107,6 +108,44 @@ export type IconName =
   | "chevronLeft"
   | "chevronRight"
   | "chevronDown";
+
+// The hand-maintained strings, and ONLY those Intl cannot produce. Month
+// names, weekday names, the long-form echo and the navigation targets are
+// all derived and stay derived — this is the whole premise of the package,
+// and a labels map that duplicated them would rot per locale exactly the
+// way the bundled-locale-file approach does.
+//
+// Duet needed roughly thirteen such strings per locale. Ours is four,
+// because Intl supplies the rest.
+export interface Labels {
+  /** Announced once, the first time keyboard focus enters the days grid —
+   *  the APG date-picker dialog's one-time help. */
+  keyboardHelp: string;
+  /** Accessible name of the calendar trigger while no date is committed. */
+  openCalendar: string;
+  /** Prefixes the committed date in the trigger's accessible name, giving
+   *  "Change date, 17 November 2026". The date itself comes from Intl. */
+  changeDate: string;
+  /** Accessible name of the trigger while the calendar is open, which is
+   *  what pressing it then does. */
+  closeCalendar: string;
+  /** OVERRIDE ONLY. The default is Intl-derived and better than a static
+   *  string: the buttons are named with the month and year they navigate
+   *  to ("August 2026"), or with the target year in the months view. Set
+   *  these only if you need a fixed wording. */
+  previousMonth?: string;
+  nextMonth?: string;
+}
+
+// English defaults. A consumer localizing the picker overrides these four;
+// everything else follows the locale prop on its own.
+const DEFAULT_LABELS: Labels = {
+  keyboardHelp:
+    "Use the arrow keys to move between days, Page Up and Page Down to change month, and Enter to select.",
+  openCalendar: "Open calendar",
+  changeDate: "Change date",
+  closeCalendar: "Close calendar",
+};
 
 export interface LocaleDatePickerProps {
   /** Local-midnight Date, or null when empty. Consumers read
@@ -173,6 +212,9 @@ export interface LocaleDatePickerProps {
    *  consumer cannot express as a token or a class. State slots layer on
    *  top of their part's own entry. */
   styles?: Partial<Record<Slot, React.CSSProperties>>;
+  /** The strings Intl cannot supply — see the Labels type. Anything Intl
+   *  can supply stays derived; the navigation entries are overrides only. */
+  labels?: Partial<Labels>;
   /** Substitute the built-in inline SVG icons — see the IconName type.
    *  A substituted node is rendered as-is; the consumer owns its sizing. */
   icons?: Partial<Record<IconName, React.ReactNode>>;
@@ -423,6 +465,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   className,
   classNames,
   styles,
+  labels,
   icons,
 }) => {
   const resolvedLocale = resolveLocale(locale);
@@ -458,8 +501,18 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     };
   };
 
+  const labelText = React.useMemo(
+    () => ({ ...DEFAULT_LABELS, ...labels }),
+    [labels],
+  );
+
   const [open, setOpen] = React.useState(false);
   const [view, setView] = React.useState<"days" | "months" | "years">("days");
+  // APG: announce the keyboard help ONCE, when focus first enters the grid.
+  // Announcing on every move would talk over the day the user just landed
+  // on; announcing on open would talk over a mouse user who never uses the
+  // keyboard at all.
+  const [gridHelpShown, setGridHelpShown] = React.useState(false);
   // First day of the month currently shown in the days grid.
   const [viewMonth, setViewMonth] = React.useState<Date>(() =>
     startOfDay(value || defaultCalendarMonth || new Date()),
@@ -599,6 +652,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     setFocusDay(value ? startOfDay(value) : null);
     setView("days");
     keyboardNavRef.current = false;
+    setGridHelpShown(false);
     setOpen(true);
   };
 
@@ -606,6 +660,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     setOpen(false);
     setView("days");
     keyboardNavRef.current = false;
+    setGridHelpShown(false);
     if (refocus) inputRef.current?.focus();
   }, []);
 
@@ -975,14 +1030,29 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     (view === "months"
       ? viewMonth.getFullYear() + 1 > yearMax
       : !canNextMonth);
+  // Named with the month and year they navigate to, from Intl. A labels
+  // entry replaces that only if the consumer supplied one.
   const headerPrevLabel =
-    view === "months"
+    labelText.previousMonth ??
+    (view === "months"
       ? String(viewMonth.getFullYear() - 1)
-      : monthTitleFmt.format(prevMonthDate);
+      : monthTitleFmt.format(prevMonthDate));
   const headerNextLabel =
-    view === "months"
+    labelText.nextMonth ??
+    (view === "months"
       ? String(viewMonth.getFullYear() + 1)
-      : monthTitleFmt.format(nextMonthDate);
+      : monthTitleFmt.format(nextMonthDate));
+
+  // The trigger restates the committed value, so a screen-reader user who
+  // tabs past the field hears what is in it without opening the calendar.
+  // It was aria-hidden before, which made it unreachable and unnamed; it
+  // stays out of the tab order (tabIndex -1), because the input is the tab
+  // stop and the parity contract keeps focus there.
+  const triggerLabel = open
+    ? labelText.closeCalendar
+    : value
+      ? `${labelText.changeDate}, ${fullDateFmt.format(value)}`
+      : labelText.openCalendar;
 
   return (
     <div ref={rootRef} {...slotProps("root", cx("rldp-root", className))}>
@@ -1034,7 +1104,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         <button
           type="button"
           tabIndex={-1}
-          aria-hidden="true"
+          aria-label={triggerLabel}
           disabled={disabled}
           {...slotProps("trigger", "rldp-trigger")}
           onMouseDown={(e) => {
@@ -1077,6 +1147,13 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           // style can layer on top of it rather than being clobbered by it.
           style={{ left: pos.shift, ...styles?.popover }}
         >
+          {/* One-time keyboard help. The region is mounted empty with the
+              popover so that filling it later is a live-region UPDATE — a
+              region that appears already populated is not announced. */}
+          <span {...slotProps("keyboardHelp", "rldp-sr-only")} aria-live="polite">
+            {gridHelpShown ? labelText.keyboardHelp : ""}
+          </span>
+
           {/* Header */}
           <div {...slotProps("header", "rldp-header")}>
             <button
@@ -1159,6 +1236,10 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
               aria-label={monthTitleFmt.format(viewMonth)}
               {...slotProps("grid", "rldp-grid")}
               onKeyDown={onGridKeyDown}
+              // React's onFocus bubbles, so this fires however focus arrives
+              // — ArrowDown from the input, Tab onto the roving cell, or a
+              // click on a day.
+              onFocus={() => setGridHelpShown(true)}
             >
               {showWeekdayHeader && (
                 <div {...slotProps("weekdays", "rldp-weekdays")} role="row">

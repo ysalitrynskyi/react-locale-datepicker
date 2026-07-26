@@ -75,6 +75,22 @@ Every entry defaults to the 0.1.0 behaviour, so no existing caller changes.
 | `aria-invalid` | `boolean` |
 | `aria-describedby` | `string` |
 
+#### `labels`
+
+`labels?: Partial<Labels>` — the strings `Intl` **cannot** supply. Everything
+`Intl` can supply stays derived, which is the whole premise of the package: a
+labels map that duplicated month names would rot per locale exactly the way
+bundled locale files do. Duet needed roughly thirteen strings per locale;
+this is four.
+
+| Key | Default | Used for |
+|---|---|---|
+| `keyboardHelp` | "Use the arrow keys to move between days, Page Up and Page Down to change month, and Enter to select." | Announced once, when focus first enters the days grid. |
+| `openCalendar` | "Open calendar" | Trigger name while no date is committed. |
+| `changeDate` | "Change date" | Prefixes the committed date in the trigger name: "Change date, 17 November 2026". |
+| `closeCalendar` | "Close calendar" | Trigger name while the calendar is open. |
+| `previousMonth` / `nextMonth` | *derived* | **Override only.** By default the nav buttons are named with the month and year they navigate to, from `Intl` — better than a static string. Set these only for fixed wording. |
+
 ### Styling — per D3 (option D): self-contained CSS, overridable
 
 | Prop | Type | Notes |

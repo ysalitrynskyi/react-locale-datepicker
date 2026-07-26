@@ -111,6 +111,7 @@ means passing a different string.
 | `className` | `string` | Root element. |
 | `classNames` | `Partial<Record<Slot, string>>` | Per-slot class overrides (appended after built-ins). |
 | `styles` | `Partial<Record<Slot, CSSProperties>>` | Per-slot inline styles, same keys. |
+| `labels` | `Partial<Labels>` | The four strings `Intl` cannot supply (keyboard help, trigger names). Navigation labels stay Intl-derived. |
 | `icons` | `Partial<Record<IconName, ReactNode>>` | Substitute calendar / chevron glyphs. |
 
 Full contract: [`docs/API.md`](docs/API.md).

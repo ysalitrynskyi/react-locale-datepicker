@@ -35,6 +35,7 @@ them. The list only ever grows.
 | `nav-icon` | `navIcon` | Built-in chevron in the two nav buttons. |
 | `selects` | `selects` | Wrapper around the month and year pills. |
 | `live-region` | `liveRegion` | Visually hidden polite region announcing the visible month and year. |
+| `keyboard-help` | `keyboardHelp` | Visually hidden polite region carrying the one-time keyboard help. |
 | `month-pill` | `monthPill` | Month button that opens the months view. Carries `data-active`. |
 | `year-pill` | `yearPill` | Year button that opens the years view. Carries `data-active`. |
 | `caret` | `caret` | Built-in chevron inside the two pills. |
