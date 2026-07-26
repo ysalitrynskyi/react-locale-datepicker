@@ -38,7 +38,7 @@ export function Example() {
       onChange={setValue}
       locale="de"
       placeholder="dd.mm.yyyy"
-      aria-label="Travel date"
+      aria-label="Appointment date"
     />
   );
 }

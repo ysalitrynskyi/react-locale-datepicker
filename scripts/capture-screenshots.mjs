@@ -54,13 +54,35 @@ try {
       });
     }
     await page.goto(`${base}/?${pathQuery}`, { waitUntil: "networkidle" });
+    // Hide the harness chrome (heading, state readouts) so stray text does
+    // not bleed into the cropped image.
+    await page.addStyleTag({
+      content: "h1, pre { visibility: hidden; }",
+    });
     await page.getByRole("textbox").click();
     await page.getByRole("dialog").waitFor({ state: "visible" });
-    // Crop to the picker root so the README is not a full blank page.
-    const rootEl = page.locator(".rldp-root").first();
-    await rootEl.screenshot({
+    // An element screenshot of .rldp-root clips to its border box, and the
+    // popover is absolutely positioned OUTSIDE that box — shooting the root
+    // alone captures just the input field. Clip the page to the union of the
+    // field and the open popover instead, with a little breathing room.
+    const clip = await page.evaluate(() => {
+      const rects = [".rldp-root", ".rldp-popover"].map((s) =>
+        document.querySelector(s).getBoundingClientRect(),
+      );
+      const pad = 8;
+      const x = Math.min(...rects.map((r) => r.left)) - pad;
+      const y = Math.min(...rects.map((r) => r.top)) - pad;
+      return {
+        x: Math.max(0, x),
+        y: Math.max(0, y),
+        width: Math.max(...rects.map((r) => r.right)) - Math.max(0, x) + pad,
+        height: Math.max(...rects.map((r) => r.bottom)) - Math.max(0, y) + pad,
+      };
+    });
+    await page.screenshot({
       path: join(outDir, name),
       animations: "disabled",
+      clip,
     });
     await page.close();
     console.log("wrote", name);
