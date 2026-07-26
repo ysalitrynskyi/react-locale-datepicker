@@ -1,8 +1,9 @@
 import { defineConfig } from "tsup";
 
 // Library build per docs/DECISIONS.md D6: ESM + CJS + .d.ts, no UMD.
-// Styles path is intentionally omitted until D3 settles the stylesheet.
+// The stylesheet (D3) is copied verbatim — it is plain CSS, no build step.
 export default defineConfig({
+  onSuccess: "cp src/styles.css dist/styles.css",
   entry: ["src/index.ts"],
   format: ["esm", "cjs"],
   dts: true,

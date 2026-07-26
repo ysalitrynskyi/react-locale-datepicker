@@ -39,9 +39,9 @@
         "types": "./dist/index.d.cts",
         "default": "./dist/index.cjs"
       }
-    }
+    },
+    "./styles.css": "./dist/styles.css"
   },
-  "COMMENT_exports_styles": "A ./styles.css export is deferred until decision D3 (styling strategy) lands. Do not add a styles path that points at nothing.",
   "files": [
     "dist",
     "README.md"
