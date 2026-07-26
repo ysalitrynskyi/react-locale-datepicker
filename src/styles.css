@@ -1,0 +1,395 @@
+/* react-locale-datepicker — self-contained stylesheet (decision D3, option D).
+ *
+ * Architecture (see docs/ROADMAP.md Track 1 for the full rationale):
+ * - Every rule lives in the `rldp` cascade layer and is written with
+ *   :where(), so any unlayered consumer CSS wins on specificity, always.
+ * - Every visual decision routes through a --rldp-* custom property defined
+ *   on .rldp-root (never :root), so two differently themed pickers can
+ *   coexist on one page and a consumer re-themes by redefining variables.
+ * - Colours are light-dark() pairs and the root declares
+ *   `color-scheme: light dark`, so the picker follows the OS with zero
+ *   JavaScript and no flash of the wrong theme during SSR. An app that
+ *   manages its own theme overrides via the nearest `.dark` / `.light`
+ *   class or `[data-theme]` attribute — both spellings honoured.
+ * - The palette mirrors the utility classes the component was ported with,
+ *   so the default look is unchanged from the production original.
+ */
+
+@layer rldp {
+  :where(.rldp-root) {
+    /* Semantic tokens (shadcn-style pairs). */
+    --rldp-background: light-dark(#ffffff, #111827);
+    --rldp-foreground: light-dark(#111827, #f9fafb);
+    --rldp-muted-foreground: light-dark(#4b5563, #9ca3af);
+    --rldp-faint-foreground: light-dark(#6b7280, #6b7280);
+    --rldp-disabled-foreground: light-dark(#9ca3af, #4b5563);
+    --rldp-border: light-dark(#e5e7eb, #374151);
+    --rldp-border-strong: light-dark(#d1d5db, #4b5563);
+    --rldp-surface: light-dark(#f9fafb, #1f2937);
+    --rldp-hover: light-dark(#f3f4f6, #1f2937);
+    --rldp-accent: light-dark(#2563eb, #3b82f6);
+    --rldp-accent-hover: light-dark(#1d4ed8, #2563eb);
+    --rldp-accent-foreground: light-dark(#ffffff, #ffffff);
+    --rldp-accent-soft: light-dark(#eff6ff, #1e3a5f);
+    --rldp-accent-soft-foreground: light-dark(#1d4ed8, #bfdbfe);
+    --rldp-today-ring: light-dark(#60a5fa, #3b82f6);
+    --rldp-error: light-dark(#f87171, #f87171);
+    --rldp-ring: light-dark(#3b82f6, #60a5fa);
+
+    /* Shape, type and layout knobs. */
+    --rldp-radius: 0.375rem;
+    --rldp-radius-popover: 0.5rem;
+    --rldp-font: inherit;
+    --rldp-font-size: 1rem;
+    --rldp-cell-size: 2.75rem; /* 44px touch targets by default */
+    --rldp-popover-width: 19.5rem;
+    --rldp-z-index: 50;
+    --rldp-shadow:
+      0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+    color-scheme: light dark;
+    position: relative;
+    width: 100%;
+    font-family: var(--rldp-font);
+  }
+
+  /* Fine-pointer/desktop density, matching the original responsive sizing
+   * (44px cells below 768px, 36px above). */
+  @media (min-width: 768px) {
+    :where(.rldp-root) {
+      --rldp-cell-size: 2.25rem;
+      --rldp-font-size: 0.875rem;
+    }
+  }
+
+  /* App-managed theme override: the nearest .dark/.light ancestor or
+   * [data-theme] wins over the OS preference. Both class and attribute
+   * spellings are honoured for compatibility with common theme togglers.
+   * Forcing color-scheme flips every light-dark() pair above at once. */
+  :where(.dark, [data-theme="dark"]) :where(.rldp-root),
+  :where(.rldp-root):where(.dark, [data-theme="dark"]) {
+    color-scheme: dark;
+  }
+  :where(.light, [data-theme="light"]) :where(.rldp-root),
+  :where(.rldp-root):where(.light, [data-theme="light"]) {
+    color-scheme: light;
+  }
+
+  /* --- Field ------------------------------------------------------------ */
+
+  :where(.rldp-field) {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    min-height: var(--rldp-cell-size);
+    padding-inline: 0.5rem;
+    border: 2px solid var(--rldp-border);
+    border-radius: var(--rldp-radius);
+    background: var(--rldp-background);
+  }
+  :where(.rldp-field:focus-within) {
+    border-color: var(--rldp-accent);
+  }
+  :where(.rldp-field[data-error]) {
+    border-color: var(--rldp-error);
+  }
+  :where(.rldp-field[data-disabled]) {
+    background: var(--rldp-surface);
+    opacity: 0.6;
+  }
+  :where(.rldp-field[data-disabled]:focus-within) {
+    border-color: var(--rldp-border);
+  }
+
+  :where(.rldp-input) {
+    width: 100%;
+    border: 0;
+    padding: 0;
+    background: transparent;
+    font: inherit;
+    font-size: var(--rldp-font-size);
+    color: var(--rldp-foreground);
+    touch-action: manipulation;
+  }
+  :where(.rldp-input)::placeholder {
+    color: var(--rldp-disabled-foreground);
+  }
+  :where(.rldp-input:read-only) {
+    cursor: not-allowed;
+  }
+  :where(.rldp-input:focus) {
+    outline: none; /* the field border carries the focus affordance */
+  }
+
+  :where(.rldp-trigger) {
+    margin-inline-start: 0.25rem;
+    flex-shrink: 0;
+    display: inline-flex;
+    padding: 0.25rem;
+    border: 0;
+    background: transparent;
+    color: var(--rldp-faint-foreground);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  :where(.rldp-trigger:hover) {
+    color: var(--rldp-muted-foreground);
+  }
+  :where(.rldp-trigger:disabled) {
+    cursor: not-allowed;
+  }
+  :where(.rldp-trigger-icon) {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  /* --- Echo ------------------------------------------------------------- */
+
+  :where(.rldp-echo) {
+    margin: 0.125rem 0 0;
+    font-size: 0.75rem;
+    color: var(--rldp-muted-foreground);
+    text-transform: capitalize;
+  }
+
+  /* --- Popover ---------------------------------------------------------- */
+
+  :where(.rldp-popover) {
+    position: absolute;
+    z-index: var(--rldp-z-index);
+    width: var(--rldp-popover-width);
+    max-width: calc(100vw - 1rem);
+    padding: 0.75rem;
+    border: 1px solid var(--rldp-border);
+    border-radius: var(--rldp-radius-popover);
+    background: var(--rldp-background);
+    color: var(--rldp-foreground);
+    box-shadow: var(--rldp-shadow);
+    touch-action: manipulation;
+  }
+  :where(.rldp-popover[data-placement="bottom"]) {
+    top: 100%;
+    margin-top: 0.25rem;
+  }
+  :where(.rldp-popover[data-placement="top"]) {
+    bottom: 100%;
+    margin-bottom: 0.25rem;
+  }
+
+  /* --- Header ----------------------------------------------------------- */
+
+  :where(.rldp-header) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  :where(.rldp-nav) {
+    height: var(--rldp-cell-size);
+    width: var(--rldp-cell-size);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--rldp-radius);
+    background: transparent;
+    color: var(--rldp-muted-foreground);
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  :where(.rldp-nav:hover:not(:disabled)) {
+    background: var(--rldp-hover);
+  }
+  :where(.rldp-nav:disabled) {
+    opacity: 0.3;
+    cursor: default;
+  }
+  :where(.rldp-nav-icon) {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  /* Navigation arrows point backwards in right-to-left scripts. */
+  :where([dir="rtl"]) :where(.rldp-nav-icon) {
+    transform: rotate(180deg);
+  }
+
+  :where(.rldp-selects) {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+
+  :where(.rldp-pill) {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid var(--rldp-border-strong);
+    border-radius: var(--rldp-radius);
+    padding: 0.5rem 0.625rem;
+    background: var(--rldp-surface);
+    color: var(--rldp-foreground);
+    font-size: var(--rldp-font-size);
+    font-weight: 600;
+    text-transform: capitalize;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  :where(.rldp-pill:hover) {
+    border-color: var(--rldp-border-strong);
+    background: var(--rldp-hover);
+  }
+  :where(.rldp-pill[data-active]) {
+    border-color: var(--rldp-accent);
+    background: var(--rldp-accent-soft);
+    color: var(--rldp-accent-soft-foreground);
+  }
+  :where(.rldp-caret) {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--rldp-faint-foreground);
+    transition: transform 150ms;
+  }
+  :where(.rldp-pill[data-active]) :where(.rldp-caret) {
+    transform: rotate(180deg);
+    color: var(--rldp-accent);
+  }
+
+  /* --- Grids ------------------------------------------------------------ */
+
+  :where(.rldp-weekdays),
+  :where(.rldp-days) {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  :where(.rldp-weekday) {
+    display: flex;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    color: var(--rldp-faint-foreground);
+  }
+
+  :where(.rldp-day) {
+    height: var(--rldp-cell-size);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: var(--rldp-radius);
+    background: transparent;
+    font-size: var(--rldp-font-size);
+    color: var(--rldp-foreground);
+    cursor: pointer;
+    user-select: none;
+    touch-action: manipulation;
+    transition: background-color 150ms, color 150ms;
+  }
+  :where(.rldp-day:hover) {
+    background: var(--rldp-accent-soft);
+  }
+  :where(.rldp-day[data-today]) {
+    box-shadow: inset 0 0 0 1px var(--rldp-today-ring);
+  }
+  :where(.rldp-day[data-selected]) {
+    background: var(--rldp-accent);
+    color: var(--rldp-accent-foreground);
+    font-weight: 600;
+    box-shadow: none;
+  }
+  :where(.rldp-day[data-selected]:hover) {
+    background: var(--rldp-accent-hover);
+  }
+  :where(.rldp-day[data-disabled]) {
+    color: var(--rldp-disabled-foreground);
+    cursor: not-allowed;
+    background: transparent;
+  }
+
+  :where(.rldp-months),
+  :where(.rldp-years) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.25rem;
+  }
+  :where(.rldp-years) {
+    max-height: 16rem;
+    overflow-y: auto;
+  }
+  :where(.rldp-month),
+  :where(.rldp-year) {
+    height: 2.75rem;
+    border: 0;
+    border-radius: var(--rldp-radius);
+    background: transparent;
+    font-size: var(--rldp-font-size);
+    color: var(--rldp-foreground);
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background-color 150ms, color 150ms;
+  }
+  :where(.rldp-month) {
+    text-transform: capitalize;
+  }
+  :where(.rldp-month:hover:not(:disabled)),
+  :where(.rldp-year:hover) {
+    background: var(--rldp-accent-soft);
+  }
+  :where(.rldp-month[data-current]),
+  :where(.rldp-year[data-current]) {
+    background: var(--rldp-accent);
+    color: var(--rldp-accent-foreground);
+    font-weight: 600;
+  }
+  :where(.rldp-month:disabled) {
+    color: var(--rldp-disabled-foreground);
+    cursor: not-allowed;
+    background: transparent;
+  }
+
+  /* --- Focus, forced colors, reduced motion ----------------------------- */
+
+  /* Outline (not box-shadow) so the indicator survives forced-colors mode,
+   * where backgrounds and shadows are stripped but outlines are preserved. */
+  :where(.rldp-day, .rldp-month, .rldp-year, .rldp-nav, .rldp-pill):where(
+      :focus-visible
+    ) {
+    outline: 2px solid var(--rldp-ring);
+    outline-offset: -2px;
+  }
+
+  @media (forced-colors: active) {
+    :where(.rldp-day[data-selected]) {
+      border: 2px solid SelectedItem;
+    }
+    :where(.rldp-day[data-today]) {
+      border: 1px dashed CanvasText;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :where(.rldp-day, .rldp-month, .rldp-year, .rldp-caret) {
+      transition: none;
+    }
+  }
+
+  /* --- Utilities --------------------------------------------------------- */
+
+  :where(.rldp-sr-only) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}

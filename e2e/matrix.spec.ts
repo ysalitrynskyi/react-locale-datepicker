@@ -80,9 +80,43 @@ test.describe("RTL", () => {
     await expect(dialog).toBeVisible();
     const root = page.getByTestId("harness-root");
     await expect(root).toHaveAttribute("dir", "rtl");
-    // Nav chevrons exist; rtl:rotate-180 class is present on the SVG wrappers.
-    const nav = dialog.locator("button[aria-label]").first();
-    await expect(nav).toBeVisible();
+    // Parity: navigation arrows point backwards under RTL. The shipped
+    // stylesheet rotates .rldp-nav-icon 180deg inside [dir="rtl"].
+    const navIcon = dialog.locator(".rldp-nav-icon").first();
+    await expect(navIcon).toBeVisible();
+    const transform = await navIcon.evaluate(
+      (el) => getComputedStyle(el).transform,
+    );
+    // rotate(180deg) computes to matrix(-1, 0, 0, -1, 0, 0).
+    expect(transform).toContain("matrix(-1");
+  });
+});
+
+test.describe("dark mode", () => {
+  test("OS dark preference flips the popover surface via light-dark()", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "dark" });
+    await openPicker(page, "locale=en&defaultMonth=2026-07-01");
+    const bg = await page
+      .getByRole("dialog")
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    // --rldp-background dark half is #111827 = rgb(17, 24, 39).
+    expect(bg).toBe("rgb(17, 24, 39)");
+  });
+
+  test("a [data-theme=dark] ancestor overrides a light OS preference", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ colorScheme: "light" });
+    await openPicker(page, "locale=en&defaultMonth=2026-07-01");
+    await page.evaluate(() =>
+      document.documentElement.setAttribute("data-theme", "dark"),
+    );
+    const bg = await page
+      .getByRole("dialog")
+      .evaluate((el) => getComputedStyle(el).backgroundColor);
+    expect(bg).toBe("rgb(17, 24, 39)");
   });
 });
 

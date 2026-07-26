@@ -78,8 +78,10 @@ describe("accessibility: axe on open popover", () => {
     await h.openViaClick();
     const results = await axe(h.dialog(), {
       rules: {
-        // Colour contrast needs a real stylesheet; the port still uses utility
-        // class names pending D3. Disable until Phase 2 ships CSS.
+        // jsdom performs no layout or colour resolution, so axe cannot
+        // compute contrast here even now that Phase 2 ships a stylesheet.
+        // Contrast is a browser concern — the tokens in src/styles.css pair
+        // foreground/background per surface; verify visually or in e2e.
         "color-contrast": { enabled: false },
       },
     });

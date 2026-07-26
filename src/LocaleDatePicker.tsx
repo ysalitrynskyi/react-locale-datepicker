@@ -27,6 +27,27 @@ import React from "react";
 //   parent state in the same tick reads the pre-commit closure and flashes
 //   a false "required" error.
 
+// Styling slots overridable through the classNames prop (decision D3).
+// Custom classes are appended after the built-in rldp-* class so consumer
+// rules of equal specificity win; the shipped stylesheet additionally keeps
+// itself inside a cascade layer so consumer CSS always takes priority.
+export type Slot =
+  | "input"
+  | "popover"
+  | "header"
+  | "grid"
+  | "day"
+  | "daySelected"
+  | "dayDisabled"
+  | "echo";
+
+// The four built-in glyphs, substitutable through the icons prop (D4).
+export type IconName =
+  | "calendar"
+  | "chevronLeft"
+  | "chevronRight"
+  | "chevronDown";
+
 export interface LocaleDatePickerProps {
   /** Local-midnight Date, or null when empty. Consumers read
    *  getDate/getMonth/getFullYear and expect the day the user clicked —
@@ -65,7 +86,20 @@ export interface LocaleDatePickerProps {
   "aria-label"?: string;
   "aria-invalid"?: boolean;
   "aria-describedby"?: string;
+  /** Appended to the root element's class list. */
+  className?: string;
+  /** Per-slot class overrides — see the Slot type. Appended after the
+   *  built-in classes, never replacing them. */
+  classNames?: Partial<Record<Slot, string>>;
+  /** Substitute the built-in inline SVG icons — see the IconName type.
+   *  A substituted node is rendered as-is; the consumer owns its sizing. */
+  icons?: Partial<Record<IconName, React.ReactNode>>;
 }
+
+// Join class fragments, skipping empty ones — keeps the package free of a
+// classnames-style dependency.
+const cx = (...parts: Array<string | false | null | undefined>): string =>
+  parts.filter(Boolean).join(" ");
 
 // Some applications use locale codes that are not valid BCP 47 language
 // subtags. The known case is Ukrainian written as "ua" (a country code)
@@ -289,6 +323,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedBy,
+  className,
+  classNames,
+  icons,
 }) => {
   const resolvedLocale = resolveLocale(locale);
   const [open, setOpen] = React.useState(false);
@@ -792,30 +829,19 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       ? String(viewMonth.getFullYear() + 1)
       : monthTitleFmt.format(nextMonthDate);
 
-  const dayBtnBase =
-    "h-11 md:h-9 w-full rounded-md text-sm flex items-center justify-center select-none transition-colors touch-manipulation";
-  const navBtn =
-    "h-11 w-11 md:h-9 md:w-9 rounded-md flex items-center justify-center text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation";
-  const pillBtn = (active: boolean) =>
-    `flex items-center gap-1 rounded-md border px-2.5 py-2 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 touch-manipulation ${
-      active
-        ? "border-blue-500 bg-blue-50 text-blue-700"
-        : "border-gray-300 bg-gray-50 text-gray-900 hover:border-gray-400 hover:bg-gray-100"
-    }`;
-
   return (
-    <div ref={rootRef} className="relative w-full">
+    <div ref={rootRef} className={cx("rldp-root", className)}>
       <div
-        className={`flex w-full items-center rounded-md border-2 bg-white px-2 min-h-11 md:min-h-9 ${
-          hasError ? "border-red-400" : "border-gray-200"
-        } ${disabled ? "bg-gray-50 opacity-60" : "focus-within:border-blue-500"}`}
+        className="rldp-field"
+        data-error={hasError || undefined}
+        data-disabled={disabled || undefined}
       >
         <input
           ref={inputRef}
           type="text"
           inputMode="numeric"
           autoComplete="off"
-          className="w-full border-0 bg-transparent p-0 text-base md:text-sm text-gray-900 placeholder:text-gray-400 read-only:cursor-not-allowed focus:outline-none focus:ring-0 touch-manipulation"
+          className={cx("rldp-input", classNames?.input)}
           value={inputText}
           placeholder={placeholder}
           readOnly={disabled}
@@ -855,7 +881,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           tabIndex={-1}
           aria-hidden="true"
           disabled={disabled}
-          className="ml-1 shrink-0 p-1 text-gray-500 hover:text-gray-700 disabled:cursor-not-allowed touch-manipulation"
+          className="rldp-trigger"
           onMouseDown={(e) => {
             // Runs before the document mousedown-close listener would; toggle
             // without letting the input blur first.
@@ -864,7 +890,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             else openPopup();
           }}
         >
-          <CalendarIcon className="h-4 w-4" />
+          {icons?.calendar ?? <CalendarIcon className="rldp-trigger-icon" />}
         </button>
       </div>
 
@@ -872,7 +898,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           a day/month transposition while typing immediately visible, and
           doubles as confirmation that a typed edit was accepted. */}
       {value && (
-        <p className="mt-0.5 text-xs text-gray-600 capitalize">
+        <p className={cx("rldp-echo", classNames?.echo)}>
           {fullDateFmt.format(value)}
         </p>
       )}
@@ -891,84 +917,77 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
               e.preventDefault();
             }
           }}
-          className={`absolute z-50 w-[19.5rem] max-w-[calc(100vw-1rem)] rounded-lg border border-gray-200 bg-white p-3 shadow-xl touch-manipulation ${
-            pos.up ? "bottom-full mb-1" : "top-full mt-1"
-          }`}
+          data-placement={pos.up ? "top" : "bottom"}
+          className={cx("rldp-popover", classNames?.popover)}
         >
           {/* Header */}
-          <div className="mb-2 flex items-center justify-between gap-1">
+          <div className={cx("rldp-header", classNames?.header)}>
             <button
               type="button"
-              className={navBtn}
+              className="rldp-nav"
               disabled={headerPrevDisabled}
               aria-label={headerPrevLabel}
               onClick={headerPrev}
             >
-              <ChevronLeft className="h-5 w-5 rtl:rotate-180" />
+              {icons?.chevronLeft ?? (
+                <ChevronLeft className="rldp-nav-icon" />
+              )}
             </button>
             {/* Month + year read as dropdown selects: bordered pill with a
                 caret that flips while its grid is open. */}
-            <div className="flex items-center gap-1.5">
-              <span className="sr-only" aria-live="polite">
+            <div className="rldp-selects">
+              <span className="rldp-sr-only" aria-live="polite">
                 {monthTitleFmt.format(viewMonth)}
               </span>
               <button
                 type="button"
-                className={`${pillBtn(view === "months")} capitalize`}
+                className="rldp-pill"
+                data-active={view === "months" || undefined}
                 aria-expanded={view === "months"}
                 onClick={() => setView(view === "months" ? "days" : "months")}
               >
                 {monthLongFmt.format(viewMonth)}
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 transition-transform ${
-                    view === "months"
-                      ? "rotate-180 text-blue-600"
-                      : "text-gray-500"
-                  }`}
-                />
+                {icons?.chevronDown ?? <ChevronDown className="rldp-caret" />}
               </button>
               <button
                 type="button"
-                className={pillBtn(view === "years")}
+                className="rldp-pill"
+                data-active={view === "years" || undefined}
                 aria-expanded={view === "years"}
                 onClick={() => setView(view === "years" ? "days" : "years")}
               >
                 {viewMonth.getFullYear()}
-                <ChevronDown
-                  className={`h-4 w-4 shrink-0 transition-transform ${
-                    view === "years"
-                      ? "rotate-180 text-blue-600"
-                      : "text-gray-500"
-                  }`}
-                />
+                {icons?.chevronDown ?? <ChevronDown className="rldp-caret" />}
               </button>
             </div>
             <button
               type="button"
-              className={navBtn}
+              className="rldp-nav"
               disabled={headerNextDisabled}
               aria-label={headerNextLabel}
               onClick={headerNext}
             >
-              <ChevronRight className="h-5 w-5 rtl:rotate-180" />
+              {icons?.chevronRight ?? (
+                <ChevronRight className="rldp-nav-icon" />
+              )}
             </button>
           </div>
 
           {/* Days */}
           {view === "days" && (
-            <div ref={gridRef} onKeyDown={onGridKeyDown}>
-              <div className="grid grid-cols-7">
+            <div
+              ref={gridRef}
+              className={cx("rldp-grid", classNames?.grid)}
+              onKeyDown={onGridKeyDown}
+            >
+              <div className="rldp-weekdays">
                 {weekdayLabels.map((w, i) => (
-                  <div
-                    key={i}
-                    className="flex h-8 items-center justify-center text-xs font-medium uppercase text-gray-500"
-                    aria-hidden="true"
-                  >
+                  <div key={i} className="rldp-weekday" aria-hidden="true">
                     {w}
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-7">
+              <div className="rldp-days">
                 {daysGrid.map((d, i) => {
                   if (!d) return <div key={i} />;
                   const isDisabled = shouldDisableDate(d);
@@ -986,17 +1005,15 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                       tabIndex={isRove ? 0 : -1}
                       aria-label={formatDayAccessibleName(d)}
                       aria-current={isSelected ? "date" : undefined}
-                      className={`${dayBtnBase} ${
-                        isSelected
-                          ? "bg-blue-600 font-semibold text-white hover:bg-blue-700"
-                          : isDisabled
-                            ? "cursor-not-allowed text-gray-400"
-                            : "text-gray-800 hover:bg-blue-50"
-                      } ${
-                        isToday && !isSelected
-                          ? "ring-1 ring-inset ring-blue-400"
-                          : ""
-                      } focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+                      data-selected={isSelected || undefined}
+                      data-disabled={isDisabled || undefined}
+                      data-today={(isToday && !isSelected) || undefined}
+                      className={cx(
+                        "rldp-day",
+                        classNames?.day,
+                        isSelected && classNames?.daySelected,
+                        isDisabled && classNames?.dayDisabled,
+                      )}
                       onClick={() => {
                         if (!isDisabled) commit(d);
                       }}
@@ -1012,7 +1029,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
 
           {/* Months */}
           {view === "months" && (
-            <div className="grid grid-cols-3 gap-1">
+            <div className="rldp-months">
               {Array.from({ length: 12 }, (_, m) => {
                 const enabled = monthEnabled(viewMonth.getFullYear(), m);
                 const isCurrent = m === viewMonth.getMonth();
@@ -1024,13 +1041,8 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                     aria-label={monthLongFmt.format(
                       new Date(viewMonth.getFullYear(), m, 15),
                     )}
-                    className={`h-11 rounded-md text-sm capitalize transition-colors touch-manipulation ${
-                      isCurrent
-                        ? "bg-blue-600 font-semibold text-white"
-                        : enabled
-                          ? "text-gray-800 hover:bg-blue-50"
-                          : "cursor-not-allowed text-gray-400"
-                    } focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+                    className="rldp-month"
+                    data-current={isCurrent || undefined}
                     onClick={() => {
                       setViewMonth(
                         clampMonth(new Date(viewMonth.getFullYear(), m, 1)),
@@ -1049,18 +1061,15 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
 
           {/* Years */}
           {view === "years" && (
-            <div className="grid max-h-64 grid-cols-3 gap-1 overflow-y-auto">
+            <div className="rldp-years">
               {yearsRange.map((y) => {
                 const isCurrent = y === viewMonth.getFullYear();
                 return (
                   <button
                     key={y}
                     type="button"
-                    className={`h-11 rounded-md text-sm transition-colors touch-manipulation ${
-                      isCurrent
-                        ? "bg-blue-600 font-semibold text-white"
-                        : "text-gray-800 hover:bg-blue-50"
-                    } focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500`}
+                    className="rldp-year"
+                    data-current={isCurrent || undefined}
                     onClick={() => {
                       setViewMonth(
                         clampMonth(new Date(y, viewMonth.getMonth(), 1)),

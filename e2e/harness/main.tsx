@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { LocaleDatePicker } from "../../src/LocaleDatePicker";
+import "../../src/styles.css";
 
 type HarnessConfig = {
   locale: string;

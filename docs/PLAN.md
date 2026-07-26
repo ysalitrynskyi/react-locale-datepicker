@@ -55,7 +55,16 @@ the parity contract has been read and consciously preserved.
 
 ## Phase 2 — Styling
 
-**Status:** BLOCKED on D3.
+**Status:** DONE 2026-07-26 (D3 decided the same day — option D). Utility
+classes replaced by a self-contained stylesheet (`src/styles.css`, shipped as
+`react-locale-datepicker/styles.css`): `--rldp-*` custom properties on the
+component root, light and dark via `color-scheme` + `light-dark()` with
+`.dark`/`[data-theme]` ancestor override, all rules inside a cascade layer
+with `:where()` so consumer CSS wins, basic forced-colors and reduced-motion
+handling, `className`/`classNames` and `icons` override props. Light, dark
+and RTL verified by screenshot and by e2e assertions (computed styles, not
+class names). Named themes, the full data-part anatomy and the `styles` map
+remain ROADMAP 0.2 items.
 
 Once D3 is decided (recommendation: self-contained CSS with `classNames`
 overrides):

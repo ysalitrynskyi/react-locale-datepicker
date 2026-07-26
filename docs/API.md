@@ -8,7 +8,7 @@ until the first npm publish, and must not change casually after.
 
 ```tsx
 import { LocaleDatePicker } from "react-locale-datepicker";
-import "react-locale-datepicker/styles.css"; // depends on D3
+import "react-locale-datepicker/styles.css"; // optional: omit to go unstyled
 
 <LocaleDatePicker
   value={date}
@@ -65,7 +65,7 @@ blackout ranges, a minimum lead time — that a range cannot express.
 | `aria-invalid` | `boolean` |
 | `aria-describedby` | `string` |
 
-### Styling — shape depends on D3
+### Styling — per D3 (option D): self-contained CSS, overridable
 
 | Prop | Type | Notes |
 |---|---|---|
