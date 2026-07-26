@@ -1,4 +1,5 @@
-import { test, expect, type Page, type Locator } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+import { paintedColor, expectColor } from "./color";
 
 /**
  * Theming behaviour that only a real cascade can prove (decision D10):
@@ -17,47 +18,6 @@ async function openPicker(page: Page, query: string) {
   await page.goto(`/?${query}`);
   await page.getByRole("textbox").click();
   await expect(page.getByRole("dialog")).toBeVisible();
-}
-
-/**
- * Resolve any computed colour to concrete sRGB bytes through a canvas.
- * Written this way on purpose: the palette is authored in oklch(), and
- * getComputedStyle hands back an oklch() string rather than rgb(). Painting
- * it normalizes whatever colour space the value is in, so these assertions
- * survive a palette format change.
- */
-async function paintedColor(
-  locator: Locator,
-  property: "backgroundColor" | "color" | "borderTopColor",
-): Promise<[number, number, number]> {
-  return locator.evaluate((node, prop) => {
-    const value = getComputedStyle(node)[prop as "backgroundColor"];
-    const canvas = document.createElement("canvas");
-    canvas.width = 1;
-    canvas.height = 1;
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#000000";
-    ctx.fillRect(0, 0, 1, 1);
-    ctx.fillStyle = value;
-    ctx.fillRect(0, 0, 1, 1);
-    const d = ctx.getImageData(0, 0, 1, 1).data;
-    return [d[0], d[1], d[2]] as [number, number, number];
-  }, property);
-}
-
-function expectColor(
-  actual: [number, number, number],
-  expected: [number, number, number],
-  message: string,
-  tolerance = 2,
-) {
-  const delta = Math.max(
-    ...actual.map((c, i) => Math.abs(c - expected[i])),
-  );
-  expect(
-    delta,
-    `${message} — got rgb(${actual.join(", ")}), expected about rgb(${expected.join(", ")})`,
-  ).toBeLessThanOrEqual(tolerance);
 }
 
 const selectedDay = (page: Page) =>

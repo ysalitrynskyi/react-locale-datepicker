@@ -38,23 +38,23 @@
    */
   :where(.rldp-root) {
     /* Semantic pairs (shadcn-style). */
-    --rldp-background-base: light-dark(#ffffff, #111827);
-    --rldp-foreground-base: light-dark(#111827, #f9fafb);
-    --rldp-muted-foreground-base: light-dark(#4b5563, #9ca3af);
-    --rldp-faint-foreground-base: light-dark(#6b7280, #6b7280);
-    --rldp-disabled-foreground-base: light-dark(#9ca3af, #4b5563);
-    --rldp-border-base: light-dark(#e5e7eb, #374151);
-    --rldp-border-strong-base: light-dark(#d1d5db, #4b5563);
-    --rldp-surface-base: light-dark(#f9fafb, #1f2937);
-    --rldp-hover-base: light-dark(#f3f4f6, #1f2937);
-    --rldp-accent-base: light-dark(#2563eb, #3b82f6);
-    --rldp-accent-hover-base: light-dark(#1d4ed8, #2563eb);
-    --rldp-accent-foreground-base: light-dark(#ffffff, #ffffff);
-    --rldp-accent-soft-base: light-dark(#eff6ff, #1e3a5f);
-    --rldp-accent-soft-foreground-base: light-dark(#1d4ed8, #bfdbfe);
-    --rldp-today-ring-base: light-dark(#60a5fa, #3b82f6);
-    --rldp-error-base: light-dark(#f87171, #f87171);
-    --rldp-ring-base: light-dark(#3b82f6, #60a5fa);
+    --rldp-background-base: light-dark(oklch(1 0 0), oklch(0.2101 0.0318 264.66));
+    --rldp-foreground-base: light-dark(oklch(0.2101 0.0318 264.66), oklch(0.9846 0.0017 247.84));
+    --rldp-muted-foreground-base: light-dark(oklch(0.4461 0.0263 256.8), oklch(0.7137 0.0192 261.32));
+    --rldp-faint-foreground-base: light-dark(oklch(0.551 0.0234 264.36), oklch(0.551 0.0234 264.36));
+    --rldp-disabled-foreground-base: light-dark(oklch(0.7137 0.0192 261.32), oklch(0.4461 0.0263 256.8));
+    --rldp-border-base: light-dark(oklch(0.9276 0.0058 264.53), oklch(0.3729 0.0306 259.73));
+    --rldp-border-strong-base: light-dark(oklch(0.8717 0.0093 258.34), oklch(0.4461 0.0263 256.8));
+    --rldp-surface-base: light-dark(oklch(0.9846 0.0017 247.84), oklch(0.2781 0.0296 256.85));
+    --rldp-hover-base: light-dark(oklch(0.967 0.0029 264.54), oklch(0.2781 0.0296 256.85));
+    --rldp-accent-base: light-dark(oklch(0.5461 0.2152 262.88), oklch(0.6231 0.188 259.81));
+    --rldp-accent-hover-base: light-dark(oklch(0.4882 0.2172 264.38), oklch(0.5461 0.2152 262.88));
+    --rldp-accent-foreground-base: light-dark(oklch(1 0 0), oklch(1 0 0));
+    --rldp-accent-soft-base: light-dark(oklch(0.9705 0.0142 254.6), oklch(0.3462 0.0736 256.04));
+    --rldp-accent-soft-foreground-base: light-dark(oklch(0.4882 0.2172 264.38), oklch(0.8823 0.0571 254.13));
+    --rldp-today-ring-base: light-dark(oklch(0.7137 0.1434 254.62), oklch(0.6231 0.188 259.81));
+    --rldp-error-base: light-dark(oklch(0.7106 0.1661 22.22), oklch(0.7106 0.1661 22.22));
+    --rldp-ring-base: light-dark(oklch(0.6231 0.188 259.81), oklch(0.7137 0.1434 254.62));
 
     /* Shape, type and layout knobs. */
     --rldp-radius-base: 0.375rem;
@@ -145,23 +145,23 @@
    * has somewhere to land. The popover keeps a shadow: with no border and
    * no shadow it would not read as a layer above the page at all. */
   :where([data-rldp-theme="minimal"]) {
-    --rldp-background: light-dark(#ffffff, #0b0f19);
-    --rldp-foreground: light-dark(#111827, #f9fafb);
-    --rldp-muted-foreground: light-dark(#52525b, #a1a1aa);
-    --rldp-faint-foreground: light-dark(#71717a, #71717a);
-    --rldp-disabled-foreground: light-dark(#c4c4cc, #4b4b52);
+    --rldp-background: light-dark(oklch(1 0 0), oklch(0.1695 0.022 267.28));
+    --rldp-foreground: light-dark(oklch(0.2101 0.0318 264.66), oklch(0.9846 0.0017 247.84));
+    --rldp-muted-foreground: light-dark(oklch(0.4419 0.0146 285.79), oklch(0.7118 0.0129 286.07));
+    --rldp-faint-foreground: light-dark(oklch(0.5517 0.0138 285.94), oklch(0.5517 0.0138 285.94));
+    --rldp-disabled-foreground: light-dark(oklch(0.8227 0.0111 286.15), oklch(0.4154 0.0115 285.89));
     --rldp-border: transparent;
     --rldp-border-strong: transparent;
-    --rldp-surface: light-dark(#ffffff, #0b0f19);
-    --rldp-hover: light-dark(#f4f4f5, #18181b);
-    --rldp-accent: light-dark(#18181b, #fafafa);
-    --rldp-accent-hover: light-dark(#3f3f46, #e4e4e7);
-    --rldp-accent-foreground: light-dark(#ffffff, #18181b);
-    --rldp-accent-soft: light-dark(#f4f4f5, #1c1c1f);
-    --rldp-accent-soft-foreground: light-dark(#18181b, #fafafa);
-    --rldp-today-ring: light-dark(#a1a1aa, #52525b);
-    --rldp-error: light-dark(#dc2626, #f87171);
-    --rldp-ring: light-dark(#18181b, #fafafa);
+    --rldp-surface: light-dark(oklch(1 0 0), oklch(0.1695 0.022 267.28));
+    --rldp-hover: light-dark(oklch(0.9674 0.0013 286.38), oklch(0.2103 0.0059 285.89));
+    --rldp-accent: light-dark(oklch(0.2103 0.0059 285.89), oklch(0.9851 0 0));
+    --rldp-accent-hover: light-dark(oklch(0.3703 0.0119 285.81), oklch(0.9197 0.004 286.32));
+    --rldp-accent-foreground: light-dark(oklch(1 0 0), oklch(0.2103 0.0059 285.89));
+    --rldp-accent-soft: light-dark(oklch(0.9674 0.0013 286.38), oklch(0.2277 0.0057 285.93));
+    --rldp-accent-soft-foreground: light-dark(oklch(0.2103 0.0059 285.89), oklch(0.9851 0 0));
+    --rldp-today-ring: light-dark(oklch(0.7118 0.0129 286.07), oklch(0.4419 0.0146 285.79));
+    --rldp-error: light-dark(oklch(0.5771 0.2152 27.33), oklch(0.7106 0.1661 22.22));
+    --rldp-ring: light-dark(oklch(0.2103 0.0059 285.89), oklch(0.9851 0 0));
     --rldp-radius: 0.25rem;
     --rldp-radius-popover: 0.375rem;
     --rldp-font-size: initial;
@@ -172,23 +172,23 @@
 
   /* soft — larger radii, filled surfaces. */
   :where([data-rldp-theme="soft"]) {
-    --rldp-background: light-dark(#f8fafc, #0f172a);
-    --rldp-foreground: light-dark(#0f172a, #f1f5f9);
-    --rldp-muted-foreground: light-dark(#475569, #94a3b8);
-    --rldp-faint-foreground: light-dark(#64748b, #64748b);
-    --rldp-disabled-foreground: light-dark(#94a3b8, #475569);
-    --rldp-border: light-dark(#e2e8f0, #334155);
-    --rldp-border-strong: light-dark(#cbd5e1, #475569);
-    --rldp-surface: light-dark(#f1f5f9, #1e293b);
-    --rldp-hover: light-dark(#e2e8f0, #334155);
-    --rldp-accent: light-dark(#4f46e5, #818cf8);
-    --rldp-accent-hover: light-dark(#4338ca, #6366f1);
-    --rldp-accent-foreground: light-dark(#ffffff, #0f172a);
-    --rldp-accent-soft: light-dark(#eef2ff, #312e81);
-    --rldp-accent-soft-foreground: light-dark(#4338ca, #c7d2fe);
-    --rldp-today-ring: light-dark(#a5b4fc, #6366f1);
-    --rldp-error: light-dark(#e11d48, #fb7185);
-    --rldp-ring: light-dark(#6366f1, #a5b4fc);
+    --rldp-background: light-dark(oklch(0.9842 0.0034 247.86), oklch(0.2077 0.0398 265.75));
+    --rldp-foreground: light-dark(oklch(0.2077 0.0398 265.75), oklch(0.9683 0.0069 247.9));
+    --rldp-muted-foreground: light-dark(oklch(0.4455 0.0374 257.28), oklch(0.7107 0.0351 256.79));
+    --rldp-faint-foreground: light-dark(oklch(0.5544 0.0407 257.42), oklch(0.5544 0.0407 257.42));
+    --rldp-disabled-foreground: light-dark(oklch(0.7107 0.0351 256.79), oklch(0.4455 0.0374 257.28));
+    --rldp-border: light-dark(oklch(0.9288 0.0126 255.51), oklch(0.3717 0.0392 257.29));
+    --rldp-border-strong: light-dark(oklch(0.869 0.0198 252.89), oklch(0.4455 0.0374 257.28));
+    --rldp-surface: light-dark(oklch(0.9683 0.0069 247.9), oklch(0.2795 0.0368 260.03));
+    --rldp-hover: light-dark(oklch(0.9288 0.0126 255.51), oklch(0.3717 0.0392 257.29));
+    --rldp-accent: light-dark(oklch(0.5106 0.2301 276.97), oklch(0.6801 0.1583 276.93));
+    --rldp-accent-hover: light-dark(oklch(0.4568 0.2146 277.02), oklch(0.5854 0.2041 277.12));
+    --rldp-accent-foreground: light-dark(oklch(1 0 0), oklch(0.2077 0.0398 265.75));
+    --rldp-accent-soft: light-dark(oklch(0.9619 0.0179 272.31), oklch(0.3588 0.1354 278.7));
+    --rldp-accent-soft-foreground: light-dark(oklch(0.4568 0.2146 277.02), oklch(0.8699 0.0622 274.04));
+    --rldp-today-ring: light-dark(oklch(0.7853 0.1041 274.71), oklch(0.5854 0.2041 277.12));
+    --rldp-error: light-dark(oklch(0.5858 0.222 17.58), oklch(0.7192 0.169 13.43));
+    --rldp-ring: light-dark(oklch(0.5854 0.2041 277.12), oklch(0.7853 0.1041 274.71));
     --rldp-radius: 0.75rem;
     --rldp-radius-popover: 1rem;
     --rldp-font-size: initial;
@@ -203,29 +203,29 @@
    * white text at 7:1, and no faint tier: "faint" text is the first thing
    * that fails a contrast audit, so here it equals the muted tier. */
   :where([data-rldp-theme="high-contrast"]) {
-    --rldp-background: light-dark(#ffffff, #000000);
-    --rldp-foreground: light-dark(#000000, #ffffff);
-    --rldp-muted-foreground: light-dark(#1f2937, #f3f4f6);
-    --rldp-faint-foreground: light-dark(#1f2937, #f3f4f6);
-    --rldp-disabled-foreground: light-dark(#595959, #a6a6a6);
-    --rldp-border: light-dark(#000000, #ffffff);
-    --rldp-border-strong: light-dark(#000000, #ffffff);
-    --rldp-surface: light-dark(#ffffff, #000000);
-    --rldp-hover: light-dark(#e5e5e5, #262626);
-    --rldp-accent: light-dark(#1e3a8a, #93c5fd);
-    --rldp-accent-hover: light-dark(#172554, #bfdbfe);
-    --rldp-accent-foreground: light-dark(#ffffff, #000000);
-    --rldp-accent-soft: light-dark(#dbeafe, #1e3a8a);
-    --rldp-accent-soft-foreground: light-dark(#172554, #ffffff);
-    --rldp-today-ring: light-dark(#1e3a8a, #93c5fd);
-    --rldp-error: light-dark(#b91c1c, #fca5a5);
-    --rldp-ring: light-dark(#1e3a8a, #93c5fd);
+    --rldp-background: light-dark(oklch(1 0 0), oklch(0 0 0));
+    --rldp-foreground: light-dark(oklch(0 0 0), oklch(1 0 0));
+    --rldp-muted-foreground: light-dark(oklch(0.2781 0.0296 256.85), oklch(0.967 0.0029 264.54));
+    --rldp-faint-foreground: light-dark(oklch(0.2781 0.0296 256.85), oklch(0.967 0.0029 264.54));
+    --rldp-disabled-foreground: light-dark(oklch(0.464 0 0), oklch(0.7252 0 0));
+    --rldp-border: light-dark(oklch(0 0 0), oklch(1 0 0));
+    --rldp-border-strong: light-dark(oklch(0 0 0), oklch(1 0 0));
+    --rldp-surface: light-dark(oklch(1 0 0), oklch(0 0 0));
+    --rldp-hover: light-dark(oklch(0.9219 0 0), oklch(0.2686 0 0));
+    --rldp-accent: light-dark(oklch(0.3791 0.1378 265.52), oklch(0.8091 0.0956 251.81));
+    --rldp-accent-hover: light-dark(oklch(0.2823 0.0874 267.94), oklch(0.8823 0.0571 254.13));
+    --rldp-accent-foreground: light-dark(oklch(1 0 0), oklch(0 0 0));
+    --rldp-accent-soft: light-dark(oklch(0.9319 0.0316 255.59), oklch(0.3791 0.1378 265.52));
+    --rldp-accent-soft-foreground: light-dark(oklch(0.2823 0.0874 267.94), oklch(1 0 0));
+    --rldp-today-ring: light-dark(oklch(0.3791 0.1378 265.52), oklch(0.8091 0.0956 251.81));
+    --rldp-error: light-dark(oklch(0.5054 0.1905 27.52), oklch(0.8077 0.1035 19.57));
+    --rldp-ring: light-dark(oklch(0.3791 0.1378 265.52), oklch(0.8091 0.0956 251.81));
     --rldp-radius: initial;
     --rldp-radius-popover: initial;
     --rldp-font-size: initial;
     --rldp-cell-size: initial;
     --rldp-focus-width: 3px;
-    --rldp-shadow: 0 0 0 2px light-dark(#000000, #ffffff);
+    --rldp-shadow: 0 0 0 2px light-dark(oklch(0 0 0), oklch(1 0 0));
   }
 
   /* --- Field ------------------------------------------------------------ */

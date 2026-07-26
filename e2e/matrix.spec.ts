@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { paintedColor, expectColor } from "./color";
 
 async function openPicker(page: Page, query = "") {
   await page.goto(`/${query ? `?${query}` : ""}`);
@@ -98,11 +99,14 @@ test.describe("dark mode", () => {
   }) => {
     await page.emulateMedia({ colorScheme: "dark" });
     await openPicker(page, "locale=en&defaultMonth=2026-07-01");
-    const bg = await page
-      .getByRole("dialog")
-      .evaluate((el) => getComputedStyle(el).backgroundColor);
-    // --rldp-background dark half is #111827 = rgb(17, 24, 39).
-    expect(bg).toBe("rgb(17, 24, 39)");
+    // The dark half of --rldp-background. Asserted as a painted colour, not
+    // as a computed string: the palette is authored in oklch(), and the
+    // rendered colour is what this test is actually about.
+    expectColor(
+      await paintedColor(page.getByRole("dialog")),
+      [17, 24, 39],
+      "OS dark preference must flip the popover surface via light-dark()",
+    );
   });
 
   test("a [data-theme=dark] ancestor overrides a light OS preference", async ({
@@ -113,10 +117,11 @@ test.describe("dark mode", () => {
     await page.evaluate(() =>
       document.documentElement.setAttribute("data-theme", "dark"),
     );
-    const bg = await page
-      .getByRole("dialog")
-      .evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(bg).toBe("rgb(17, 24, 39)");
+    expectColor(
+      await paintedColor(page.getByRole("dialog")),
+      [17, 24, 39],
+      "a [data-theme=dark] ancestor must win over a light OS preference",
+    );
   });
 });
 
