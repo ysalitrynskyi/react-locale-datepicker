@@ -56,6 +56,9 @@ document.addEventListener = (
   return realAddEventListener(type, listener, options);
 };
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  // Let the 350ms post-commit click guard timeout fire while jsdom is still
+  // alive, so it does not throw after environment teardown in CI.
+  await new Promise((r) => setTimeout(r, 360));
 });

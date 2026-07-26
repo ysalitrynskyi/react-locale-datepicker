@@ -503,10 +503,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         e.preventDefault();
       };
       document.addEventListener("click", guard, true);
-      window.setTimeout(
-        () => document.removeEventListener("click", guard, true),
-        350,
-      );
+      window.setTimeout(() => {
+        // Guard: jsdom tests may tear down the document before this fires;
+        // browsers always have document here.
+        if (typeof document === "undefined") return;
+        document.removeEventListener("click", guard, true);
+      }, 350);
     }
     close(true);
   };
