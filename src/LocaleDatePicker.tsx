@@ -109,6 +109,17 @@ export type IconName =
   | "chevronRight"
   | "chevronDown";
 
+// The themes shipped in the stylesheet. Each is a block redefining the same
+// --rldp-* token set under [data-rldp-theme="<name>"]; this prop stamps that
+// attribute on the root. The attribute path stays available for CSS-only
+// consumers, and because themes set inheritable custom properties they nest:
+// the nearest themed ancestor wins.
+//
+// Leaving themeName unset stamps NOTHING, so a theme set on an ancestor
+// still applies. "default" is therefore not the same as unset: it is the
+// explicit way to opt a picker back out of an ancestor's theme.
+export type ThemeName = "default" | "minimal" | "soft" | "high-contrast";
+
 // The hand-maintained strings, and ONLY those Intl cannot produce. Month
 // names, weekday names, the long-form echo and the navigation targets are
 // all derived and stay derived — this is the whole premise of the package,
@@ -203,6 +214,10 @@ export interface LocaleDatePickerProps {
   "aria-describedby"?: string;
   /** Appended to the root element's class list. */
   className?: string;
+  /** Selects one of the shipped themes by stamping data-rldp-theme on the
+   *  root — see the ThemeName type. Unset means "inherit whatever theme an
+   *  ancestor set, if any". */
+  themeName?: ThemeName;
   /** Per-slot class overrides — see the Slot type. Appended after the
    *  built-in classes, never replacing them. */
   classNames?: Partial<Record<Slot, string>>;
@@ -463,6 +478,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedBy,
   className,
+  themeName,
   classNames,
   styles,
   labels,
@@ -1055,7 +1071,11 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       : labelText.openCalendar;
 
   return (
-    <div ref={rootRef} {...slotProps("root", cx("rldp-root", className))}>
+    <div
+      ref={rootRef}
+      data-rldp-theme={themeName}
+      {...slotProps("root", cx("rldp-root", className))}
+    >
       <div
         {...slotProps("field", "rldp-field")}
         data-error={hasError || undefined}

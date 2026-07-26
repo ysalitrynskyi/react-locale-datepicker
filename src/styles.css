@@ -1,64 +1,87 @@
-/* react-locale-datepicker — self-contained stylesheet (decision D3, option D).
+/* react-locale-datepicker — self-contained stylesheet (decisions D3 and D10).
  *
- * Architecture (see docs/ROADMAP.md Track 1 for the full rationale):
+ * Architecture (see docs/THEMING.md for the consumer-facing version):
+ *
  * - Every rule lives in the `rldp` cascade layer and is written with
  *   :where(), so any unlayered consumer CSS wins on specificity, always.
- * - Every visual decision routes through a --rldp-* custom property defined
- *   on .rldp-root (never :root), so two differently themed pickers can
- *   coexist on one page and a consumer re-themes by redefining variables.
+ *
+ * - TOKEN RESOLUTION. Public `--rldp-*` tokens are deliberately NOT declared
+ *   anywhere. Each rule reads one as `var(--rldp-x, var(--rldp-x-base))`,
+ *   where the private `--rldp-*-base` carries the built-in value. This is
+ *   not decoration: a custom property declared on .rldp-root would beat any
+ *   value inherited from an ancestor, whatever cascade layer it sat in. That
+ *   is exactly what 0.1.0 did, which silently broke the ancestor overrides
+ *   the README documented, and would have made nested themes resolve by
+ *   stylesheet order instead of by proximity. Leaving the public token
+ *   undeclared hands resolution to plain custom-property inheritance, which
+ *   already resolves to the nearest ancestor. See DECISIONS.md D10.
+ *
+ * - Private `--rldp-*-base` values are declared on .rldp-root, never :root,
+ *   so two differently themed pickers coexist on one page.
+ *
  * - Colours are light-dark() pairs and the root declares
  *   `color-scheme: light dark`, so the picker follows the OS with zero
  *   JavaScript and no flash of the wrong theme during SSR. An app that
  *   manages its own theme overrides via the nearest `.dark` / `.light`
  *   class or `[data-theme]` attribute — both spellings honoured.
- * - The palette mirrors the utility classes the component was ported with,
- *   so the default look is unchanged from the production original.
+ *
+ * - Named themes are blocks that set the PUBLIC tokens on whichever element
+ *   carries [data-rldp-theme]. Because they set the public token, they
+ *   inherit, nest and are overridable by the consumer exactly like a
+ *   hand-written override.
  */
 
 @layer rldp {
+  /* --- Built-in token values -------------------------------------------
+   * Private. Consumers never set these; they set the public token of the
+   * same name without the -base suffix, anywhere up the tree.
+   */
   :where(.rldp-root) {
-    /* Semantic tokens (shadcn-style pairs). */
-    --rldp-background: light-dark(#ffffff, #111827);
-    --rldp-foreground: light-dark(#111827, #f9fafb);
-    --rldp-muted-foreground: light-dark(#4b5563, #9ca3af);
-    --rldp-faint-foreground: light-dark(#6b7280, #6b7280);
-    --rldp-disabled-foreground: light-dark(#9ca3af, #4b5563);
-    --rldp-border: light-dark(#e5e7eb, #374151);
-    --rldp-border-strong: light-dark(#d1d5db, #4b5563);
-    --rldp-surface: light-dark(#f9fafb, #1f2937);
-    --rldp-hover: light-dark(#f3f4f6, #1f2937);
-    --rldp-accent: light-dark(#2563eb, #3b82f6);
-    --rldp-accent-hover: light-dark(#1d4ed8, #2563eb);
-    --rldp-accent-foreground: light-dark(#ffffff, #ffffff);
-    --rldp-accent-soft: light-dark(#eff6ff, #1e3a5f);
-    --rldp-accent-soft-foreground: light-dark(#1d4ed8, #bfdbfe);
-    --rldp-today-ring: light-dark(#60a5fa, #3b82f6);
-    --rldp-error: light-dark(#f87171, #f87171);
-    --rldp-ring: light-dark(#3b82f6, #60a5fa);
+    /* Semantic pairs (shadcn-style). */
+    --rldp-background-base: light-dark(#ffffff, #111827);
+    --rldp-foreground-base: light-dark(#111827, #f9fafb);
+    --rldp-muted-foreground-base: light-dark(#4b5563, #9ca3af);
+    --rldp-faint-foreground-base: light-dark(#6b7280, #6b7280);
+    --rldp-disabled-foreground-base: light-dark(#9ca3af, #4b5563);
+    --rldp-border-base: light-dark(#e5e7eb, #374151);
+    --rldp-border-strong-base: light-dark(#d1d5db, #4b5563);
+    --rldp-surface-base: light-dark(#f9fafb, #1f2937);
+    --rldp-hover-base: light-dark(#f3f4f6, #1f2937);
+    --rldp-accent-base: light-dark(#2563eb, #3b82f6);
+    --rldp-accent-hover-base: light-dark(#1d4ed8, #2563eb);
+    --rldp-accent-foreground-base: light-dark(#ffffff, #ffffff);
+    --rldp-accent-soft-base: light-dark(#eff6ff, #1e3a5f);
+    --rldp-accent-soft-foreground-base: light-dark(#1d4ed8, #bfdbfe);
+    --rldp-today-ring-base: light-dark(#60a5fa, #3b82f6);
+    --rldp-error-base: light-dark(#f87171, #f87171);
+    --rldp-ring-base: light-dark(#3b82f6, #60a5fa);
 
     /* Shape, type and layout knobs. */
-    --rldp-radius: 0.375rem;
-    --rldp-radius-popover: 0.5rem;
-    --rldp-font: inherit;
-    --rldp-font-size: 1rem;
-    --rldp-cell-size: 2.75rem; /* 44px touch targets by default */
-    --rldp-popover-width: 19.5rem;
-    --rldp-z-index: 50;
-    --rldp-shadow:
+    --rldp-radius-base: 0.375rem;
+    --rldp-radius-popover-base: 0.5rem;
+    --rldp-font-base: inherit;
+    --rldp-font-size-base: 1rem;
+    --rldp-cell-size-base: 2.75rem; /* 44px touch targets by default */
+    --rldp-popover-width-base: 19.5rem;
+    --rldp-z-index-base: 50;
+    --rldp-focus-width-base: 2px;
+    --rldp-shadow-base:
       0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
     color-scheme: light dark;
     position: relative;
     width: 100%;
-    font-family: var(--rldp-font);
+    font-family: var(--rldp-font, var(--rldp-font-base));
   }
 
   /* Fine-pointer/desktop density, matching the original responsive sizing
-   * (44px cells below 768px, 36px above). */
+   * (44px cells below 768px, 36px above). Setting the -base value, not the
+   * public token, so a consumer's --rldp-cell-size still wins at every
+   * width rather than only below the breakpoint. */
   @media (min-width: 768px) {
     :where(.rldp-root) {
-      --rldp-cell-size: 2.25rem;
-      --rldp-font-size: 0.875rem;
+      --rldp-cell-size-base: 2.25rem;
+      --rldp-font-size-base: 0.875rem;
     }
   }
 
@@ -75,30 +98,160 @@
     color-scheme: light;
   }
 
+  /* --- Named themes -----------------------------------------------------
+   * Each block redefines the same token set on whichever element carries
+   * the attribute, so themes inherit and therefore nest: the nearest themed
+   * ancestor wins, which is what custom-property inheritance already does.
+   * The React `themeName` prop stamps this same attribute on the root.
+   *
+   * Every theme sets EVERY token. That is deliberate: a theme that left a
+   * token unset would inherit it from an outer theme, so nesting `minimal`
+   * inside `soft` would produce a hybrid of the two.
+   */
+
+  /* default — the built-in look. Expressed as `initial` rather than by
+   * restating the values: `initial` on a custom property yields the
+   * guaranteed-invalid value, so each usage falls back to its -base. That
+   * is precisely "no overrides", and it cannot drift from the real
+   * defaults. Its purpose is to opt a subtree back out of an outer theme. */
+  :where([data-rldp-theme="default"]) {
+    --rldp-background: initial;
+    --rldp-foreground: initial;
+    --rldp-muted-foreground: initial;
+    --rldp-faint-foreground: initial;
+    --rldp-disabled-foreground: initial;
+    --rldp-border: initial;
+    --rldp-border-strong: initial;
+    --rldp-surface: initial;
+    --rldp-hover: initial;
+    --rldp-accent: initial;
+    --rldp-accent-hover: initial;
+    --rldp-accent-foreground: initial;
+    --rldp-accent-soft: initial;
+    --rldp-accent-soft-foreground: initial;
+    --rldp-today-ring: initial;
+    --rldp-error: initial;
+    --rldp-ring: initial;
+    --rldp-radius: initial;
+    --rldp-radius-popover: initial;
+    --rldp-font-size: initial;
+    --rldp-cell-size: initial;
+    --rldp-focus-width: initial;
+    --rldp-shadow: initial;
+  }
+
+  /* minimal — borderless, flat, typography-led. Borders go transparent
+   * rather than to zero width so nothing reflows, and the focus ring still
+   * has somewhere to land. The popover keeps a shadow: with no border and
+   * no shadow it would not read as a layer above the page at all. */
+  :where([data-rldp-theme="minimal"]) {
+    --rldp-background: light-dark(#ffffff, #0b0f19);
+    --rldp-foreground: light-dark(#111827, #f9fafb);
+    --rldp-muted-foreground: light-dark(#52525b, #a1a1aa);
+    --rldp-faint-foreground: light-dark(#71717a, #71717a);
+    --rldp-disabled-foreground: light-dark(#c4c4cc, #4b4b52);
+    --rldp-border: transparent;
+    --rldp-border-strong: transparent;
+    --rldp-surface: light-dark(#ffffff, #0b0f19);
+    --rldp-hover: light-dark(#f4f4f5, #18181b);
+    --rldp-accent: light-dark(#18181b, #fafafa);
+    --rldp-accent-hover: light-dark(#3f3f46, #e4e4e7);
+    --rldp-accent-foreground: light-dark(#ffffff, #18181b);
+    --rldp-accent-soft: light-dark(#f4f4f5, #1c1c1f);
+    --rldp-accent-soft-foreground: light-dark(#18181b, #fafafa);
+    --rldp-today-ring: light-dark(#a1a1aa, #52525b);
+    --rldp-error: light-dark(#dc2626, #f87171);
+    --rldp-ring: light-dark(#18181b, #fafafa);
+    --rldp-radius: 0.25rem;
+    --rldp-radius-popover: 0.375rem;
+    --rldp-font-size: initial;
+    --rldp-cell-size: initial;
+    --rldp-focus-width: 2px;
+    --rldp-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.12);
+  }
+
+  /* soft — larger radii, filled surfaces. */
+  :where([data-rldp-theme="soft"]) {
+    --rldp-background: light-dark(#f8fafc, #0f172a);
+    --rldp-foreground: light-dark(#0f172a, #f1f5f9);
+    --rldp-muted-foreground: light-dark(#475569, #94a3b8);
+    --rldp-faint-foreground: light-dark(#64748b, #64748b);
+    --rldp-disabled-foreground: light-dark(#94a3b8, #475569);
+    --rldp-border: light-dark(#e2e8f0, #334155);
+    --rldp-border-strong: light-dark(#cbd5e1, #475569);
+    --rldp-surface: light-dark(#f1f5f9, #1e293b);
+    --rldp-hover: light-dark(#e2e8f0, #334155);
+    --rldp-accent: light-dark(#4f46e5, #818cf8);
+    --rldp-accent-hover: light-dark(#4338ca, #6366f1);
+    --rldp-accent-foreground: light-dark(#ffffff, #0f172a);
+    --rldp-accent-soft: light-dark(#eef2ff, #312e81);
+    --rldp-accent-soft-foreground: light-dark(#4338ca, #c7d2fe);
+    --rldp-today-ring: light-dark(#a5b4fc, #6366f1);
+    --rldp-error: light-dark(#e11d48, #fb7185);
+    --rldp-ring: light-dark(#6366f1, #a5b4fc);
+    --rldp-radius: 0.75rem;
+    --rldp-radius-popover: 1rem;
+    --rldp-font-size: initial;
+    --rldp-cell-size: initial;
+    --rldp-focus-width: 2px;
+    --rldp-shadow:
+      0 24px 48px -12px rgb(15 23 42 / 0.18), 0 8px 16px -8px rgb(15 23 42 / 0.1);
+  }
+
+  /* high-contrast — WCAG AAA contrast targets and a thicker focus
+   * indicator. Pure black on pure white, an accent dark enough to carry
+   * white text at 7:1, and no faint tier: "faint" text is the first thing
+   * that fails a contrast audit, so here it equals the muted tier. */
+  :where([data-rldp-theme="high-contrast"]) {
+    --rldp-background: light-dark(#ffffff, #000000);
+    --rldp-foreground: light-dark(#000000, #ffffff);
+    --rldp-muted-foreground: light-dark(#1f2937, #f3f4f6);
+    --rldp-faint-foreground: light-dark(#1f2937, #f3f4f6);
+    --rldp-disabled-foreground: light-dark(#595959, #a6a6a6);
+    --rldp-border: light-dark(#000000, #ffffff);
+    --rldp-border-strong: light-dark(#000000, #ffffff);
+    --rldp-surface: light-dark(#ffffff, #000000);
+    --rldp-hover: light-dark(#e5e5e5, #262626);
+    --rldp-accent: light-dark(#1e3a8a, #93c5fd);
+    --rldp-accent-hover: light-dark(#172554, #bfdbfe);
+    --rldp-accent-foreground: light-dark(#ffffff, #000000);
+    --rldp-accent-soft: light-dark(#dbeafe, #1e3a8a);
+    --rldp-accent-soft-foreground: light-dark(#172554, #ffffff);
+    --rldp-today-ring: light-dark(#1e3a8a, #93c5fd);
+    --rldp-error: light-dark(#b91c1c, #fca5a5);
+    --rldp-ring: light-dark(#1e3a8a, #93c5fd);
+    --rldp-radius: initial;
+    --rldp-radius-popover: initial;
+    --rldp-font-size: initial;
+    --rldp-cell-size: initial;
+    --rldp-focus-width: 3px;
+    --rldp-shadow: 0 0 0 2px light-dark(#000000, #ffffff);
+  }
+
   /* --- Field ------------------------------------------------------------ */
 
   :where(.rldp-field) {
     display: flex;
     width: 100%;
     align-items: center;
-    min-height: var(--rldp-cell-size);
+    min-height: var(--rldp-cell-size, var(--rldp-cell-size-base));
     padding-inline: 0.5rem;
-    border: 2px solid var(--rldp-border);
-    border-radius: var(--rldp-radius);
-    background: var(--rldp-background);
+    border: 2px solid var(--rldp-border, var(--rldp-border-base));
+    border-radius: var(--rldp-radius, var(--rldp-radius-base));
+    background: var(--rldp-background, var(--rldp-background-base));
   }
   :where(.rldp-field:focus-within) {
-    border-color: var(--rldp-accent);
+    border-color: var(--rldp-accent, var(--rldp-accent-base));
   }
   :where(.rldp-field[data-error]) {
-    border-color: var(--rldp-error);
+    border-color: var(--rldp-error, var(--rldp-error-base));
   }
   :where(.rldp-field[data-disabled]) {
-    background: var(--rldp-surface);
+    background: var(--rldp-surface, var(--rldp-surface-base));
     opacity: 0.6;
   }
   :where(.rldp-field[data-disabled]:focus-within) {
-    border-color: var(--rldp-border);
+    border-color: var(--rldp-border, var(--rldp-border-base));
   }
 
   :where(.rldp-input) {
@@ -107,12 +260,15 @@
     padding: 0;
     background: transparent;
     font: inherit;
-    font-size: var(--rldp-font-size);
-    color: var(--rldp-foreground);
+    font-size: var(--rldp-font-size, var(--rldp-font-size-base));
+    color: var(--rldp-foreground, var(--rldp-foreground-base));
     touch-action: manipulation;
   }
   :where(.rldp-input)::placeholder {
-    color: var(--rldp-disabled-foreground);
+    color: var(
+      --rldp-disabled-foreground,
+      var(--rldp-disabled-foreground-base)
+    );
   }
   :where(.rldp-input:read-only) {
     cursor: not-allowed;
@@ -128,12 +284,12 @@
     padding: 0.25rem;
     border: 0;
     background: transparent;
-    color: var(--rldp-faint-foreground);
+    color: var(--rldp-faint-foreground, var(--rldp-faint-foreground-base));
     cursor: pointer;
     touch-action: manipulation;
   }
   :where(.rldp-trigger:hover) {
-    color: var(--rldp-muted-foreground);
+    color: var(--rldp-muted-foreground, var(--rldp-muted-foreground-base));
   }
   :where(.rldp-trigger:disabled) {
     cursor: not-allowed;
@@ -148,7 +304,7 @@
   :where(.rldp-echo) {
     margin: 0.125rem 0 0;
     font-size: 0.75rem;
-    color: var(--rldp-muted-foreground);
+    color: var(--rldp-muted-foreground, var(--rldp-muted-foreground-base));
     text-transform: capitalize;
   }
 
@@ -156,15 +312,15 @@
 
   :where(.rldp-popover) {
     position: absolute;
-    z-index: var(--rldp-z-index);
-    width: var(--rldp-popover-width);
+    z-index: var(--rldp-z-index, var(--rldp-z-index-base));
+    width: var(--rldp-popover-width, var(--rldp-popover-width-base));
     max-width: calc(100vw - 1rem);
     padding: 0.75rem;
-    border: 1px solid var(--rldp-border);
-    border-radius: var(--rldp-radius-popover);
-    background: var(--rldp-background);
-    color: var(--rldp-foreground);
-    box-shadow: var(--rldp-shadow);
+    border: 1px solid var(--rldp-border, var(--rldp-border-base));
+    border-radius: var(--rldp-radius-popover, var(--rldp-radius-popover-base));
+    background: var(--rldp-background, var(--rldp-background-base));
+    color: var(--rldp-foreground, var(--rldp-foreground-base));
+    box-shadow: var(--rldp-shadow, var(--rldp-shadow-base));
     touch-action: manipulation;
   }
   :where(.rldp-popover[data-placement="bottom"]) {
@@ -187,20 +343,20 @@
   }
 
   :where(.rldp-nav) {
-    height: var(--rldp-cell-size);
-    width: var(--rldp-cell-size);
+    height: var(--rldp-cell-size, var(--rldp-cell-size-base));
+    width: var(--rldp-cell-size, var(--rldp-cell-size-base));
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 0;
-    border-radius: var(--rldp-radius);
+    border-radius: var(--rldp-radius, var(--rldp-radius-base));
     background: transparent;
-    color: var(--rldp-muted-foreground);
+    color: var(--rldp-muted-foreground, var(--rldp-muted-foreground-base));
     cursor: pointer;
     touch-action: manipulation;
   }
   :where(.rldp-nav:hover:not(:disabled)) {
-    background: var(--rldp-hover);
+    background: var(--rldp-hover, var(--rldp-hover-base));
   }
   :where(.rldp-nav:disabled) {
     opacity: 0.3;
@@ -225,36 +381,40 @@
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    border: 1px solid var(--rldp-border-strong);
-    border-radius: var(--rldp-radius);
+    border: 1px solid
+      var(--rldp-border-strong, var(--rldp-border-strong-base));
+    border-radius: var(--rldp-radius, var(--rldp-radius-base));
     padding: 0.5rem 0.625rem;
-    background: var(--rldp-surface);
-    color: var(--rldp-foreground);
-    font-size: var(--rldp-font-size);
+    background: var(--rldp-surface, var(--rldp-surface-base));
+    color: var(--rldp-foreground, var(--rldp-foreground-base));
+    font-size: var(--rldp-font-size, var(--rldp-font-size-base));
     font-weight: 600;
     text-transform: capitalize;
     cursor: pointer;
     touch-action: manipulation;
   }
   :where(.rldp-pill:hover) {
-    border-color: var(--rldp-border-strong);
-    background: var(--rldp-hover);
+    border-color: var(--rldp-border-strong, var(--rldp-border-strong-base));
+    background: var(--rldp-hover, var(--rldp-hover-base));
   }
   :where(.rldp-pill[data-active]) {
-    border-color: var(--rldp-accent);
-    background: var(--rldp-accent-soft);
-    color: var(--rldp-accent-soft-foreground);
+    border-color: var(--rldp-accent, var(--rldp-accent-base));
+    background: var(--rldp-accent-soft, var(--rldp-accent-soft-base));
+    color: var(
+      --rldp-accent-soft-foreground,
+      var(--rldp-accent-soft-foreground-base)
+    );
   }
   :where(.rldp-caret) {
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
-    color: var(--rldp-faint-foreground);
+    color: var(--rldp-faint-foreground, var(--rldp-faint-foreground-base));
     transition: transform 150ms;
   }
   :where(.rldp-pill[data-active]) :where(.rldp-caret) {
     transform: rotate(180deg);
-    color: var(--rldp-accent);
+    color: var(--rldp-accent, var(--rldp-accent-base));
   }
 
   /* --- Grids ------------------------------------------------------------ */
@@ -280,42 +440,46 @@
     font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
-    color: var(--rldp-faint-foreground);
+    color: var(--rldp-faint-foreground, var(--rldp-faint-foreground-base));
   }
 
   :where(.rldp-day) {
-    height: var(--rldp-cell-size);
+    height: var(--rldp-cell-size, var(--rldp-cell-size-base));
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
     border: 0;
-    border-radius: var(--rldp-radius);
+    border-radius: var(--rldp-radius, var(--rldp-radius-base));
     background: transparent;
-    font-size: var(--rldp-font-size);
-    color: var(--rldp-foreground);
+    font-size: var(--rldp-font-size, var(--rldp-font-size-base));
+    color: var(--rldp-foreground, var(--rldp-foreground-base));
     cursor: pointer;
     user-select: none;
     touch-action: manipulation;
     transition: background-color 150ms, color 150ms;
   }
   :where(.rldp-day:hover) {
-    background: var(--rldp-accent-soft);
+    background: var(--rldp-accent-soft, var(--rldp-accent-soft-base));
   }
   :where(.rldp-day[data-today]) {
-    box-shadow: inset 0 0 0 1px var(--rldp-today-ring);
+    box-shadow: inset 0 0 0 1px
+      var(--rldp-today-ring, var(--rldp-today-ring-base));
   }
   :where(.rldp-day[data-selected]) {
-    background: var(--rldp-accent);
-    color: var(--rldp-accent-foreground);
+    background: var(--rldp-accent, var(--rldp-accent-base));
+    color: var(--rldp-accent-foreground, var(--rldp-accent-foreground-base));
     font-weight: 600;
     box-shadow: none;
   }
   :where(.rldp-day[data-selected]:hover) {
-    background: var(--rldp-accent-hover);
+    background: var(--rldp-accent-hover, var(--rldp-accent-hover-base));
   }
   :where(.rldp-day[data-disabled]) {
-    color: var(--rldp-disabled-foreground);
+    color: var(
+      --rldp-disabled-foreground,
+      var(--rldp-disabled-foreground-base)
+    );
     cursor: not-allowed;
     background: transparent;
   }
@@ -334,10 +498,10 @@
   :where(.rldp-year) {
     height: 2.75rem;
     border: 0;
-    border-radius: var(--rldp-radius);
+    border-radius: var(--rldp-radius, var(--rldp-radius-base));
     background: transparent;
-    font-size: var(--rldp-font-size);
-    color: var(--rldp-foreground);
+    font-size: var(--rldp-font-size, var(--rldp-font-size-base));
+    color: var(--rldp-foreground, var(--rldp-foreground-base));
     cursor: pointer;
     touch-action: manipulation;
     transition: background-color 150ms, color 150ms;
@@ -347,16 +511,19 @@
   }
   :where(.rldp-month:hover:not(:disabled)),
   :where(.rldp-year:hover) {
-    background: var(--rldp-accent-soft);
+    background: var(--rldp-accent-soft, var(--rldp-accent-soft-base));
   }
   :where(.rldp-month[data-current]),
   :where(.rldp-year[data-current]) {
-    background: var(--rldp-accent);
-    color: var(--rldp-accent-foreground);
+    background: var(--rldp-accent, var(--rldp-accent-base));
+    color: var(--rldp-accent-foreground, var(--rldp-accent-foreground-base));
     font-weight: 600;
   }
   :where(.rldp-month:disabled) {
-    color: var(--rldp-disabled-foreground);
+    color: var(
+      --rldp-disabled-foreground,
+      var(--rldp-disabled-foreground-base)
+    );
     cursor: not-allowed;
     background: transparent;
   }
@@ -368,8 +535,11 @@
   :where(.rldp-day, .rldp-month, .rldp-year, .rldp-nav, .rldp-pill):where(
       :focus-visible
     ) {
-    outline: 2px solid var(--rldp-ring);
-    outline-offset: -2px;
+    outline: var(--rldp-focus-width, var(--rldp-focus-width-base)) solid
+      var(--rldp-ring, var(--rldp-ring-base));
+    outline-offset: calc(
+      -1 * var(--rldp-focus-width, var(--rldp-focus-width-base))
+    );
   }
 
   @media (forced-colors: active) {

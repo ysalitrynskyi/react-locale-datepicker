@@ -96,6 +96,7 @@ this is four.
 | Prop | Type | Notes |
 |---|---|---|
 | `className` | `string` | Root element. |
+| `themeName` | `"default" \| "minimal" \| "soft" \| "high-contrast"` | Stamps `data-rldp-theme` on the root. Unset inherits an ancestor's theme; `"default"` opts out of one. See [`THEMING.md`](THEMING.md). |
 | `classNames` | `Partial<Record<Slot, string>>` | Per-slot overrides, one key per part plus a few state keys. The full list is [`ANATOMY.md`](ANATOMY.md); the 0.1.0 keys are unchanged. |
 | `styles` | `Partial<Record<Slot, CSSProperties>>` | Per-slot inline styles, keyed exactly like `classNames`. |
 | `icons` | `Partial<Record<IconName, ReactNode>>` | Substitute the built-in SVGs. See D4. |

@@ -82,6 +82,7 @@ Present only when true, so `[data-selected]` is a sufficient selector.
 | `data-active` | `month-pill`, `year-pill` | That pill's view is open. |
 | `data-current` | `month`, `year` | The month or year currently shown. |
 | `data-day` | `day` | `YYYY-M-D` with a **0-based** month, matching `Date#getMonth`. |
+| `data-rldp-theme` | `root` | Present when `themeName` is set. See [THEMING.md](THEMING.md). |
 
 ## Styling without the stylesheet
 

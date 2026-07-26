@@ -109,6 +109,7 @@ means passing a different string.
 | `onDisabledOpenAttempt` | `() => void` | Fires when a disabled picker is tapped. |
 | `aria-label` / `aria-invalid` / `aria-describedby` | | Pass through to the input. |
 | `className` | `string` | Root element. |
+| `themeName` | `"default" \| "minimal" \| "soft" \| "high-contrast"` | Selects a shipped theme. Unset inherits an ancestor's. |
 | `classNames` | `Partial<Record<Slot, string>>` | Per-slot class overrides (appended after built-ins). |
 | `styles` | `Partial<Record<Slot, CSSProperties>>` | Per-slot inline styles, same keys. |
 | `labels` | `Partial<Labels>` | The four strings `Intl` cannot supply (keyboard help, trigger names). Navigation labels stay Intl-derived. |
@@ -145,8 +146,10 @@ normalization: a bad tag throws and can take down a whole React island.
 
 ## Theming
 
-Import the stylesheet, then override tokens on any ancestor (or on the root via
-`className`):
+Full guide: [`docs/THEMING.md`](docs/THEMING.md).
+
+Import the stylesheet, then override tokens anywhere up the tree — on an
+ancestor, or on the root via `className`. The nearest declaration wins.
 
 ```css
 .my-form {
@@ -155,13 +158,43 @@ Import the stylesheet, then override tokens on any ancestor (or on the root via
 }
 ```
 
+Four themes ship — `default`, `minimal`, `soft`, `high-contrast` — selectable
+from React or from CSS alone, and they nest:
+
+```tsx
+<LocaleDatePicker themeName="soft" /* ... */ />
+```
+
+```html
+<div data-rldp-theme="high-contrast">…</div>
+```
+
 Dark mode is CSS-only:
 
 - follows the OS via `color-scheme` + `light-dark()`;
 - override with a `.dark` / `.light` class or `[data-theme="dark|light"]` on an
   ancestor (compatible with next-themes and similar).
 
-See `src/styles.css` for the full `--rldp-*` token list. Slot overrides:
+### Tailwind v4
+
+Tailwind v4's `@theme` reads plain CSS variables, so one block bridges the two
+in either direction. Nothing Tailwind-specific ships in the package.
+
+```css
+@import "tailwindcss";
+@import "react-locale-datepicker/styles.css";
+
+@theme inline {
+  --color-rldp-accent: var(--rldp-accent); /* picker tokens -> utilities */
+}
+
+.my-form {
+  --rldp-accent: var(--color-indigo-600); /* your palette -> the picker */
+  --rldp-radius: var(--radius-lg);
+}
+```
+
+Slot overrides, per [`docs/ANATOMY.md`](docs/ANATOMY.md):
 
 ```tsx
 <LocaleDatePicker
@@ -170,6 +203,7 @@ See `src/styles.css` for the full `--rldp-*` token list. Slot overrides:
     daySelected: "my-selected-day",
     echo: "my-echo",
   }}
+  styles={{ popover: { borderRadius: 16 } }}
   /* ... */
 />
 ```
@@ -214,6 +248,7 @@ npm run build          # tsup → dist/ (ESM + CJS + d.ts + styles.css)
 | --- | --- |
 | [`docs/API.md`](docs/API.md) | Full public API and contracts |
 | [`docs/ANATOMY.md`](docs/ANATOMY.md) | Published parts, slots and state attributes |
+| [`docs/THEMING.md`](docs/THEMING.md) | Tokens, named themes, dark mode, Tailwind bridge |
 | [`docs/PLAN.md`](docs/PLAN.md) | Implementation plan and status |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Design decisions |
 | [`docs/EXTRACTION.md`](docs/EXTRACTION.md) | Parity contract (must not regress) |
