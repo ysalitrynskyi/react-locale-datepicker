@@ -349,10 +349,11 @@ this concrete:
 The converged model (APG dialog example, Duet, Cally agree) is the target;
 gaps against it found in the current component are listed honestly:
 
-- **Keyboard map completion.** Present: arrows, Enter, Space, Escape,
+- **[x] Keyboard map completion.** Present: arrows, Enter, Space, Escape,
   ArrowDown-into-grid. Missing versus the converged model: `PageUp` /
   `PageDown` (month), `Shift+PageUp` / `Shift+PageDown` (year), `Home` /
-  `End` (week bounds). Add them.
+  `End` (week bounds). **Fixed 2026-07-26:** full map implemented with
+  month-end clamping; regression in `tests/keyboard-map.test.tsx`.
 - **[x] Voice-control-safe day names — defect found during this survey.** Day
   buttons are labelled with the full formatted date beginning with the
   weekday, which breaks "click 18" style voice commands. Rule from the audit

@@ -607,9 +607,28 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     btn?.focus();
   };
 
+  // Clamp day-of-month when stepping by month/year so 31 Jan + 1 month
+  // lands on 28/29 Feb rather than overflowing into March.
+  const addCalendarMonths = (d: Date, delta: number): Date => {
+    const target = new Date(d.getFullYear(), d.getMonth() + delta, 1);
+    const last = new Date(
+      target.getFullYear(),
+      target.getMonth() + 1,
+      0,
+    ).getDate();
+    return new Date(
+      target.getFullYear(),
+      target.getMonth(),
+      Math.min(d.getDate(), last),
+    );
+  };
+
   // Keyboard navigation inside the days grid. Disabled days stay focusable
   // (aria-disabled, not disabled) so the cursor can traverse them — a
   // native-disabled cell cannot receive focus and silently breaks roving.
+  // Map matches the converged APG/Duet/Cally model: arrows, PageUp/PageDown
+  // (month), Shift+PageUp/PageDown (year), Home/End (week bounds), Enter/
+  // Space commit, Escape (document-level) dismiss.
   const onGridKeyDown = (e: React.KeyboardEvent) => {
     if (view !== "days") return;
     const base = focusDay || roveTarget || today;
@@ -636,6 +655,36 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       case "ArrowDown":
         next = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 7);
         break;
+      case "PageUp":
+        next = e.shiftKey
+          ? addCalendarMonths(base, -12)
+          : addCalendarMonths(base, -1);
+        break;
+      case "PageDown":
+        next = e.shiftKey
+          ? addCalendarMonths(base, 12)
+          : addCalendarMonths(base, 1);
+        break;
+      case "Home": {
+        // Start of the locale week containing `base`.
+        const dist = (base.getDay() - weekStart + 7) % 7;
+        next = new Date(
+          base.getFullYear(),
+          base.getMonth(),
+          base.getDate() - dist,
+        );
+        break;
+      }
+      case "End": {
+        // End of the locale week containing `base`.
+        const dist = (base.getDay() - weekStart + 7) % 7;
+        next = new Date(
+          base.getFullYear(),
+          base.getMonth(),
+          base.getDate() + (6 - dist),
+        );
+        break;
+      }
       case "Enter":
       case " ":
         if (focusDay && !shouldDisableDate(focusDay)) {
