@@ -1093,7 +1093,16 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             {/* Month + year read as dropdown selects: bordered pill with a
                 caret that flips while its grid is open. */}
             <div {...slotProps("selects", "rldp-selects")}>
-              <span {...slotProps("liveRegion", "rldp-sr-only")} aria-live="polite">
+              {/* aria-atomic so the month and year are announced as one
+                  string. Without it a screen reader may read only the part
+                  that changed — "2027" alone when navigating across a year
+                  boundary, or a bare month name — which is Cally's
+                  documented fix for the same fragment problem. */}
+              <span
+                {...slotProps("liveRegion", "rldp-sr-only")}
+                aria-live="polite"
+                aria-atomic="true"
+              >
                 {monthTitleFmt.format(viewMonth)}
               </span>
               <button
