@@ -2,8 +2,12 @@
 
 ## Supported versions
 
-Pre-release. No versions are published yet, so nothing is supported. This
-document will be updated at the first release.
+| Version | Supported |
+|---|---|
+| 0.1.x (latest) | Yes |
+| anything older | No — upgrade to the latest 0.x |
+
+Pre-1.0, fixes land in the newest release only.
 
 ## Reporting a vulnerability
 

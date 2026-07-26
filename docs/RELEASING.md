@@ -4,12 +4,13 @@
 
 A release may not happen unless **all** of these hold:
 
-1. **D1 is resolved** and `/LICENSE` exists.
-2. `package.json` has `"private": false` — flip it only at this point.
-3. The full test suite is green in CI, including the browser matrix.
-4. The parity contract in `EXTRACTION.md` has been re-checked against the built
+1. `/LICENSE`, the `license` field and the `author` line are present and
+   consistent (standing since 0.1.0 — D1 is resolved; do not alter them
+   without the operator).
+2. The full test suite is green in CI, including the browser matrix.
+3. The parity contract in `EXTRACTION.md` has been re-checked against the built
    artifact, not only the source.
-5. **The operator has explicitly approved this specific release.** Approval for a
+4. **The operator has explicitly approved this specific release.** Approval for a
    previous release does not carry forward.
 
 An agent may prepare everything above. `npm publish` requires explicit operator
@@ -46,7 +47,8 @@ npm pack --dry-run     # inspect the file list
 - [ ] No stray environment files, fixtures or scratch directories.
 - [ ] `exports` resolves for ESM, CJS and TypeScript. Test in a scratch consumer
       with `npm install ./package.tgz`, not only in this repository.
-- [ ] The stylesheet path resolves, if D3 produced one.
+- [ ] The stylesheet path resolves (`react-locale-datepicker/styles.css` →
+      `dist/styles.css`).
 - [ ] README renders correctly on npm — it is a different renderer to GitHub.
 
 **Publishing is irreversible.** An npm version can be deprecated but its contents
@@ -55,10 +57,10 @@ stay downloadable forever. Read the tarball file list before every first publish
 ## Publish
 
 ```bash
+npm version <patch|minor|major>   # bumps package.json and creates the tag
 npm publish --access public
-git tag v0.1.0
-git push --tags
-gh release create v0.1.0 --notes-file <notes>
+git push && git push --tags
+gh release create v<X.Y.Z> --notes-file <notes>
 ```
 
 Then verify from the outside: install the published version in a clean project

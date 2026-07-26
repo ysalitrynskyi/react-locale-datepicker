@@ -1,13 +1,27 @@
 # Contributing
 
-Thanks for considering it.
+Thanks for considering it. The package is published on npm
+([`react-locale-datepicker`](https://www.npmjs.com/package/react-locale-datepicker))
+under the MIT license, and contributions are welcome — issues, locale reports
+and pull requests alike.
 
-> **This project is pre-release.** There is no shipping code yet and no license
-> has been applied — see `docs/DECISIONS.md` (D1). Until a license exists, please
-> hold off on code contributions; there is no framework yet for accepting them.
-> Issues and design feedback are welcome now.
+## Development setup
 
-## Good first contributions, once code lands
+```bash
+git clone https://github.com/ysalitrynskyi/react-locale-datepicker
+cd react-locale-datepicker
+npm install
+npm run check        # typecheck + lint + unit tests
+npm run test:tz      # unit suite under UTC, America/Los_Angeles, Asia/Tokyo
+npm run test:e2e     # Playwright matrix (npx playwright install first)
+npm run build        # tsup -> dist/ (ESM + CJS + d.ts + styles.css)
+npm run screenshots  # regenerate README images and GIF from the harness
+```
+
+`npm run e2e:harness` serves the interactive harness at `localhost:5173` for
+manual poking.
+
+## Good first contributions
 
 - **Locale reports.** The component derives everything from `Intl`, so the most
   valuable report is "in locale X, this renders wrong" with a screenshot. Use

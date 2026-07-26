@@ -35,7 +35,9 @@ components, maximizes adoption. Text applied at `/LICENSE` with
 
 ## D2 — Package name — **effectively decided, reversible until first publish**
 
-**Status:** PROVISIONAL — `react-locale-datepicker`.
+**Status:** DECIDED 2026-07-26 — `react-locale-datepicker`, locked by the
+0.1.0 publish. Renaming now means a new package and a deprecation notice, so
+treat the name as permanent.
 
 Free on npm and GitHub at the time of writing. Chosen because it names all three
 relevant facts (React, locale-driven, date picker) and is searchable.
@@ -112,7 +114,9 @@ prop is deferred until D3 settles the styling API shape, alongside
 
 ## D5 — Supported React versions
 
-**Status:** OPEN.
+**Status:** DECIDED 2026-07-26 — the recommendation as written. 0.1.0 shipped
+with `peerDependencies: { "react": ">=18", "react-dom": ">=18" }` and the
+suite runs on React 19; nothing tests or promises 17.
 
 **Recommendation:** `peerDependencies: { "react": ">=18" }`. React 18 introduced
 the behaviour around `useId` and concurrent rendering the component should rely
@@ -159,7 +163,11 @@ version, never a range.
 
 ## D8 — Maintenance posture
 
-**Status:** OPEN.
+**Status:** DECIDED 2026-07-26 — the middle option, stated in the README:
+maintained as time allows, issues and PRs welcome, no response-time promise.
+Applied at agent level per the recommendation below during the post-release
+documentation sweep; the operator can harden or soften the wording at any
+time — it is one README paragraph.
 
 Publishing invites issues about browsers and locales the maintainer does not use.
 Decide, and state in the README, which of these is true:

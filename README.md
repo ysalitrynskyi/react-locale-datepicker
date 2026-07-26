@@ -217,6 +217,14 @@ npm run build          # tsup → dist/ (ESM + CJS + d.ts + styles.css)
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Feature and theming roadmap |
 | [`docs/RELEASING.md`](docs/RELEASING.md) | Versioning and release process |
 
+## Contributing and support
+
+Maintained as time allows: issues and pull requests are welcome, and there is
+no response-time promise. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md) —
+the most valuable reports are locale rendering problems, day-shift timezone
+bugs and screen-reader findings. Security reports go through
+[`SECURITY.md`](SECURITY.md), never a public issue.
+
 ## License
 
 [MIT](./LICENSE) © 2026 Yevhen Salitrynskyi

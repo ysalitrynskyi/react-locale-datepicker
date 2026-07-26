@@ -4,13 +4,17 @@ For AI agents working in this repository. Read this before editing anything.
 
 ## What this repository is
 
-An extraction-in-progress. A date picker component that runs in production
-inside a private commercial product is being lifted out into a standalone,
-publishable package. **The component source is not here yet.** This repo holds
-the plan, the API design, the open decisions and the scaffolding.
+A published npm package: `react-locale-datepicker` (MIT, 0.1.0 shipped
+2026-07-26). The component was extracted from a private commercial product,
+lives in `src/`, and is covered by unit tests, a Playwright browser matrix and
+CI. The extraction phases in [`docs/PLAN.md`](docs/PLAN.md) are complete
+through Phase 5; what remains there is the demo (Phase 6) and steady state
+(Phase 7).
 
-Your job, unless the operator says otherwise, is to work through
-[`docs/PLAN.md`](docs/PLAN.md) in order.
+Your job, unless the operator says otherwise, is maintenance and the roadmap:
+triage against the parity contract, keep the suite green, and take new work
+from [`docs/ROADMAP.md`](docs/ROADMAP.md) — respecting its decision gates
+(D10 onward) — rather than inventing scope.
 
 ## Read first, in this order
 
@@ -31,11 +35,13 @@ Your job, unless the operator says otherwise, is to work through
   customer data, API contracts, business rules, pricing logic, or analytics
   identifiers. When a doc needs to refer to the source, say "the source product
   repository" and keep specifics in the gitignored `LOCAL-CONTEXT.md`.
-- **Do not publish to npm** until decision **D1** (ownership and license) is
-  resolved and `/LICENSE` exists. `package.json` is deliberately
-  `"private": true` as a safety catch — leave it that way until D1 closes.
-- **Do not add a `/LICENSE` file on your own initiative.** Applying a license is
-  an ownership assertion, and that is the operator's call.
+- **Every npm publish needs explicit operator approval for that specific
+  release.** D1 is resolved (MIT, copyright the operator, since 0.1.0) and the
+  package is public — that changes nothing about the per-release gate. Prepare
+  releases freely; never run `npm publish` yourself.
+- **Do not change `/LICENSE`, the `license` field, or the copyright line on
+  your own initiative.** Licensing is an ownership assertion and stays the
+  operator's call.
 - **Do not modify the source product repository from here.** It has its own
   agent and its own rules. If the port needs a change there, write the request
   down and hand the operator a prompt.
