@@ -629,8 +629,22 @@ const parseTyped = (raw: string): Date | null => {
   return date;
 };
 
+/** A Date that is safe to hand to Intl, or null.
+ *
+ * `new Date("nope")` is a Date whose time value is NaN, and every
+ * `Intl.DateTimeFormat.format()` call on one throws `RangeError: Invalid time
+ * value`. Thrown from render, that unmounts the consumer's whole tree, so a
+ * component that exists to format dates must never be the thing that takes an
+ * application down over one. An unparseable value is treated as "no date" —
+ * the same as null — which degrades to an empty field instead of a blank page.
+ *
+ * This also catches the realistic source: `new Date(apiResponse.someDate)`
+ * where the field arrived null, undefined or malformed. */
+const usableDate = (d: Date | null | undefined): Date | null =>
+  d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+
 export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
-  value,
+  value: rawValue,
   onChange,
   shouldDisableDate = noDayDisabled,
   locale = "en",
@@ -659,6 +673,10 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   icons,
 }) => {
   const resolvedLocale = resolveLocale(locale);
+
+  // Normalize once, at the boundary, so no formatter downstream can be handed
+  // an Invalid Date. See usableDate above.
+  const value = usableDate(rawValue);
 
   // Every element the component renders takes its data-part, its class
   // override and its inline-style override from the same anatomy key, so
@@ -835,7 +853,10 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   // "Today" per decision D16: an injected date wins, then a business
   // timezone, then the visitor's own clock.
   const resolveToday = (): Date => {
-    if (todayProp) return startOfDay(todayProp);
+    // usableDate, not a truthiness check: an Invalid Date is truthy, and
+    // startOfDay() would propagate its NaN into every formatter downstream.
+    const injected = usableDate(todayProp);
+    if (injected) return startOfDay(injected);
     if (timeZone && timeZone !== "default" && timeZone !== "system") {
       return todayInTimeZone(timeZone);
     }

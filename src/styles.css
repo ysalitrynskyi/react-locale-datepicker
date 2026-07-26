@@ -228,6 +228,25 @@
     --rldp-shadow: 0 0 0 2px light-dark(oklch(0 0 0), oklch(1 0 0));
   }
 
+  /* --- Box model ---------------------------------------------------------
+   * Scoped border-box reset. Without it every padded or bordered part is
+   * measured content-box, so its declared width is not the width it occupies:
+   * the popover's 19.5rem plus 0.75rem padding and a 1px border came to 330px
+   * on a 320px viewport, and the field overflowed its container by the same
+   * arithmetic. `max-width: calc(100vw - 1rem)` did not save it, because that
+   * bound is content-box too.
+   *
+   * Scoped to the component's own subtree so it cannot leak into consumer
+   * markup, and inside :where() so a consumer who deliberately wants
+   * content-box on a part can still say so.
+   */
+  :where(.rldp-root),
+  :where(.rldp-root) :where(*),
+  :where(.rldp-root) :where(*)::before,
+  :where(.rldp-root) :where(*)::after {
+    box-sizing: border-box;
+  }
+
   /* --- Field ------------------------------------------------------------ */
 
   :where(.rldp-field) {
