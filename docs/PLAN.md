@@ -23,7 +23,14 @@ half-done phase marked done is worse than no marker.
 
 ## Phase 1 — Port the component
 
-**Status:** NOT STARTED. Requires `LOCAL-CONTEXT.md` for the source location.
+**Status:** DONE 2026-07-26. Ported with no intended behaviour change beyond
+the strips the extraction guide mandates (naming, business-timezone "today",
+icon dependency — see the port commit message for the full list and the
+ticked parity checklist). `tsc --noEmit` clean under strict mode; SSR-rendered
+in a scratch harness across ten locales including `ua`, an RTL pair and two
+malformed tags. Interactive behaviours (keyboard, focus, popup positioning,
+RTL layout, 320px) are preserved verbatim in code but runtime-verified only in
+Phase 3 — the parity contract is not considered proven until that suite runs.
 
 Goal: the component compiles and renders in this repository, behaviour
 unchanged, still styled with the utility classes it arrived with. Do not
