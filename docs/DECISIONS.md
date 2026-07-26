@@ -337,7 +337,43 @@ themes need.
 
 ---
 
-## D12–D17 — Roadmap decisions (not yet opened)
+## D16 — Injectable today and business timezone
+
+**Status:** DECIDED 2026-07-26 — `today?: Date` and `timeZone?: string`
+props plus an exported `todayInTimeZone(timeZone)` helper. Decided at agent
+level: the roadmap entry already defined the shape, and the operator asked
+for timezone support directly after testing 0.2.0 ("when they sell something
+in some country and people buy from the other side of the planet").
+
+What "today" means was the one timezone-sensitive thing left in the
+component: the today ring, the default view month, the default keyboard
+target and the default year range all derived from the visitor's clock. A
+shop whose availability rules run on the seller's calendar day (the case the
+source product hardcoded its business timezone for) needs "today" derived in
+that zone — the two can differ by a day in either direction.
+
+Outcome:
+
+- `timeZone` accepts an IANA name; `"default"` and `"system"` (MUI's
+  vocabulary, adopted verbatim as recommended by the roadmap survey) both
+  mean the visitor's own zone. Invalid names fall back to the visitor's
+  zone rather than throwing — the same never-throw posture as
+  `resolveLocale`.
+- `today` (a plain local-midnight `Date`) wins over `timeZone`. It exists
+  for deterministic tests and screenshots, and for consumers whose "today"
+  is not a wall-clock fact at all.
+- `todayInTimeZone` is exported so consumers can build their
+  `shouldDisableDate` on the same business day the marker uses.
+
+Rejected alternative: converting the VALUE through the timezone. The
+timezone contract in `docs/API.md` is the package's most load-bearing
+promise — values are local-midnight `Date`s, never shifted — and a
+convert-the-value mode would reintroduce exactly the day-shift bug class the
+contract exists to prevent. Only the derivation of "today" is affected.
+
+---
+
+## D12–D15, D17 — Roadmap decisions (not yet opened)
 
 See `docs/ROADMAP.md` § "Decisions this roadmap creates". Opened only when the
 relevant work starts so this register stays the single source of truth.
