@@ -3,10 +3,10 @@
 A React date picker that localizes itself from the `Intl` API — every locale the
 browser knows, no locale files to register, right-to-left aware.
 
-> **Status: ported, pre-release.** The component is in [`src/`](src/) and
-> type-checks under strict mode; styling, tests and packaging are still ahead
-> and nothing has been published to npm. Start with
-> [`docs/PLAN.md`](docs/PLAN.md).
+> **Status: release-ready, unpublished.** The component, its self-contained
+> stylesheet, the test suite (unit + three-browser matrix) and the package
+> build are done; publishing waits only on the license decision (D1). Nothing
+> is on npm yet. Start with [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Why another date picker
 

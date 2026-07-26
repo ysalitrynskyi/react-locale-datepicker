@@ -108,12 +108,13 @@ Follow [`TESTING.md`](TESTING.md). Minimum before any publish:
 
 ## Phase 4 — Packaging
 
-**Status:** PARTIAL 2026-07-26 — library build and tarball verified; styles
-export still blocked on D3. D4 and D6 decided.
+**Status:** DONE 2026-07-26 — library build, `./styles.css` export (D3
+resolved the same day) and tarball verified in a throwaway consumer, CJS and
+ESM, including the stylesheet resolve path. D3, D4 and D6 decided.
 
 1. [x] `tsup` library build — ESM, CJS, `.d.ts`, `sideEffects: false`.
-2. [x] Correct `exports` map for the JS entry. Stylesheet path deferred until
-      D3 produces one (no empty export).
+2. [x] Correct `exports` map for the JS entry and for `./styles.css`
+      (copied verbatim into `dist` by the build).
 3. [x] `files` allowlist so only `dist` and README ship (license still absent
       pending D1).
 4. [x] Verify the built artifact in a scratch consumer project, both ESM and
