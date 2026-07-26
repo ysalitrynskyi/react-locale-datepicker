@@ -83,8 +83,14 @@ means passing a different string.
 - **Localization with no locale files.** Names, week start and echo from `Intl`.
 - **RTL by construction.** Arabic and Hebrew lay out correctly.
 - **One tap to select.** Clicking a day commits and closes — no confirm step.
+- **Business-timezone "today".** `timeZone="America/New_York"` (or a `today`
+  Date) anchors the today marker and default view to the seller's calendar
+  day; `todayInTimeZone` is exported for matching `shouldDisableDate` rules.
+  Values stay local-midnight `Date`s — never converted.
 - **Typing that survives mobile.** Digits mask into `dd.MM.yyyy`; localized
-  digits normalize to ASCII for every numbering system `Intl` knows.
+  digits normalize to ASCII for every numbering system `Intl` knows;
+  separators (`.` `,` `/` `-`, Arabic and ideographic commas) close and pad
+  the segment; the open calendar follows a fully typed date live.
 - **Readable echo.** The committed date is restated in words under the field.
 - **Timezone-safe values.** Local-midnight `Date` objects — never a silent
   day-shift from a UTC round trip.
@@ -105,6 +111,8 @@ means passing a different string.
 | `shouldDisableDate` | `(date: Date) => boolean` | Sole authority on selectability. |
 | `minDate` / `maxDate` | `Date \| null` | Bound month/year navigation only — do not override the predicate. |
 | `defaultCalendarMonth` | `Date \| null` | Month shown when opening with no value. |
+| `timeZone` | `string` | IANA zone "today" is derived in (seller's calendar day). Never converts the value. |
+| `today` | `Date` | Inject "today" outright — wins over `timeZone`. |
 | `disabled` | `boolean` | |
 | `hasError` | `boolean` | Visual only. |
 | `showEcho` / `showWeekdayHeader` / `showTodayMarker` | `boolean` | Opt out of a built-in. All default to `true` — today's behaviour. |

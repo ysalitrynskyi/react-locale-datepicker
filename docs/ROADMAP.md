@@ -243,12 +243,10 @@ users actually use.
 - **`onMonthChange`** and a controlled `month` prop for analytics and linked
   calendars; `openTo` (`"days" | "months" | "years"`) so birth-date pickers
   can open on the year view.
-- **`today` prop**: injectable "today" for deterministic tests and
-  screenshots (Cally has this; it also gives consumers with fixed-timezone
-  business rules a correct today marker, resolving the limitation recorded
-  at `localToday` in the source — which itself requires a decision first;
-  see D16). If fuller timezone support ever lands, adopt MUI's value
-  vocabulary verbatim: `'default' | 'system' | 'UTC' | <IANA name>`.
+- **`today` prop — SHIPPED 0.3.0 (D16 decided 2026-07-26)** alongside a
+  `timeZone` prop using MUI's vocabulary and an exported `todayInTimeZone`
+  helper, after the operator asked for business-timezone support directly.
+  Resolves the limitation that was recorded at `localToday`.
 - **Form integration**: an optional hidden native input carrying `name` and
   the ISO date string for `FormData` and server-post workflows, with
   `autocomplete="bday"` support for birth-date use.
@@ -439,7 +437,7 @@ a separate release of the 0.2 row.
 |---|---|---|
 | ~~0.2~~ **staged in 0.2.0** | Track 1 remainder: published data-part anatomy, named themes + `themeName`, `styles` map, `labels`, opt-outs for existing built-ins, oklch palette pass, documented Tailwind bridge. **Complete except the masking opt-out**, which is gated on the format contract (D17) and moves to 0.6 | D10 |
 | ~~0.3~~ **staged in 0.2.0** | Track 5 remainder: aria-atomic month heading, grid-entry keyboard-help announcement, trigger accessible-name echo, `role="grid"` migration; digit-map generalization; `onValidationError`. **Complete.** The manual screen-reader matrix has not been run — automated regressions and axe only | 0.2 |
-| 0.4 | `disabledDates` matchers, modifiers, presets, week numbers, fixed weeks, month/year modes + `openTo`, standalone Calendar, controlled/uncontrolled state, slots + `renderDay`/`getDayProps`, footer utilities, `clearable`, ref API, `onMonthChange`/`month`, native input surface, placement + Popover-API/portal escape, `today` prop | D12, D16 |
+| 0.4 | `disabledDates` matchers, modifiers, presets, week numbers, fixed weeks, month/year modes + `openTo`, standalone Calendar, controlled/uncontrolled state, slots + `renderDay`/`getDayProps`, footer utilities, `clearable`, ref API, `onMonthChange`/`month`, native input surface, placement + Popover-API/portal escape | D12 |
 | 0.5 | Range and multiple selection; `numberOfMonths` | D13 |
 | 0.6 | Display format contract; localized digit rendering; `-u-ca-` display calendars; typed month names; Temporal adapters | D11, D14, D17 |
 | 1.0 | Stability declaration: API freeze, semver guarantee, documented deprecation policy; decide locale-derived numeral default | everything above green |
@@ -476,9 +474,9 @@ here so the shape of each is not lost:
   year, or a major consumer requesting it.
 - **D15 — Time selection.** Default recommendation: permanently out of scope
   for this component; a sibling component at most.
-- **D16 — Injectable today / timezone.** The `today` prop's shape, default
-  and interaction with `shouldDisableDate` — required by the source comment
-  at `localToday` before any such API is added.
+- **D16 — Injectable today / timezone.** DECIDED and shipped 2026-07-26
+  (0.3.0): `today` + `timeZone` props and the `todayInTimeZone` export. See
+  DECISIONS.md.
 - **D17 — Display format contract.** Locale-derived default versus fixed,
   the `format` override shape, and the parse/format escape-hatch pair; must
   define how the mask re-derives per format.

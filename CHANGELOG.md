@@ -1,6 +1,39 @@
 # Changelog
 
-## 0.2.0 — unreleased
+## 0.3.0 — unreleased
+
+Driven by operator testing of the 0.2.0 live demo: the typed-input path and
+the open calendar lived in separate worlds, and "today" could not follow a
+business timezone.
+
+### Fixed
+
+- Typing a complete date while the calendar is open now navigates the grid
+  to it live (clamped by `minDate`/`maxDate` like every other navigation
+  path), with the roving target following and DOM focus staying in the
+  input. Previously the grid ignored typing entirely.
+- Reopening the calendar honours an uncommitted typed draft: the view opens
+  on the month just typed instead of the stale committed value.
+- Separator keystrokes are accepted instead of silently stripped. `.` `,`
+  `/` `-` and the Arabic (U+060C) and ideographic (U+3001) commas close the
+  current segment and pad a single-digit day or month, so `1.7.2026` masks
+  to `01.07.2026`. Pure-digit typing masks exactly as before, under a
+  regression guard.
+
+### Added
+
+- `timeZone` prop (decision D16): derive "today" — the ring, the default
+  view month, the default keyboard target and the default year range — in a
+  fixed IANA zone, for availability rules that run on a seller's calendar
+  day while visitors sit up to a whole day away. `"default"` and `"system"`
+  mean the visitor's own zone; invalid names fall back to it. Committed
+  values remain local-midnight `Date`s — this never converts the value.
+- `today` prop: inject "today" outright. Wins over `timeZone`. For
+  deterministic tests, screenshots, and rules not anchored to wall clocks.
+- `todayInTimeZone(timeZone)` export, so `shouldDisableDate` can be built
+  on the same business day the component's marker uses.
+
+## 0.2.0 — 2026-07-26
 
 Additive. No API was removed or renamed, and every new capability is opt-in
 with 0.1.0 behaviour as the default — except the accessibility corrections

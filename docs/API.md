@@ -43,6 +43,8 @@ import "react-locale-datepicker/styles.css"; // optional: omit to go unstyled
 | `minDate` | `Date \| null` | Bounds month and year navigation. |
 | `maxDate` | `Date \| null` | Bounds month and year navigation. |
 | `defaultCalendarMonth` | `Date \| null` | Month shown when opening with no value. Falls back to today, then to the first enabled month. |
+| `today` | `Date` | Overrides what counts as "today" (ring, default view, keyboard target, year range). Wins over `timeZone`. For deterministic tests, and for rules not anchored to wall clocks. |
+| `timeZone` | `string` | IANA zone "today" is derived in — for availability rules on a fixed business calendar day. `"default"`/`"system"` mean the visitor's zone; invalid names fall back to it. **Never converts the value** — the timezone contract below is untouched. See D16 and the exported `todayInTimeZone`. |
 
 Keeping `shouldDisableDate` authoritative rather than deriving it from
 `minDate`/`maxDate` is deliberate. Real forms disable scattered sets — weekends,
@@ -168,5 +170,10 @@ iOS numeric keypad offers no separator keys. Localized digits are normalized
 to ASCII before parsing, for **every** numbering system `Intl` knows — the
 map is generated from `Intl.NumberFormat` rather than hand-maintained, so
 Devanagari, Bengali, Myanmar, Thai and the rest work alongside the two
-Arabic-Indic ranges. Both behaviours are load-bearing for mobile and
-non-Latin-script users respectively, and both are easy to lose in a refactor.
+Arabic-Indic ranges. Separator keystrokes are accepted, not stripped: `.`
+`,` `/` `-` and the Arabic and ideographic commas close the current segment,
+padding a single-digit day or month (`1.` becomes `01.`). While the calendar
+is open, a fully typed date navigates the grid to it live, and reopening the
+calendar honours an uncommitted typed draft over the stale committed value.
+All of these are load-bearing for mobile and non-Latin-script users, and all
+are easy to lose in a refactor.

@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import {
   LocaleDatePicker,
   resolveLocale,
+  todayInTimeZone,
   type ThemeName,
   type ValidationErrorReason,
 } from "react-locale-datepicker";
@@ -71,6 +72,12 @@ export function App() {
   const [basic, setBasic] = useState<Date | null>(null);
   const [restricted, setRestricted] = useState<Date | null>(null);
   const [bare, setBare] = useState<Date | null>(null);
+  const [shipped, setShipped] = useState<Date | null>(null);
+  // The seller's calendar day, not the visitor's: Kiritimati is UTC+14, the
+  // earliest timezone on Earth, so for most visitors "today" there is
+  // already tomorrow. Same-day rules anchored to it demonstrate the gap.
+  const BUSINESS_ZONE = "Pacific/Kiritimati";
+  const businessToday = todayInTimeZone(BUSINESS_ZONE);
   const [lastError, setLastError] = useState<ValidationErrorReason | null>(
     null,
   );
@@ -237,6 +244,27 @@ export function App() {
             showWeekdayHeader={false}
             showTodayMarker={false}
           />
+        </Example>
+
+        <Example
+          title="Business timezone"
+          note='"Today" (the ring and the default view) is derived in Pacific/Kiritimati, UTC+14 — the seller&apos;s calendar day — and days before it are disabled via todayInTimeZone, so the marker and the rules agree even when the visitor is a day behind. Values stay local-midnight Dates.'
+          value={shipped}
+        >
+          <LocaleDatePicker
+            value={shipped}
+            onChange={setShipped}
+            locale={locale}
+            themeName={themeName}
+            placeholder="dd.mm.yyyy"
+            aria-label="Business timezone example"
+            timeZone={BUSINESS_ZONE}
+            shouldDisableDate={(d) => d < businessToday}
+          />
+          <p className="hint">
+            Business today: <code>{iso(businessToday)}</code> · your local
+            today: <code>{iso(new Date())}</code>
+          </p>
         </Example>
       </main>
 
