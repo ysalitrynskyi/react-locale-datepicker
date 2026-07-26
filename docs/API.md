@@ -54,6 +54,16 @@ blackout ranges, a minimum lead time — that a range cannot express.
 |---|---|---|
 | `disabled` | `boolean` | |
 | `hasError` | `boolean` | Visual only. The component never decides validity. |
+
+### Opt-outs for the built-ins
+
+Every entry defaults to the 0.1.0 behaviour, so no existing caller changes.
+
+| Prop | Type | Default | Notes |
+|---|---|---|---|
+| `showEcho` | `boolean` | `true` | Render the long-form date under the field. |
+| `showWeekdayHeader` | `boolean` | `true` | Render the weekday column headers. The grid keeps its row and cell semantics either way. |
+| `showTodayMarker` | `boolean` | `true` | Mark today. Turning it off removes both `data-today` and `aria-current="date"` — never one without the other. |
 | `onBlur` | `(current: Date \| null) => void` | **Receives the just-committed value.** See § Blur ordering. |
 | `onDisabledOpenAttempt` | `() => void` | Fires when a user tries to open a disabled picker, so the form can point them at the field they must fill first. |
 

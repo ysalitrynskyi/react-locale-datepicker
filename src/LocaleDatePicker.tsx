@@ -139,6 +139,22 @@ export interface LocaleDatePickerProps {
   /** Called with the field's current committed value after a blur commit —
    *  never validate captured parent state instead of this argument. */
   onBlur?: (current: Date | null) => void;
+  /** Render the long-form echo under the field. Default true, which is
+   *  0.1.0 behaviour. Turn it off when the surrounding form already
+   *  restates the date — the echo exists so a day/month transposition is
+   *  visible, and a second copy of it is noise. */
+  showEcho?: boolean;
+  /** Render the weekday column headers above the days grid. Default true.
+   *  The grid keeps its row and cell semantics either way. */
+  showWeekdayHeader?: boolean;
+  /** Mark today in the days grid. Default true. Turning it off removes the
+   *  marker in BOTH modalities — the data-today attribute the stylesheet
+   *  draws the ring from, and the aria-current="date" a screen reader
+   *  announces — because a marker hidden from one and not the other is a
+   *  worse contract than no marker. Consumers whose "today" is a
+   *  fixed-timezone business day, rather than the visitor's, are the case
+   *  this exists for; see the note at localToday. */
+  showTodayMarker?: boolean;
   /** Fired when the user tries to open the picker while it is disabled
    *  (e.g. while a prerequisite field is still empty) so the form can guide
    *  the user to the field they must fill first. */
@@ -397,6 +413,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   minDate,
   maxDate,
   onBlur,
+  showEcho = true,
+  showWeekdayHeader = true,
+  showTodayMarker = true,
   onDisabledOpenAttempt,
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
@@ -1035,7 +1054,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       {/* Committed date in words (localized). Month rendered as a WORD makes
           a day/month transposition while typing immediately visible, and
           doubles as confirmation that a typed edit was accepted. */}
-      {value && (
+      {showEcho && value && (
         <p {...slotProps("echo", "rldp-echo")}>{fullDateFmt.format(value)}</p>
       )}
 
@@ -1132,18 +1151,20 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
               {...slotProps("grid", "rldp-grid")}
               onKeyDown={onGridKeyDown}
             >
-              <div {...slotProps("weekdays", "rldp-weekdays")} role="row">
-                {weekdayLabels.map((w, i) => (
-                  <div
-                    key={i}
-                    role="columnheader"
-                    aria-label={w.long}
-                    {...slotProps("weekday", "rldp-weekday")}
-                  >
-                    {w.short}
-                  </div>
-                ))}
-              </div>
+              {showWeekdayHeader && (
+                <div {...slotProps("weekdays", "rldp-weekdays")} role="row">
+                  {weekdayLabels.map((w, i) => (
+                    <div
+                      key={i}
+                      role="columnheader"
+                      aria-label={w.long}
+                      {...slotProps("weekday", "rldp-weekday")}
+                    >
+                      {w.short}
+                    </div>
+                  ))}
+                </div>
+              )}
               <div {...slotProps("days", "rldp-days")} role="rowgroup">
                 {weeks.map((week, wi) => (
                   <div key={wi} role="row" {...slotProps("week", "rldp-week")}>
@@ -1163,7 +1184,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                       }
                       const isDisabled = shouldDisableDate(d);
                       const isSelected = sameDay(d, value);
-                      const isToday = sameDay(d, today);
+                      const isToday = showTodayMarker && sameDay(d, today);
                       const isRove =
                         roveTarget !== null && sameDay(d, roveTarget);
                       return (

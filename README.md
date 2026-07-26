@@ -104,6 +104,7 @@ means passing a different string.
 | `defaultCalendarMonth` | `Date \| null` | Month shown when opening with no value. |
 | `disabled` | `boolean` | |
 | `hasError` | `boolean` | Visual only. |
+| `showEcho` / `showWeekdayHeader` / `showTodayMarker` | `boolean` | Opt out of a built-in. All default to `true` — today's behaviour. |
 | `onBlur` | `(current: Date \| null) => void` | Receives the **just-committed** value. |
 | `onDisabledOpenAttempt` | `() => void` | Fires when a disabled picker is tapped. |
 | `aria-label` / `aria-invalid` / `aria-describedby` | | Pass through to the input. |
