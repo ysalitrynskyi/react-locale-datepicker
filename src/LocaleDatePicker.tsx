@@ -27,19 +27,79 @@ import React from "react";
 //   parent state in the same tick reads the pre-commit closure and flashes
 //   a false "required" error.
 
-// Styling slots overridable through the classNames prop (decision D3).
-// Custom classes are appended after the built-in rldp-* class so consumer
-// rules of equal specificity win; the shipped stylesheet additionally keeps
-// itself inside a cascade layer so consumer CSS always takes priority.
+// The published anatomy (decision D10). ONE canonical list drives three
+// things that would otherwise drift apart: the data-part attribute stamped
+// on every element the component renders, the classNames and styles keys,
+// and docs/ANATOMY.md.
+//
+// data-part values are kebab-case because they get written into CSS
+// selectors; slot keys are camelCase because they are JavaScript
+// identifiers. State is carried by data attributes (data-selected,
+// data-disabled, data-today, data-error, data-current, data-placement), so a
+// consumer who discards the stylesheet entirely still has a complete,
+// documented styling contract — that is the headless escape hatch.
+//
+// This list may grow. Entries are never removed or renamed: consumers write
+// selectors against it.
+export const ANATOMY = [
+  { part: "root", slot: "root" },
+  { part: "field", slot: "field" },
+  { part: "input", slot: "input" },
+  { part: "trigger", slot: "trigger" },
+  { part: "trigger-icon", slot: "triggerIcon" },
+  { part: "echo", slot: "echo" },
+  { part: "popover", slot: "popover" },
+  { part: "header", slot: "header" },
+  { part: "nav-previous", slot: "navPrevious" },
+  { part: "nav-next", slot: "navNext" },
+  { part: "nav-icon", slot: "navIcon" },
+  { part: "selects", slot: "selects" },
+  { part: "live-region", slot: "liveRegion" },
+  { part: "month-pill", slot: "monthPill" },
+  { part: "year-pill", slot: "yearPill" },
+  { part: "caret", slot: "caret" },
+  { part: "grid", slot: "grid" },
+  { part: "weekdays", slot: "weekdays" },
+  { part: "weekday", slot: "weekday" },
+  { part: "days", slot: "days" },
+  { part: "week", slot: "week" },
+  { part: "day-cell", slot: "dayCell" },
+  { part: "day", slot: "day" },
+  { part: "day-blank", slot: "dayBlank" },
+  { part: "months", slot: "months" },
+  { part: "month", slot: "month" },
+  { part: "years", slot: "years" },
+  { part: "year", slot: "year" },
+] as const;
+
+/** A `data-part` value. One per element the component renders. */
+export type Part = (typeof ANATOMY)[number]["part"];
+
+/** The anatomy half of {@link Slot} — one key per rendered element. */
+export type PartSlot = (typeof ANATOMY)[number]["slot"];
+
+// Styling slots overridable through the classNames and styles props
+// (decisions D3 and D10). Custom classes are appended after the built-in
+// rldp-* class so consumer rules of equal specificity win; the shipped
+// stylesheet additionally keeps itself inside a cascade layer so consumer
+// CSS always takes priority.
+//
+// Beyond one key per part, a few keys address a STATE of a part rather than
+// an element of its own. They are additive to the 0.1.0 set, which is kept
+// verbatim.
 export type Slot =
-  | "input"
-  | "popover"
-  | "header"
-  | "grid"
-  | "day"
+  | PartSlot
   | "daySelected"
   | "dayDisabled"
-  | "echo";
+  | "dayToday"
+  | "monthCurrent"
+  | "yearCurrent";
+
+// Lookup built from the anatomy so the attribute and the override key can
+// never disagree.
+const SLOT_PART = Object.fromEntries(
+  ANATOMY.map((entry) => [entry.slot, entry.part]),
+) as Record<PartSlot, Part>;
 
 // The four built-in glyphs, substitutable through the icons prop (D4).
 export type IconName =
@@ -139,9 +199,18 @@ export const resolveLocale = (locale: string): string => {
 // the no-stylesheet fallback: the sizing classes win when the utility CSS
 // is present, but a viewBox-only SVG with no CSS renders at the replaced-
 // element default of 300x150 instead of 24x24.
-const CalendarIcon: React.FC<{ className?: string }> = ({ className }) => (
+// Built-in glyphs take their class and data-part from the anatomy like every
+// other element. A glyph substituted through the icons prop is rendered
+// as-is, so it carries neither — the consumer owns that node completely.
+type IconProps = { className?: string; "data-part"?: string };
+
+const CalendarIcon: React.FC<IconProps> = ({
+  className,
+  "data-part": part,
+}) => (
   <svg
     className={className}
+    data-part={part}
     xmlns="http://www.w3.org/2000/svg"
     width={24}
     height={24}
@@ -158,9 +227,10 @@ const CalendarIcon: React.FC<{ className?: string }> = ({ className }) => (
     <path d="M8 3v4M16 3v4M3 9h18" />
   </svg>
 );
-const ChevronLeft: React.FC<{ className?: string }> = ({ className }) => (
+const ChevronLeft: React.FC<IconProps> = ({ className, "data-part": part }) => (
   <svg
     className={className}
+    data-part={part}
     xmlns="http://www.w3.org/2000/svg"
     width={24}
     height={24}
@@ -176,9 +246,10 @@ const ChevronLeft: React.FC<{ className?: string }> = ({ className }) => (
     <path d="m15 18-6-6 6-6" />
   </svg>
 );
-const ChevronRight: React.FC<{ className?: string }> = ({ className }) => (
+const ChevronRight: React.FC<IconProps> = ({ className, "data-part": part }) => (
   <svg
     className={className}
+    data-part={part}
     xmlns="http://www.w3.org/2000/svg"
     width={24}
     height={24}
@@ -194,9 +265,10 @@ const ChevronRight: React.FC<{ className?: string }> = ({ className }) => (
     <path d="m9 18 6-6-6-6" />
   </svg>
 );
-const ChevronDown: React.FC<{ className?: string }> = ({ className }) => (
+const ChevronDown: React.FC<IconProps> = ({ className, "data-part": part }) => (
   <svg
     className={className}
+    data-part={part}
     xmlns="http://www.w3.org/2000/svg"
     width={24}
     height={24}
@@ -328,6 +400,19 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   icons,
 }) => {
   const resolvedLocale = resolveLocale(locale);
+
+  // Every element the component renders takes its data-part and its class
+  // override from the same anatomy key, so the published contract and the
+  // rendered DOM cannot drift apart.
+  const slotProps = (
+    slot: PartSlot,
+    builtin: string,
+    ...extra: Array<string | false | null | undefined>
+  ) => ({
+    "data-part": SLOT_PART[slot],
+    className: cx(builtin, ...extra, classNames?.[slot]),
+  });
+
   const [open, setOpen] = React.useState(false);
   const [view, setView] = React.useState<"days" | "months" | "years">("days");
   // First day of the month currently shown in the days grid.
@@ -855,9 +940,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       : monthTitleFmt.format(nextMonthDate);
 
   return (
-    <div ref={rootRef} className={cx("rldp-root", className)}>
+    <div ref={rootRef} {...slotProps("root", "rldp-root", className)}>
       <div
-        className="rldp-field"
+        {...slotProps("field", "rldp-field")}
         data-error={hasError || undefined}
         data-disabled={disabled || undefined}
       >
@@ -866,7 +951,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           type="text"
           inputMode="numeric"
           autoComplete="off"
-          className={cx("rldp-input", classNames?.input)}
+          {...slotProps("input", "rldp-input")}
           value={inputText}
           placeholder={placeholder}
           readOnly={disabled}
@@ -906,7 +991,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           tabIndex={-1}
           aria-hidden="true"
           disabled={disabled}
-          className="rldp-trigger"
+          {...slotProps("trigger", "rldp-trigger")}
           onMouseDown={(e) => {
             // Runs before the document mousedown-close listener would; toggle
             // without letting the input blur first.
@@ -915,7 +1000,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             else openPopup();
           }}
         >
-          {icons?.calendar ?? <CalendarIcon className="rldp-trigger-icon" />}
+          {icons?.calendar ?? (
+            <CalendarIcon {...slotProps("triggerIcon", "rldp-trigger-icon")} />
+          )}
         </button>
       </div>
 
@@ -923,9 +1010,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           a day/month transposition while typing immediately visible, and
           doubles as confirmation that a typed edit was accepted. */}
       {value && (
-        <p className={cx("rldp-echo", classNames?.echo)}>
-          {fullDateFmt.format(value)}
-        </p>
+        <p {...slotProps("echo", "rldp-echo")}>{fullDateFmt.format(value)}</p>
       )}
 
       {open && (
@@ -943,57 +1028,61 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             }
           }}
           data-placement={pos.up ? "top" : "bottom"}
-          className={cx("rldp-popover", classNames?.popover)}
+          {...slotProps("popover", "rldp-popover")}
         >
           {/* Header */}
-          <div className={cx("rldp-header", classNames?.header)}>
+          <div {...slotProps("header", "rldp-header")}>
             <button
               type="button"
-              className="rldp-nav"
+              {...slotProps("navPrevious", "rldp-nav")}
               disabled={headerPrevDisabled}
               aria-label={headerPrevLabel}
               onClick={headerPrev}
             >
               {icons?.chevronLeft ?? (
-                <ChevronLeft className="rldp-nav-icon" />
+                <ChevronLeft {...slotProps("navIcon", "rldp-nav-icon")} />
               )}
             </button>
             {/* Month + year read as dropdown selects: bordered pill with a
                 caret that flips while its grid is open. */}
-            <div className="rldp-selects">
-              <span className="rldp-sr-only" aria-live="polite">
+            <div {...slotProps("selects", "rldp-selects")}>
+              <span {...slotProps("liveRegion", "rldp-sr-only")} aria-live="polite">
                 {monthTitleFmt.format(viewMonth)}
               </span>
               <button
                 type="button"
-                className="rldp-pill"
+                {...slotProps("monthPill", "rldp-pill")}
                 data-active={view === "months" || undefined}
                 aria-expanded={view === "months"}
                 onClick={() => setView(view === "months" ? "days" : "months")}
               >
                 {monthLongFmt.format(viewMonth)}
-                {icons?.chevronDown ?? <ChevronDown className="rldp-caret" />}
+                {icons?.chevronDown ?? (
+                  <ChevronDown {...slotProps("caret", "rldp-caret")} />
+                )}
               </button>
               <button
                 type="button"
-                className="rldp-pill"
+                {...slotProps("yearPill", "rldp-pill")}
                 data-active={view === "years" || undefined}
                 aria-expanded={view === "years"}
                 onClick={() => setView(view === "years" ? "days" : "years")}
               >
                 {viewMonth.getFullYear()}
-                {icons?.chevronDown ?? <ChevronDown className="rldp-caret" />}
+                {icons?.chevronDown ?? (
+                  <ChevronDown {...slotProps("caret", "rldp-caret")} />
+                )}
               </button>
             </div>
             <button
               type="button"
-              className="rldp-nav"
+              {...slotProps("navNext", "rldp-nav")}
               disabled={headerNextDisabled}
               aria-label={headerNextLabel}
               onClick={headerNext}
             >
               {icons?.chevronRight ?? (
-                <ChevronRight className="rldp-nav-icon" />
+                <ChevronRight {...slotProps("navIcon", "rldp-nav-icon")} />
               )}
             </button>
           </div>
@@ -1012,24 +1101,24 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
               ref={gridRef}
               role="grid"
               aria-label={monthTitleFmt.format(viewMonth)}
-              className={cx("rldp-grid", classNames?.grid)}
+              {...slotProps("grid", "rldp-grid")}
               onKeyDown={onGridKeyDown}
             >
-              <div className="rldp-weekdays" role="row">
+              <div {...slotProps("weekdays", "rldp-weekdays")} role="row">
                 {weekdayLabels.map((w, i) => (
                   <div
                     key={i}
                     role="columnheader"
                     aria-label={w.long}
-                    className="rldp-weekday"
+                    {...slotProps("weekday", "rldp-weekday")}
                   >
                     {w.short}
                   </div>
                 ))}
               </div>
-              <div className="rldp-days" role="rowgroup">
+              <div {...slotProps("days", "rldp-days")} role="rowgroup">
                 {weeks.map((week, wi) => (
-                  <div key={wi} role="row" className="rldp-week">
+                  <div key={wi} role="row" {...slotProps("week", "rldp-week")}>
                     {week.map((d, i) => {
                       if (!d) {
                         // Padding cell. It still carries role="gridcell" so
@@ -1040,7 +1129,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                             key={i}
                             role="gridcell"
                             aria-disabled="true"
-                            className="rldp-daycell"
+                            {...slotProps("dayBlank", "rldp-daycell")}
                           />
                         );
                       }
@@ -1054,7 +1143,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                           key={i}
                           role="gridcell"
                           aria-selected={isSelected}
-                          className="rldp-daycell"
+                          {...slotProps("dayCell", "rldp-daycell")}
                         >
                           <button
                             type="button"
@@ -1069,11 +1158,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                             data-selected={isSelected || undefined}
                             data-disabled={isDisabled || undefined}
                             data-today={(isToday && !isSelected) || undefined}
-                            className={cx(
+                            {...slotProps(
+                              "day",
                               "rldp-day",
-                              classNames?.day,
                               isSelected && classNames?.daySelected,
                               isDisabled && classNames?.dayDisabled,
+                              isToday && !isSelected && classNames?.dayToday,
                             )}
                             onClick={() => {
                               if (!isDisabled) commit(d);
@@ -1093,7 +1183,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
 
           {/* Months */}
           {view === "months" && (
-            <div className="rldp-months">
+            <div {...slotProps("months", "rldp-months")}>
               {Array.from({ length: 12 }, (_, m) => {
                 const enabled = monthEnabled(viewMonth.getFullYear(), m);
                 const isCurrent = m === viewMonth.getMonth();
@@ -1105,7 +1195,11 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                     aria-label={monthLongFmt.format(
                       new Date(viewMonth.getFullYear(), m, 15),
                     )}
-                    className="rldp-month"
+                    {...slotProps(
+                      "month",
+                      "rldp-month",
+                      isCurrent && classNames?.monthCurrent,
+                    )}
                     data-current={isCurrent || undefined}
                     onClick={() => {
                       setViewMonth(
@@ -1125,14 +1219,18 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
 
           {/* Years */}
           {view === "years" && (
-            <div className="rldp-years">
+            <div {...slotProps("years", "rldp-years")}>
               {yearsRange.map((y) => {
                 const isCurrent = y === viewMonth.getFullYear();
                 return (
                   <button
                     key={y}
                     type="button"
-                    className="rldp-year"
+                    {...slotProps(
+                      "year",
+                      "rldp-year",
+                      isCurrent && classNames?.yearCurrent,
+                    )}
                     data-current={isCurrent || undefined}
                     onClick={() => {
                       setViewMonth(

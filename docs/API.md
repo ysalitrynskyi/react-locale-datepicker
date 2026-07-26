@@ -70,7 +70,7 @@ blackout ranges, a minimum lead time — that a range cannot express.
 | Prop | Type | Notes |
 |---|---|---|
 | `className` | `string` | Root element. |
-| `classNames` | `Partial<Record<Slot, string>>` | Per-slot overrides: `input`, `popover`, `header`, `grid`, `day`, `daySelected`, `dayDisabled`, `echo`. |
+| `classNames` | `Partial<Record<Slot, string>>` | Per-slot overrides, one key per part plus a few state keys. The full list is [`ANATOMY.md`](ANATOMY.md); the 0.1.0 keys are unchanged. |
 | `icons` | `Partial<Record<IconName, ReactNode>>` | Substitute the built-in SVGs. See D4. |
 
 ## Named exports

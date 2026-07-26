@@ -210,6 +210,7 @@ npm run build          # tsup → dist/ (ESM + CJS + d.ts + styles.css)
 | Document | What it covers |
 | --- | --- |
 | [`docs/API.md`](docs/API.md) | Full public API and contracts |
+| [`docs/ANATOMY.md`](docs/ANATOMY.md) | Published parts, slots and state attributes |
 | [`docs/PLAN.md`](docs/PLAN.md) | Implementation plan and status |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Design decisions |
 | [`docs/EXTRACTION.md`](docs/EXTRACTION.md) | Parity contract (must not regress) |
