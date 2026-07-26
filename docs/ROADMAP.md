@@ -353,12 +353,14 @@ gaps against it found in the current component are listed honestly:
   ArrowDown-into-grid. Missing versus the converged model: `PageUp` /
   `PageDown` (month), `Shift+PageUp` / `Shift+PageDown` (year), `Home` /
   `End` (week bounds). Add them.
-- **Voice-control-safe day names — defect found during this survey.** Day
+- **[x] Voice-control-safe day names — defect found during this survey.** Day
   buttons are labelled with the full formatted date beginning with the
   weekday, which breaks "click 18" style voice commands. Rule from the audit
   literature: the accessible name of a day must begin with the day number.
   An accessibility correction, so the changed announcement ships as a
-  default (called out in release notes) rather than an opt-in.
+  default (called out in release notes) rather than an opt-in. **Fixed
+  2026-07-26:** day aria-label is now `{day} {weekday} {month} {year}` via
+  Intl parts; regression in `tests/day-accessible-name.test.tsx`.
 - **Announcements**: keep the polite month/year live region and add
   `aria-atomic="true"` (Cally's fix for fragment announcements); add the
   APG's one-time keyboard-help announcement when focus enters the grid; echo

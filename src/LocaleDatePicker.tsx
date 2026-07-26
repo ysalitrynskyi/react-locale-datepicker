@@ -370,6 +370,32 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       }),
     [resolvedLocale],
   );
+  // Day-cell accessible names must BEGIN with the day number so voice-control
+  // commands like "click 18" match. fullDateFmt leads with the weekday in
+  // most locales, which breaks that match (ROADMAP Track 5 defect). Build the
+  // name explicitly: number first, then weekday/month/year from Intl parts.
+  const dayNamePartsFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(resolvedLocale, {
+        calendar: "gregory",
+        weekday: "long",
+        month: "long",
+        year: "numeric",
+      }),
+    [resolvedLocale],
+  );
+  const formatDayAccessibleName = React.useCallback(
+    (d: Date): string => {
+      const parts = dayNamePartsFmt.formatToParts(d);
+      const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
+      const month = parts.find((p) => p.type === "month")?.value ?? "";
+      const year = parts.find((p) => p.type === "year")?.value ?? "";
+      return `${d.getDate()} ${weekday} ${month} ${year}`
+        .replace(/\s+/g, " ")
+        .trim();
+    },
+    [dayNamePartsFmt],
+  );
 
   const minMonth = minDate ? monthKey(minDate) : null;
   const maxMonth = maxDate ? monthKey(maxDate) : null;
@@ -907,7 +933,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                       // traversal never dead-ends on a disabled date.
                       aria-disabled={isDisabled || undefined}
                       tabIndex={isRove ? 0 : -1}
-                      aria-label={fullDateFmt.format(d)}
+                      aria-label={formatDayAccessibleName(d)}
                       aria-current={isSelected ? "date" : undefined}
                       className={`${dayBtnBase} ${
                         isSelected
