@@ -12,7 +12,8 @@ A release may not happen unless **all** of these hold:
 5. **The operator has explicitly approved this specific release.** Approval for a
    previous release does not carry forward.
 
-An agent may prepare everything above. An agent must not run `npm publish`.
+An agent may prepare everything above. `npm publish` requires explicit operator
+approval for that specific release (prior approval does not carry forward).
 
 ## Versioning
 

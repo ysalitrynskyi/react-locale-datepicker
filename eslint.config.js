@@ -14,6 +14,7 @@ export default tseslint.config(
       "test-results/**",
       "*.tgz",
       "tsup.config.ts",
+      "scripts/**",
     ],
   },
   js.configs.recommended,

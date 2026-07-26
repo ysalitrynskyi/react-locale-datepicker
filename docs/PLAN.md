@@ -16,8 +16,8 @@ half-done phase marked done is worse than no marker.
 - [x] Planning, decision, API, extraction, testing and release docs.
 - [x] `AGENTS.md`, contribution and governance files.
 - [x] CI skeleton, issue and PR templates, `.gitignore`, editor config.
-- [ ] **Operator: resolve D1 (ownership and license).** Everything downstream of
-      Phase 4 is blocked on it, and it is worth answering before effort is sunk.
+- [x] **Operator: resolve D1 (ownership and license).** Closed 2026-07-26 —
+      MIT, copyright Yevhen Salitrynskyi.
 
 ---
 
@@ -115,14 +115,10 @@ ESM, including the stylesheet resolve path. D3, D4 and D6 decided.
 1. [x] `tsup` library build — ESM, CJS, `.d.ts`, `sideEffects: false`.
 2. [x] Correct `exports` map for the JS entry and for `./styles.css`
       (copied verbatim into `dist` by the build).
-3. [x] `files` allowlist so only `dist` and README ship (license still absent
-      pending D1).
+3. [x] `files` allowlist so `dist`, LICENSE and README ship.
 4. [x] Verify the built artifact in a scratch consumer project, both ESM and
       CJS, TypeScript and plain JavaScript.
 5. [x] `npm pack` and inspect the tarball contents by hand.
-
-**Still open for a full Phase 4 close:** D3 styles export path; D1 `/LICENSE`
-in the pack allowlist before first publish.
 
 **Done when:** a local `npm install ./package.tgz` in a fresh app renders a
 working picker.
@@ -131,16 +127,14 @@ working picker.
 
 ## Phase 5 — First publish
 
-**Status:** BLOCKED on D1, and on Phases 1 through 4.
+**Status:** IN PROGRESS 2026-07-26 — D1 closed; preparing `0.1.0` release
+under explicit operator approval for this publish.
 
-**Operator approval required for the publish itself.** An agent may prepare
-everything and must not run `npm publish`.
-
-1. Confirm `/LICENSE` exists and matches the D1 outcome.
-2. Flip `"private": false` in `package.json`.
-3. Publish `0.1.0`, not `1.0.0` — signal that the API may still move.
-4. Tag the release and write release notes.
-5. Verify the published package installs from the registry into a clean project.
+1. [x] Confirm `/LICENSE` exists and matches the D1 outcome.
+2. [x] Flip `"private": false` in `package.json`.
+3. [ ] Publish `0.1.0`, not `1.0.0` — signal that the API may still move.
+4. [ ] Tag the release and write release notes.
+5. [ ] Verify the published package installs from the registry into a clean project.
 
 ---
 

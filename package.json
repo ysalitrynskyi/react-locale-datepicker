@@ -1,8 +1,10 @@
 {
   "name": "react-locale-datepicker",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "private": false,
   "description": "A React date picker that localizes itself from the Intl API — every locale, no locale files, RTL-aware.",
+  "license": "MIT",
+  "author": "Yevhen Salitrynskyi <ysalitrynskyi@gmail.com>",
   "keywords": [
     "react",
     "datepicker",
@@ -46,6 +48,7 @@
   },
   "files": [
     "dist",
+    "LICENSE",
     "README.md"
   ],
   "engines": {
@@ -65,12 +68,9 @@
     "e2e:harness": "vite --config e2e/harness/vite.config.ts",
     "build": "tsup",
     "prepack": "npm run build",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "check": "npm run typecheck && npm run lint && npm run test",
+    "screenshots": "node scripts/capture-screenshots.mjs"
   },
-  "COMMENT_private": "private:true is a deliberate safety catch against an accidental publish. Flip it only at PLAN.md Phase 5, after decision D1 (license) is resolved.",
-  "COMMENT_license": "No license field until D1 is resolved. Adding one asserts ownership — see docs/DECISIONS.md.",
-  "COMMENT_version": "0.0.0 means unreleased. The first published version is 0.1.0.",
-  "COMMENT_scripts": "typecheck + lint + unit tests are the local gate (npm run check). test:tz re-runs the unit suite under three timezones. test:e2e is the Playwright browser matrix. build uses tsup (D6).",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.0",

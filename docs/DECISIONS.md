@@ -12,31 +12,24 @@ what was rejected and why.
 
 ## D1 — Ownership and license — **BLOCKING, operator only**
 
-**Status:** OPEN. Nothing may be published to npm, and no `/LICENSE` file may be
-added, until this closes.
+**Status:** DECIDED 2026-07-26 — MIT, copyright **Yevhen Salitrynskyi**.
 
 The component was written for a private commercial product. Publishing it as
 open source asserts a right to do so. That assertion belongs to whoever owns the
 code, and no agent can determine ownership from a repository.
 
-Questions the operator must answer:
+Questions the operator answered by directing the first publish (2026-07-26):
 
-1. Who owns the copyright — the operator personally, a company, or a client?
-2. If a company or client is involved, has whoever can grant it agreed?
-3. Was any part of it derived from a copyleft source? (No evidence of this; the
-   component was written from scratch to replace a third-party picker. Worth
-   confirming rather than assuming.)
+1. Who owns the copyright — **the operator personally** (Yevhen Salitrynskyi).
+2. Company/client grant — not required for this personal publication path.
+3. Copyleft derivation — no evidence; component written from scratch to replace
+   a third-party picker.
 
-**Recommendation: MIT**, once ownership is confirmed. It is the least
-restrictive, the most familiar for a UI component, and it maximizes adoption,
-which is the point of publishing. The text is staged at `docs/LICENSE-MIT.txt`;
-moving it to `/LICENSE` is the act that closes this decision.
-
-Until then the absence of a license file means all rights reserved, which is the
-correct safe default for a public repository.
-
-**Also decide the copyright line:** a personal name, or a company name. This
-appears in the license and in `package.json` and is awkward to change later.
+**Recommendation (and outcome): MIT.** Least restrictive, familiar for UI
+components, maximizes adoption. Text applied at `/LICENSE` with
+`Copyright (c) 2026 Yevhen Salitrynskyi`. `package.json` carries
+`"license": "MIT"` and matching `author`. The staged draft at
+`docs/LICENSE-MIT.txt` is retained for history only.
 
 ---
 
