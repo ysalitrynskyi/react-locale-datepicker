@@ -228,6 +228,81 @@
     --rldp-shadow: 0 0 0 2px light-dark(oklch(0 0 0), oklch(1 0 0));
   }
 
+  /* --- light-dark() fallback ---------------------------------------------
+   * Every colour token above is a light-dark() pair. On a browser without
+   * that function (Safari < 17.5, Chrome < 123, Firefox < 120) the whole
+   * declaration is invalid at computed-value time, so each --rldp-*-base
+   * resolves to nothing, every var() chain that depends on it collapses, and
+   * the popover renders transparent with inherited text — unusable, not
+   * merely unstyled.
+   *
+   * This restores the surfaces that make the component legible, and nothing
+   * else. It deliberately does NOT re-declare all sixty-nine tokens: doing so
+   * would double the token surface and create a drift hazard where a future
+   * colour change lands in one block and not the other. Fine detail
+   * (hover tints, faint text, the accent ring) degrades to the plain theme on
+   * those browsers; the component stays readable and operable, which is the
+   * bar for a browser three major versions behind.
+   *
+   * Hex rather than oklch on purpose — a browser old enough to lack
+   * light-dark() may also lack oklch(), and a fallback that needs its own
+   * fallback is not one.
+   */
+  @supports not (color: light-dark(#000, #fff)) {
+    :where(.rldp-root) {
+      --rldp-background-base: #ffffff;
+      --rldp-foreground-base: #111827;
+      --rldp-muted-foreground-base: #4b5563;
+      --rldp-faint-foreground-base: #6b7280;
+      --rldp-disabled-foreground-base: #9ca3af;
+      --rldp-border-base: #e5e7eb;
+      --rldp-border-strong-base: #d1d5db;
+      --rldp-surface-base: #f8fafc;
+      --rldp-hover-base: #f3f4f6;
+      --rldp-accent-base: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :where(.rldp-root) {
+        --rldp-background-base: #111827;
+        --rldp-foreground-base: #f9fafb;
+        --rldp-muted-foreground-base: #9ca3af;
+        --rldp-faint-foreground-base: #6b7280;
+        --rldp-disabled-foreground-base: #4b5563;
+        --rldp-border-base: #374151;
+        --rldp-border-strong-base: #4b5563;
+        --rldp-surface-base: #1f2937;
+        --rldp-hover-base: #1f2937;
+        --rldp-accent-base: #60a5fa;
+      }
+    }
+    /* The app-managed override flips color-scheme, which does nothing here,
+     * so the two class/attribute spellings need explicit values. */
+    :where(.dark, [data-theme="dark"]) :where(.rldp-root),
+    :where(.rldp-root):where(.dark, [data-theme="dark"]) {
+      --rldp-background-base: #111827;
+      --rldp-foreground-base: #f9fafb;
+      --rldp-muted-foreground-base: #9ca3af;
+      --rldp-disabled-foreground-base: #4b5563;
+      --rldp-border-base: #374151;
+      --rldp-border-strong-base: #4b5563;
+      --rldp-surface-base: #1f2937;
+      --rldp-hover-base: #1f2937;
+      --rldp-accent-base: #60a5fa;
+    }
+    :where(.light, [data-theme="light"]) :where(.rldp-root),
+    :where(.rldp-root):where(.light, [data-theme="light"]) {
+      --rldp-background-base: #ffffff;
+      --rldp-foreground-base: #111827;
+      --rldp-muted-foreground-base: #4b5563;
+      --rldp-disabled-foreground-base: #9ca3af;
+      --rldp-border-base: #e5e7eb;
+      --rldp-border-strong-base: #d1d5db;
+      --rldp-surface-base: #f8fafc;
+      --rldp-hover-base: #f3f4f6;
+      --rldp-accent-base: #2563eb;
+    }
+  }
+
   /* --- Box model ---------------------------------------------------------
    * Scoped border-box reset. Without it every padded or bordered part is
    * measured content-box, so its declared width is not the width it occupies:
