@@ -320,29 +320,49 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     () => firstDayOfWeek(resolvedLocale),
     [resolvedLocale],
   );
+  // calendar: "gregory" is pinned on every formatter so the long-form echo
+  // and grid labels always describe the same Gregorian day the grid shows.
+  // Without it, ar-SA defaults to islamic-umalqura and th-TH to the Buddhist
+  // era, so a selection on the Gregorian grid echoed as a Hijri/Buddhist
+  // date (docs/DECISIONS.md D11). Display calendars may become opt-in later;
+  // the value type stays a Gregorian-interpreted local-midnight Date.
   const monthTitleFmt = React.useMemo(
     () =>
       new Intl.DateTimeFormat(resolvedLocale, {
+        calendar: "gregory",
         month: "long",
         year: "numeric",
       }),
     [resolvedLocale],
   );
   const monthLongFmt = React.useMemo(
-    () => new Intl.DateTimeFormat(resolvedLocale, { month: "long" }),
+    () =>
+      new Intl.DateTimeFormat(resolvedLocale, {
+        calendar: "gregory",
+        month: "long",
+      }),
     [resolvedLocale],
   );
   const monthShortFmt = React.useMemo(
-    () => new Intl.DateTimeFormat(resolvedLocale, { month: "short" }),
+    () =>
+      new Intl.DateTimeFormat(resolvedLocale, {
+        calendar: "gregory",
+        month: "short",
+      }),
     [resolvedLocale],
   );
   const weekdayFmt = React.useMemo(
-    () => new Intl.DateTimeFormat(resolvedLocale, { weekday: "short" }),
+    () =>
+      new Intl.DateTimeFormat(resolvedLocale, {
+        calendar: "gregory",
+        weekday: "short",
+      }),
     [resolvedLocale],
   );
   const fullDateFmt = React.useMemo(
     () =>
       new Intl.DateTimeFormat(resolvedLocale, {
+        calendar: "gregory",
         weekday: "long",
         day: "numeric",
         month: "long",

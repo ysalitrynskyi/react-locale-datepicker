@@ -311,19 +311,20 @@ this concrete:
   `deva` and `mymr` digits exist as well. Replace the hardcoded ranges with a
   digit map generated from `Intl.NumberFormat` per numbering system — React
   Aria's technique, and the only approach that stays zero-maintenance.
-- **Calendar-system correctness for the echo — a real defect found during
+- **[x] Calendar-system correctness for the echo — a real defect found during
   this survey.** `Intl.DateTimeFormat("ar-SA")` resolves to the
   islamic-umalqura calendar and `th-TH` to the Buddhist era, so the long-form
   echo can today disagree with the Gregorian grid (a Gregorian selection
   echoes as a Hijri date). Near-term fix: pin `calendar: "gregory"` (and the
   grid's numbering assumptions) in the formatters so echo and grid always
-  agree — this is the substance of D11 and gates the 0.3 release. Longer
-  term: opt-in display calendars via `-u-ca-` (always pinning a variant —
-  bare `islamic` diverges from `islamic-umalqura` in most months), while the
-  value stays a Gregorian-interpreted `Date`. Full non-Gregorian grids are
-  research-grade (no surveyed library derives them from Intl alone;
-  competitors ship conversion tables) and stay out of scope until proven
-  feasible.
+  agree — this is the substance of D11 and gates the 0.3 release. **Fixed
+  2026-07-26:** D11 decided and applied; regression tests in
+  `tests/calendar-gregory.test.tsx`. Longer term: opt-in display calendars
+  via `-u-ca-` (always pinning a variant — bare `islamic` diverges from
+  `islamic-umalqura` in most months), while the value stays a
+  Gregorian-interpreted `Date`. Full non-Gregorian grids are research-grade
+  (no surveyed library derives them from Intl alone; competitors ship
+  conversion tables) and stay out of scope until proven feasible.
 - **Typed month names.** GOV.UK research found users typing "january" into
   date fields, and we hold Intl-provided month names for the active locale.
   Honest cost note: the current mask strips every non-digit on input, so

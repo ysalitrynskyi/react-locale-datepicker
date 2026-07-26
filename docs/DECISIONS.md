@@ -178,3 +178,41 @@ example would carry most of the value.
 **Recommendation:** a minimal Vite demo in `examples/`, deployed to GitHub Pages
 from CI. Defer to Phase 6 — after the component works, before announcing it
 anywhere.
+
+---
+
+## D11 — Echo calendar policy
+
+**Status:** DECIDED 2026-07-26 — pin `calendar: "gregory"` on every
+`Intl.DateTimeFormat` the component constructs.
+
+**Problem:** `Intl.DateTimeFormat("ar-SA")` resolves to the islamic-umalqura
+calendar and `th-TH` to the Buddhist era. The days grid is always Gregorian
+(plain `Date` year/month/day), so the long-form echo under the field could
+disagree with the day the user clicked — a Gregorian 18 July 2026 selection
+echoed as a Hijri date in ar-SA, or as Buddhist-era year 2569 in th-TH.
+
+**Options:**
+
+| Option | Upside | Downside |
+|---|---|---|
+| **A. Pin `gregory`** on formatters | Echo, labels and grid always agree; zero deps | Locales whose default calendar is non-Gregorian no longer see their default in the echo |
+| **B. Honour locale-default calendars** | Culturally default display | Echo disagrees with the Gregorian grid and value contract |
+| **C. Full non-Gregorian grids** | Complete calendar-system support | Research-grade; competitors ship conversion tables; out of scope for zero-deps |
+
+**Recommendation (and outcome): A.** Pin `gregory` so echo and grid always
+agree. Longer term, opt-in display calendars via `-u-ca-` (always pinning a
+specific variant — bare `islamic` diverges from `islamic-umalqura`) while the
+value stays a Gregorian-interpreted `Date`. Full non-Gregorian grids stay out
+of scope until proven feasible without bundled tables (see `docs/ROADMAP.md`
+Track 4).
+
+Decided at agent level: non-blocking, recommendation already written in the
+roadmap, and the defect is a real behaviour correction with a regression test.
+
+---
+
+## D10, D12–D17 — Roadmap decisions (not yet opened)
+
+See `docs/ROADMAP.md` § "Decisions this roadmap creates". Opened only when the
+relevant work starts so this register stays the single source of truth.
