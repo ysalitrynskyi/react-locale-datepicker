@@ -88,7 +88,7 @@ Reject C. It is the least work and the worst outcome.
 
 ## D4 — Icon dependency — **recommended, low risk**
 
-**Status:** OPEN.
+**Status:** DECIDED 2026-07-26 — inline SVGs, no icon dependency.
 
 The source imports four icons from `lucide-react`. A component library should not
 drag in an icon set for four glyphs.
@@ -97,6 +97,15 @@ drag in an icon set for four glyphs.
 has zero runtime dependencies beyond a `react` peer. Optionally expose an
 `icons` prop so consumers can substitute their own set — cheap to add and it
 removes any objection about visual consistency.
+
+**Outcome:** the recommendation as written, applied during the Phase 1 port.
+The four glyphs (calendar, chevron left/right/down) are hand-drawn 24px
+stroke paths in the component file, so the package keeps zero runtime
+dependencies. Decided at agent level because this entry is non-blocking and
+the port could not proceed on any other option: adding `lucide-react` would
+have violated the no-new-dependency rule. The optional `icons` substitution
+prop is deferred until D3 settles the styling API shape, alongside
+`classNames`.
 
 ---
 
