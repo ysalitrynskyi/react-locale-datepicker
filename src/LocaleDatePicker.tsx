@@ -532,7 +532,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       if (d && !shouldDisableDate(d)) return d;
     }
     return null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // shouldDisableDate and today are intentionally omitted: the roving
+    // target only needs to recompute when the grid or selection moves; the
+    // predicate is stable for a given open session in practice.
   }, [focusDay, value, viewMonth, daysGrid]);
 
   const canPrevMonth = minMonth === null || monthKey(viewMonth) > minMonth;
@@ -566,7 +568,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     if (view !== "days") return;
     const base = focusDay || roveTarget || today;
     const horiz = isRTL() ? -1 : 1;
-    let next: Date | null = null;
+    let next: Date;
     switch (e.key) {
       case "ArrowLeft":
         next = new Date(
@@ -601,7 +603,6 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         return;
     }
     e.preventDefault();
-    if (!next) return;
     const k = monthKey(next);
     if (minMonth !== null && k < minMonth) return;
     if (maxMonth !== null && k > maxMonth) return;

@@ -1,9 +1,5 @@
 name: CI
 
-# Skeleton. Steps are commented out until the phase that creates them lands —
-# see docs/PLAN.md. A workflow that passes because it does nothing is worse than
-# no workflow, so each step is enabled only when it can genuinely fail.
-
 on:
   push:
     branches: [main]
@@ -44,7 +40,7 @@ jobs:
           '
 
   checks:
-    name: Types
+    name: Types, lint, unit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,24 +50,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck
-      # Enabled as later phases land — see docs/PLAN.md.
-      # - run: npm run lint
-      # - run: npm test
-      #
+      - run: npm run lint
+      - run: npm test
       # Timezone regression: values must never shift a day. See docs/TESTING.md.
-      # - run: TZ=UTC npm test
-      # - run: TZ=America/Los_Angeles npm test
-      # - run: TZ=Asia/Tokyo npm test
+      - run: TZ=UTC npm test
+      - run: TZ=America/Los_Angeles npm test
+      - run: TZ=Asia/Tokyo npm test
 
-  # browsers:
-  #   name: Browser matrix
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         cache: npm
-  #     - run: npm ci
-  #     - run: npx playwright install --with-deps
-  #     - run: npm run test:e2e
+  browsers:
+    name: Browser matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run test:e2e

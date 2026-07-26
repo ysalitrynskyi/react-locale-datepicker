@@ -73,7 +73,12 @@ all.
 
 ## Phase 3 — Tests
 
-**Status:** NOT STARTED. Can begin in parallel with Phase 2.
+**Status:** DONE 2026-07-26. Vitest + Testing Library unit/interaction suite
+(39 tests) covers every line of [`TESTING.md`](TESTING.md); Playwright matrix
+runs Chromium/Firefox/WebKit at 320/768/1280 (93 passed, 6 viewport-skipped).
+CI runs typecheck, lint, unit tests under `TZ=UTC`, `America/Los_Angeles` and
+`Asia/Tokyo`, and the Playwright matrix on every push/PR. Each parity-contract
+test names the bug it guards in its failure message.
 
 This is the largest single cost in the project and the most likely to be
 underestimated. The production matrix that validated the original was run
@@ -81,12 +86,12 @@ ad-hoc and was never committed, so **there is no test suite to inherit.**
 
 Follow [`TESTING.md`](TESTING.md). Minimum before any publish:
 
-- unit tests for date maths, masking, digit normalization and locale resolution;
-- interaction tests for one-tap commit, keyboard navigation, disabled days and
-  the blur-commit ordering;
-- a locale matrix across at least one Latin, one Cyrillic, one CJK and one RTL
-  locale;
-- a timezone test proving no value shifts a day.
+- [x] unit tests for date maths, masking, digit normalization and locale resolution;
+- [x] interaction tests for one-tap commit, keyboard navigation, disabled days and
+      the blur-commit ordering;
+- [x] a locale matrix across at least one Latin, one Cyrillic, one CJK and one RTL
+      locale;
+- [x] a timezone test proving no value shifts a day.
 
 **Done when:** CI runs the suite on every push and it is green.
 
