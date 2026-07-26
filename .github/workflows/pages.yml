@@ -1,20 +1,9 @@
 # Publishes examples/ to GitHub Pages.
 #
-# OPERATOR STEP REQUIRED BEFORE THIS CAN RUN.
-#
-# Enabling Pages is a repository-settings action, which AGENTS.md reserves to
-# the operator, so this workflow is deliberately `workflow_dispatch` only. It
-# cannot fire on its own and cannot fail noisily in the meantime.
-#
-# To turn it on:
-#   1. Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
-#   2. Run this workflow once from the Actions tab to publish.
-#   3. Optionally add the push trigger below so the demo tracks main:
-#
-#        on:
-#          workflow_dispatch:
-#          push:
-#            branches: [main]
+# Pages was enabled (Source: GitHub Actions) with operator approval on
+# 2026-07-26 and the first deploy succeeded; the push trigger keeps the demo
+# tracking main from then on. The site is a project page at
+# https://ysalitrynskyi.github.io/react-locale-datepicker/
 #
 # The site is served from a project page, so examples/vite.config.ts sets
 # `base: "/react-locale-datepicker/"` to match.
@@ -23,6 +12,12 @@ name: Deploy demo to Pages
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "examples/**"
+      - "src/**"
+      - ".github/workflows/pages.yml"
 
 permissions:
   contents: read

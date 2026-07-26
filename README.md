@@ -8,6 +8,9 @@ dependencies beyond React.
 [![CI](https://github.com/ysalitrynskyi/react-locale-datepicker/actions/workflows/ci.yml/badge.svg)](https://github.com/ysalitrynskyi/react-locale-datepicker/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/react-locale-datepicker)](./LICENSE)
 
+**[Live demo](https://ysalitrynskyi.github.io/react-locale-datepicker/)** —
+locale switcher (including RTL), disabled days, themes and dark mode.
+
 ![Interaction demo: typing masks into the date format, Enter commits with a long-form echo, a disabled weekend click is blocked, month view navigation, one-tap commit](docs/assets/picker-demo.gif)
 
 | Light | Dark | RTL (Arabic) |

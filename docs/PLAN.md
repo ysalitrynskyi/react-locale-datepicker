@@ -144,8 +144,12 @@ verified: CJS `require`, `resolveLocale("ua")` → `uk`, SSR render, and
 
 ## Phase 6 — Demo and announcement
 
-**Status:** DEMO DONE 2026-07-26, DEPLOYMENT AND ANNOUNCEMENT PENDING THE
-OPERATOR. D9 decided the same day.
+**Status:** DONE 2026-07-26 except announcement. Demo built (D9 decided the
+same day); Pages enabled with operator approval and deployed — live at
+https://ysalitrynskyi.github.io/react-locale-datepicker/ — with the push
+trigger active so the demo tracks main, and the site linked from the README
+and the repository homepage. Announcing anywhere still needs per-venue
+operator approval and has not happened.
 
 1. [x] Minimal Vite demo in `examples/`: locale switcher (eleven locales
       including two RTL, the `ua` alias and an unknown tag), a disabled-days
