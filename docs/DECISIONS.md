@@ -63,7 +63,15 @@ is going to change, change it before Phase 5.
 
 ## D3 — Styling strategy — **BLOCKING for Phase 2**
 
-**Status:** OPEN.
+**Status:** DECIDED 2026-07-26 — Option D, the hybrid: self-contained scoped
+CSS imported from `react-locale-datepicker/styles.css`, themed through
+`--rldp-*` custom properties, with `className` / `classNames` overrides.
+Light and dark ship together (CSS-only, `color-scheme` + `light-dark()`,
+honouring `.dark` / `[data-theme="dark"]` ancestors). Resolution: the
+recommendation below was presented to the operator twice; the operator then
+directed completion of all remaining work, which requires this decision. If
+the operator objects to the specifics, the stylesheet is the only artifact
+affected and is cheap to revise.
 
 The source component styles itself with Tailwind utility classes. A published
 component cannot assume the consumer has Tailwind.
