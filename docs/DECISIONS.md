@@ -227,7 +227,89 @@ roadmap, and the defect is a real behaviour correction with a regression test.
 
 ---
 
-## D10, D12–D17 — Roadmap decisions (not yet opened)
+## D10 — Theme token set, anatomy and token resolution
+
+**Status:** DECIDED 2026-07-26 — the recommendation written in `ROADMAP.md`
+Track 1, plus the token-resolution architecture below, which that
+recommendation implies but does not spell out.
+
+Opened because ROADMAP 0.2 (published anatomy, named themes, `styles`,
+`labels`, opt-outs, oklch palette) cannot be built without settling it.
+Decided at agent level: the roadmap already carries the recommendation, the
+operator directed the 0.2 work, and every part of it is reversible by editing
+one stylesheet and one exported constant.
+
+### The vocabulary
+
+`--rldp-*`, defined on the component root, never `:root`, so two differently
+themed pickers coexist on one page. Semantic pairs follow the shadcn
+vocabulary consumers already know (`--rldp-background` /
+`--rldp-foreground`, `--rldp-accent` / `--rldp-accent-foreground`), plus
+component knobs (`--rldp-cell-size`, `--rldp-radius`, `--rldp-z-index`).
+The 0.1.0 token names are kept verbatim; 0.2.0 only adds.
+
+### The anatomy
+
+One canonical list, exported as `ANATOMY`, drives three things that used to
+drift apart: the `data-part` attribute stamped on every rendered element, the
+`classNames` / `styles` keys, and `docs/ANATOMY.md`. `data-part` values are
+kebab-case (they are CSS selectors); slot keys are camelCase (they are
+JavaScript identifiers). State stays on data attributes
+(`data-selected`, `data-disabled`, `data-today`, `data-error`, `data-open`),
+so a consumer who never imports the stylesheet still has a complete styling
+contract. Existing slots are never removed or renamed — `Slot` grew, it did
+not change.
+
+### Token resolution — the part that needed a real decision
+
+**A bug was found while deciding this.** `README.md` documents overriding
+tokens "on any ancestor". That does not work in 0.1.0 and never did: the
+stylesheet declares every token on `.rldp-root` itself, and an element's own
+declaration always beats an inherited value, whatever cascade layer it sits
+in. Verified in Chromium before writing this entry. The same mechanism is
+what would make nested themes resolve by stylesheet order instead of by
+proximity.
+
+| Option | Upside | Downside |
+|---|---|---|
+| **A. Declare defaults on `.rldp-root`, themes as descendant selectors** | Smallest diff | Ancestor overrides silently ignored; nested themes resolve by source order, not by nearest ancestor — both wrong |
+| **B. Leave public tokens undeclared; read them as `var(--rldp-x, var(--rldp-d-x))`; themes declare public tokens on whichever element carries the attribute** | Ancestor overrides and nested themes both work by plain custom-property inheritance, which already resolves to the nearest ancestor | Every usage site carries a two-level `var()`; one private `--rldp-d-*` default per public token |
+| **C. `@scope` with scoping proximity** | Expresses "nearest theme wins" directly | Young support, and it solves only nesting, not the ancestor-override bug |
+
+**Recommendation (and outcome): B.** It fixes a documented-but-broken
+capability and gets nestable themes for free, because "nearest ancestor wins"
+is exactly what custom-property inheritance already does. The private
+`--rldp-d-*` layer is an implementation detail and is not part of the public
+contract; consumers keep writing `--rldp-accent`.
+
+The `default` theme is expressed as `--rldp-<token>: initial` for each token
+rather than by restating the values. `initial` on a custom property yields
+the guaranteed-invalid value, so the usage-site fallback takes over — which
+is precisely "no overrides", stated once per token and impossible to drift
+from the real defaults.
+
+### Which themes ship
+
+`default`, `minimal` (borderless, flat, typography-led), `soft` (larger
+radii, filled surfaces), `high-contrast` (AAA contrast targets, thicker focus
+indicators). Selectable from CSS via `[data-rldp-theme="<name>"]` on any
+ancestor or on the root, and from React via `themeName`, which stamps the
+same attribute. The attribute path stays for CSS-only consumers; the prop
+satisfies configuration-through-props users. No `themeName` means no
+attribute, so an ancestor theme still applies; `themeName="default"` is the
+explicit opt-out from one.
+
+### Palette format
+
+`oklch()`, converted from the 0.1.0 hex values so the default look does not
+change — every channel round-trips to within one 8-bit step, verified by
+pixel-diffing the README captures before and after. oklch is the format in
+which hover and dark shades derive predictably, which is what the named
+themes need.
+
+---
+
+## D12–D17 — Roadmap decisions (not yet opened)
 
 See `docs/ROADMAP.md` § "Decisions this roadmap creates". Opened only when the
 relevant work starts so this register stays the single source of truth.

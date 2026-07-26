@@ -428,7 +428,10 @@ here so the shape of each is not lost:
 
 - **D10 — Theme token set and naming.** The `--rldp-*` vocabulary, the
   semantic-pair convention, and which themes ship. Recommendation is written
-  in Track 1.
+  in Track 1. Decided 2026-07-26 (see DECISIONS.md), extended there with the
+  token-resolution architecture the recommendation implies — and with a
+  0.1.0 bug it uncovered: tokens set on an ancestor were silently ignored,
+  because the stylesheet declared every token on the root itself.
 - **D11 — Echo calendar policy.** Pin `gregory` for formatter consistency
   versus honouring locale-default calendars. Recommendation: pin, then make
   display calendars opt-in. Decided and shipped 2026-07-26 (see
