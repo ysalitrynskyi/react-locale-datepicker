@@ -102,20 +102,22 @@ zero-dependency component that ships its own stylesheet.
   `--rldp-accent-foreground`, plus component knobs (`--rldp-cell-size`,
   `--rldp-radius`, `--rldp-z-index` — popover stacking is a real integrator
   pain point Duet solved this way).
-- Palette authored in `oklch()` so dark variants and hover shades derive
-  predictably.
+- **[x] Shipped 0.2.0**, verified pixel-identical in the solid-fill regions
+  of every README capture. Palette authored in `oklch()` so dark variants and
+  hover shades derive predictably.
 - The whole shipped stylesheet wrapped in `@layer` and written with `:where()`
   so consumer CSS always wins regardless of import order.
-- A published **anatomy**: one canonical list of named parts (input, trigger,
-  popover, header, nav, grid, weekday, day, echo, ...) drives three things at
-  once — the `classNames` override map, a `data-part` attribute on every
+- **[x] Shipped 0.2.0.** A published **anatomy**: one canonical list of named
+  parts (input, trigger, popover, header, nav, grid, weekday, day, echo, ...)
+  drives three things at once — the `classNames` override map, a `data-part` attribute on every
   rendered element, and the documentation. State exposed as data attributes
   (`data-selected`, `data-disabled`, `data-today`, `data-outside-month`,
   `data-open`), so consumers who discard the stylesheet entirely still get a
   complete, documented styling contract. This is the headless escape hatch:
   unstyled mode is simply "do not import the stylesheet".
-- A one-line documented Tailwind v4 bridge (`@theme inline` alias) so utility
-  users can map our tokens without any shipped Tailwind.
+- **[x] Shipped 0.2.0** (`docs/THEMING.md`). A one-line documented Tailwind v4
+  bridge (`@theme inline` alias) so utility users can map our tokens without
+  any shipped Tailwind.
 
 ### Light and dark mode
 
@@ -136,9 +138,9 @@ zero-dependency component that ships its own stylesheet.
 
 ### Shipped themes
 
-A small curated set, each a block redefining the same token list under
-`[data-rldp-theme="<name>"]`, nestable per element, and equally selectable
-from React via a `themeName` prop (`"default" | "minimal" | "soft" |
+**[x] Shipped 0.2.0.** A small curated set, each a block redefining the same
+token list under `[data-rldp-theme="<name>"]`, nestable per element, and
+equally selectable from React via a `themeName` prop (`"default" | "minimal" | "soft" |
 "high-contrast"`) that stamps the same attribute — the attribute path stays
 for CSS-only consumers, the prop satisfies configuration-through-props users:
 
@@ -188,10 +190,18 @@ users actually use.
   weekday header, the today marker, and input masking (for consumers who
   want free typing against their own parser). Each opt-out is a boolean or
   slot-level `null`, never a behaviour change for existing callers.
-- **`classNames` and `styles` maps** typed against the published anatomy
-  (Phase 2 / D3 already plans `classNames`; `styles` completes it).
+  **Partly shipped 0.2.0:** `showEcho`, `showWeekdayHeader` and
+  `showTodayMarker`. The **masking opt-out is NOT shipped** — masking is a
+  parity-contract behaviour, so switching it off needs the format contract
+  (D17) to define what unmasked typing parses against. Deferred to 0.6 with
+  that work.
+- **[x] Shipped 0.2.0.** **`classNames` and `styles` maps** typed against the
+  published anatomy (Phase 2 / D3 already plans `classNames`; `styles`
+  completes it).
 - **`icons` prop** to substitute the four built-in SVGs (deferred from D4).
-- **`labels` prop** covering the strings Intl cannot supply, as bounded in
+- **[x] Shipped 0.2.0** — four strings (`keyboardHelp`, `openCalendar`,
+  `changeDate`, `closeCalendar`) plus override-only navigation entries.
+  **`labels` prop** covering the strings Intl cannot supply, as bounded in
   the principles section. Duet needed roughly thirteen such strings per
   locale; ours is a handful because Intl supplies month, weekday, echo and
   navigation text.
@@ -242,8 +252,8 @@ users actually use.
 - **Form integration**: an optional hidden native input carrying `name` and
   the ISO date string for `FormData` and server-post workflows, with
   `autocomplete="bday"` support for birth-date use.
-- **Typed-input failure reporting**: an optional `onValidationError(reason)`
-  callback with a typed reason union following GOV.UK's error taxonomy
+- **[x] Shipped 0.2.0.** **Typed-input failure reporting**: an optional
+  `onValidationError(reason)` callback with a typed reason union following GOV.UK's error taxonomy
   (missing, impossible date, not selectable). The component reports; the
   consumer renders. This preserves the API contract that the component never
   decides validity — `hasError` stays visual-only and `commitTyped` still
@@ -306,11 +316,15 @@ this concrete:
   `resolvedOptions().numberingSystem` — so an `ar-EG` user gets Arabic-Indic
   digits without configuration, which none of the surveyed libraries does —
   is the 1.0 consideration, flagged as a default change in release notes.
-- **Digit input normalization, generalized.** The current implementation
-  normalizes the two Arabic-Indic ranges. Locales defaulting to `beng`,
-  `deva` and `mymr` digits exist as well. Replace the hardcoded ranges with a
-  digit map generated from `Intl.NumberFormat` per numbering system — React
-  Aria's technique, and the only approach that stays zero-maintenance.
+- **[x] Digit input normalization, generalized. Shipped 0.2.0.** The previous
+  implementation normalized the two Arabic-Indic ranges, so users whose
+  locale defaults to `beng`, `deva`, `mymr` or `thai` digits could not type a
+  date at all — their digits hit the non-digit filter and vanished. The map
+  is now generated from `Intl.NumberFormat` per numbering system, React
+  Aria's technique and the only approach that stays zero-maintenance.
+  Algorithmic systems (roman, hanidec) are excluded by a `\p{Nd}` test:
+  reading a letter as a digit would be worse than ignoring it. Regressions
+  across six numbering systems in `tests/digits.test.tsx`.
 - **[x] Calendar-system correctness for the echo — a real defect found during
   this survey.** `Intl.DateTimeFormat("ar-SA")` resolves to the
   islamic-umalqura calendar and `th-TH` to the Buddhist era, so the long-form
@@ -362,11 +376,13 @@ gaps against it found in the current component are listed honestly:
   default (called out in release notes) rather than an opt-in. **Fixed
   2026-07-26:** day aria-label is now `{day} {weekday} {month} {year}` via
   Intl parts; regression in `tests/day-accessible-name.test.tsx`.
-- **Announcements**: keep the polite month/year live region and add
-  `aria-atomic="true"` (Cally's fix for fragment announcements); add the
-  APG's one-time keyboard-help announcement when focus enters the grid; echo
-  the committed value into the trigger's accessible name ("Change date,
-  17 November 2026").
+- **[x] Announcements. Shipped 0.2.0.** The polite month/year live region
+  gained `aria-atomic="true"` (Cally's fix for fragment announcements); the
+  APG's one-time keyboard-help announcement fires when focus enters the grid,
+  localizable through `labels`; the committed value is echoed into the
+  trigger's accessible name ("Change date, 17 November 2026"). The trigger
+  was `aria-hidden="true"` before, which made that restatement unreachable;
+  it is now named and still outside the tab order.
 - **Roving-focus rules.** What is implemented — deliberately — is a roving
   tabindex TARGET chain (keyboard cursor, else selected value, else today if
   enabled, else first enabled day), with DOM focus entering the grid only on
@@ -376,16 +392,24 @@ gaps against it found in the current component are listed honestly:
   applies only to trigger-button opens, and only if a dedicated trigger flow
   is ever added; it must never apply to input-click opens. Focus already
   returns to the input on close — keep under test.
-- **`role="grid"` semantics** with `aria-selected` (the APG/Duet side of the
-  schism; Cally's `aria-pressed` divergence is documented but grid matches
-  screen-reader table navigation and audit checklists). Migrating from the
-  current `aria-current="date"` marking is an accessibility correction,
-  handled like the day-name fix above.
+- **[x] `role="grid"` semantics. Shipped 0.2.0** with `aria-selected` (the
+  APG/Duet side of the schism; Cally's `aria-pressed` divergence is
+  documented but grid matches screen-reader table navigation and audit
+  checklists). `aria-selected` sits on the gridcell, since a button role does
+  not permit it, and `aria-current="date"` now marks **today**, which is what
+  it means. Weekday cells became `columnheader`s announced with the long
+  weekday name; they were `aria-hidden` before. Regressions in
+  `tests/grid-semantics.test.tsx` cover both the new semantics and that the
+  roving-tabindex and focus rules survived.
 - **Forced-colors and reduced-motion** (Track 1) and **target sizes** (44px
   touch default, 24px floor).
 - **Screen-reader matrix** as a release gate: VoiceOver (macOS/iOS), NVDA,
   JAWS, TalkBack — the bar Duet set and then abandoned; plus an automated axe
-  pass in CI (already planned in [`TESTING.md`](TESTING.md)).
+  pass in CI (already planned in [`TESTING.md`](TESTING.md)). **Status: the
+  axe pass runs; the manual screen-reader matrix has NOT been run for
+  0.2.0.** The 0.2.0 accessibility changes are verified by automated
+  regression tests and axe only. Running real screen readers needs a human
+  and is an outstanding gate.
 - **Typed-input error guidance**, ported from GOV.UK's research and delivered
   through the `onValidationError` callback defined in Track 2 — the
   component classifies and reports, the consumer renders, so the
@@ -405,10 +429,16 @@ light/dark, basic forced-colors and reduced-motion rules, `classNames` and
 names and the Gregorian echo pinning (D11). The rows below carry only what
 remains.
 
+**Both the 0.2 and 0.3 rows were built together and are staged in one
+release, `0.2.0`** (prepared 2026-07-26, unpublished pending operator
+approval). The version boundaries in this table mark dependency and decision
+gates, not shipping units, and nothing in the 0.3 row turned out to depend on
+a separate release of the 0.2 row.
+
 | Version | Contents | Depends on |
 |---|---|---|
-| 0.2 | Track 1 remainder: published data-part anatomy, named themes + `themeName`, `styles` map, `labels`, opt-outs for existing built-ins, oklch palette pass, documented Tailwind bridge | D10 |
-| 0.3 | Track 5 remainder: aria-atomic month heading, grid-entry keyboard-help announcement, trigger accessible-name echo, `role="grid"` migration; digit-map generalization; `onValidationError` | 0.2 |
+| ~~0.2~~ **staged in 0.2.0** | Track 1 remainder: published data-part anatomy, named themes + `themeName`, `styles` map, `labels`, opt-outs for existing built-ins, oklch palette pass, documented Tailwind bridge. **Complete except the masking opt-out**, which is gated on the format contract (D17) and moves to 0.6 | D10 |
+| ~~0.3~~ **staged in 0.2.0** | Track 5 remainder: aria-atomic month heading, grid-entry keyboard-help announcement, trigger accessible-name echo, `role="grid"` migration; digit-map generalization; `onValidationError`. **Complete.** The manual screen-reader matrix has not been run — automated regressions and axe only | 0.2 |
 | 0.4 | `disabledDates` matchers, modifiers, presets, week numbers, fixed weeks, month/year modes + `openTo`, standalone Calendar, controlled/uncontrolled state, slots + `renderDay`/`getDayProps`, footer utilities, `clearable`, ref API, `onMonthChange`/`month`, native input surface, placement + Popover-API/portal escape, `today` prop | D12, D16 |
 | 0.5 | Range and multiple selection; `numberOfMonths` | D13 |
 | 0.6 | Display format contract; localized digit rendering; `-u-ca-` display calendars; typed month names; Temporal adapters | D11, D14, D17 |

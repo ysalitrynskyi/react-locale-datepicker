@@ -266,6 +266,7 @@ npm run build && cd examples && npm install && npm run dev
 | [`docs/TESTING.md`](docs/TESTING.md) | Required test matrix |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Feature and theming roadmap |
 | [`docs/RELEASING.md`](docs/RELEASING.md) | Versioning and release process |
+| [`CHANGELOG.md`](CHANGELOG.md) | What changed in each release |
 
 ## Contributing and support
 
