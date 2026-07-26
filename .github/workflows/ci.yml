@@ -43,24 +43,25 @@ jobs:
             console.log(licensed ? "OK — licensed." : "OK — unlicensed and private, as expected pre-D1.");
           '
 
-  # checks:
-  #   name: Types, lint, tests
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         cache: npm
-  #     - run: npm ci
-  #     - run: npm run typecheck
-  #     - run: npm run lint
-  #     - run: npm test
-  #
-  #     # Timezone regression: values must never shift a day. See docs/TESTING.md.
-  #     - run: TZ=UTC npm test
-  #     - run: TZ=America/Los_Angeles npm test
-  #     - run: TZ=Asia/Tokyo npm test
+  checks:
+    name: Types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      # Enabled as later phases land — see docs/PLAN.md.
+      # - run: npm run lint
+      # - run: npm test
+      #
+      # Timezone regression: values must never shift a day. See docs/TESTING.md.
+      # - run: TZ=UTC npm test
+      # - run: TZ=America/Los_Angeles npm test
+      # - run: TZ=Asia/Tokyo npm test
 
   # browsers:
   #   name: Browser matrix
