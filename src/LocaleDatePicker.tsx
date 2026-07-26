@@ -651,9 +651,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   placeholder,
   disabled,
   hasError,
-  defaultCalendarMonth,
-  minDate,
-  maxDate,
+  defaultCalendarMonth: rawDefaultCalendarMonth,
+  minDate: rawMinDate,
+  maxDate: rawMaxDate,
   onBlur,
   today: todayProp,
   timeZone,
@@ -675,8 +675,17 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const resolvedLocale = resolveLocale(locale);
 
   // Normalize once, at the boundary, so no formatter downstream can be handed
-  // an Invalid Date. See usableDate above.
-  const value = usableDate(rawValue);
+  // an Invalid Date. See usableDate above. Every Date prop passes through:
+  // an Invalid defaultCalendarMonth reached the viewMonth state and crashed
+  // at MOUNT via the always-computed header labels, and Invalid min/max
+  // degrade the year grid to empty — all four are one bad API response away.
+  const value = React.useMemo(() => usableDate(rawValue), [rawValue]);
+  const defaultCalendarMonth = React.useMemo(
+    () => usableDate(rawDefaultCalendarMonth),
+    [rawDefaultCalendarMonth],
+  );
+  const minDate = React.useMemo(() => usableDate(rawMinDate), [rawMinDate]);
+  const maxDate = React.useMemo(() => usableDate(rawMaxDate), [rawMaxDate]);
 
   // Every element the component renders takes its data-part, its class
   // override and its inline-style override from the same anatomy key, so

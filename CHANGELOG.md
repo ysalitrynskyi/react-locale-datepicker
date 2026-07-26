@@ -9,6 +9,17 @@ surfaced one real gap and fixed it.
 
 ### Fixed
 
+- An Invalid Date (`new Date("nope")`, or `new Date(x)` where `x` arrived
+  null or malformed from an API) passed as `value`, `today`,
+  `defaultCalendarMonth`, `minDate` or `maxDate` crashed the consumer's
+  whole tree with `RangeError: Invalid time value` thrown from render. All
+  five Date props now normalize at the boundary: an unusable Date behaves
+  exactly like an absent one, and a regression suite pins every prop.
+- The component was measured content-box, so the popover's declared
+  19.5rem plus padding and border came to 330px on a 320px viewport and
+  overflowed. A border-box reset now applies, scoped to the component's own
+  subtree with `:where()` so it cannot leak into consumer markup and stays
+  overridable.
 - Without an explicit `minDate`, the year grid started at the current year,
   quietly making past years unreachable through the year view (month
   navigation and typed entry were never limited). It now spans 120 years

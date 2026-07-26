@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { LocaleDatePicker } from "../src/LocaleDatePicker";
@@ -18,8 +18,53 @@ describe("an unusable Date never crashes the host tree", () => {
 
   it("renders with an Invalid Date as value", () => {
     expect(() =>
-      render(<LocaleDatePicker value={INVALID} onChange={() => {}} />),
+      render(
+        <LocaleDatePicker
+          value={INVALID}
+          onChange={() => {}}
+          placeholder="dd.mm.yyyy"
+        />,
+      ),
     ).not.toThrow();
+  });
+
+  it("renders and opens with an Invalid defaultCalendarMonth", () => {
+    // Reached the viewMonth state and crashed at MOUNT via the header
+    // labels, which format on every render whether the popup is open or
+    // not — a hole the original value-only guard left open.
+    expect(() =>
+      render(
+        <LocaleDatePicker
+          value={null}
+          onChange={() => {}}
+          placeholder="dd.mm.yyyy"
+          aria-label="Date"
+          defaultCalendarMonth={new Date("nope")}
+        />,
+      ),
+    ).not.toThrow();
+    fireEvent.click(screen.getByLabelText("Date"));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
+  it("Invalid minDate/maxDate degrade to unbounded, not to an empty year grid", () => {
+    render(
+      <LocaleDatePicker
+        value={new Date(2026, 6, 18)}
+        onChange={() => {}}
+        placeholder="dd.mm.yyyy"
+        aria-label="Date"
+        minDate={new Date("nope")}
+        maxDate={new Date("nope")}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Date"));
+    // With the guard, invalid bounds behave exactly like absent bounds:
+    // the default 120-year grid, not a zero-row one.
+    fireEvent.click(screen.getByRole("button", { name: "2026", exact: true }));
+    expect(
+      screen.getByRole("button", { name: "1967", exact: true }),
+    ).toBeTruthy();
   });
 
   it("treats an Invalid Date as no date, leaving the field empty", () => {
@@ -43,6 +88,7 @@ describe("an unusable Date never crashes the host tree", () => {
         <LocaleDatePicker
           value={null}
           onChange={() => {}}
+          placeholder="dd.mm.yyyy"
           today={INVALID}
         />,
       ),
@@ -55,6 +101,7 @@ describe("an unusable Date never crashes the host tree", () => {
       <LocaleDatePicker
         value={INVALID}
         onChange={onChange}
+        placeholder="dd.mm.yyyy"
         aria-label="Date"
       />,
     );
@@ -67,6 +114,7 @@ describe("an unusable Date never crashes the host tree", () => {
       <LocaleDatePicker
         value={new Date(2026, 10, 17)}
         onChange={() => {}}
+        placeholder="dd.mm.yyyy"
         aria-label="Date"
       />,
     );
