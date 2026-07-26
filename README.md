@@ -8,9 +8,23 @@ dependencies beyond React.
 [![CI](https://github.com/ysalitrynskyi/react-locale-datepicker/actions/workflows/ci.yml/badge.svg)](https://github.com/ysalitrynskyi/react-locale-datepicker/actions/workflows/ci.yml)
 [![license](https://img.shields.io/npm/l/react-locale-datepicker)](./LICENSE)
 
+![Interaction demo: open, keyboard navigation, month view, one-tap commit, long-form echo](docs/assets/picker-demo.gif)
+
 | Light | Dark | RTL (Arabic) |
 | --- | --- | --- |
 | ![Light theme](docs/assets/picker-light.png) | ![Dark theme](docs/assets/picker-dark.png) | ![RTL Arabic](docs/assets/picker-rtl.png) |
+
+| Month view | Year view | Disabled days |
+| --- | --- | --- |
+| ![Month selection grid](docs/assets/picker-months.png) | ![Year selection grid](docs/assets/picker-years.png) | ![Weekends disabled via shouldDisableDate](docs/assets/picker-disabled-days.png) |
+
+| Custom theme (tokens) | Japanese | Error state |
+| --- | --- | --- |
+| ![Violet theme via rldp custom properties](docs/assets/picker-themed.png) | ![Japanese locale](docs/assets/picker-locale-ja.png) | ![Error state border](docs/assets/picker-error.png) |
+
+All captured from the real component by [`scripts/capture-screenshots.mjs`](scripts/capture-screenshots.mjs)
+(`npm run screenshots`), including a 320 px variant at
+[`docs/assets/picker-mobile.png`](docs/assets/picker-mobile.png).
 
 ## Install
 
