@@ -1,0 +1,78 @@
+# Publishes examples/ to GitHub Pages.
+#
+# OPERATOR STEP REQUIRED BEFORE THIS CAN RUN.
+#
+# Enabling Pages is a repository-settings action, which AGENTS.md reserves to
+# the operator, so this workflow is deliberately `workflow_dispatch` only. It
+# cannot fire on its own and cannot fail noisily in the meantime.
+#
+# To turn it on:
+#   1. Settings -> Pages -> Build and deployment -> Source: "GitHub Actions".
+#   2. Run this workflow once from the Actions tab to publish.
+#   3. Optionally add the push trigger below so the demo tracks main:
+#
+#        on:
+#          workflow_dispatch:
+#          push:
+#            branches: [main]
+#
+# The site is served from a project page, so examples/vite.config.ts sets
+# `base: "/react-locale-datepicker/"` to match.
+
+name: Deploy demo to Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; never cancel one midway, since that can leave the
+# published site half-updated.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build demo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and build the package
+        run: |
+          npm ci
+          npm run build
+
+      # The demo depends on the package as file:.., so dist/ must exist
+      # before this step. It imports by package name, never from ../src —
+      # the deployed demo is a real consumer or it proves nothing.
+      - name: Install and build the demo
+        working-directory: examples
+        run: |
+          npm install
+          npm run typecheck
+          npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: examples/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

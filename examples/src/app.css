@@ -1,0 +1,156 @@
+/* Demo page chrome only. Nothing here styles the picker: the point of the
+ * demo is what the package looks like out of the box, so the only picker
+ * styling on this page is react-locale-datepicker/styles.css. */
+
+:root {
+  color-scheme: light dark;
+  --page-bg: light-dark(#f8fafc, #0b1020);
+  --page-fg: light-dark(#0f172a, #e2e8f0);
+  --page-muted: light-dark(#475569, #94a3b8);
+  --card-bg: light-dark(#ffffff, #111827);
+  --card-border: light-dark(#e2e8f0, #1f2937);
+  --link: light-dark(#2563eb, #60a5fa);
+}
+
+/* The demo's own scheme toggle. The picker reads the same attribute on its
+ * own, which is the mechanism the package documents for next-themes and
+ * similar togglers. */
+[data-theme="light"] {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  line-height: 1.5;
+}
+
+.page {
+  min-height: 100vh;
+  padding: 2rem 1rem 4rem;
+  background: var(--page-bg);
+  color: var(--page-fg);
+}
+
+.header,
+.controls,
+.resolved,
+.examples,
+.footer {
+  max-width: 60rem;
+  margin-inline: auto;
+}
+
+.header h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 0 0 0.5rem;
+  max-width: 44rem;
+  color: var(--page-muted);
+}
+
+.links a {
+  color: var(--link);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem auto;
+  padding: 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.controls select {
+  min-width: 12rem;
+  padding: 0.5rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.5rem;
+  background: var(--card-bg);
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+}
+
+.resolved {
+  margin: 0 auto 1.5rem;
+  font-size: 0.8125rem;
+  color: var(--page-muted);
+}
+
+.examples {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  align-items: start;
+}
+
+.example {
+  padding: 1.25rem;
+  border: 1px solid var(--card-border);
+  border-radius: 0.75rem;
+  background: var(--card-bg);
+}
+
+.example h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.note {
+  margin: 0 0 1rem;
+  font-size: 0.8125rem;
+  color: var(--page-muted);
+}
+
+/* Room below the field so an opened calendar is not clipped by the card. */
+.example :is(.rldp-root) {
+  margin-bottom: 0.75rem;
+}
+
+.value,
+.hint {
+  display: block;
+  margin-top: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--page-muted);
+}
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.95em;
+}
+
+.footer {
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--card-border);
+  font-size: 0.8125rem;
+  color: var(--page-muted);
+}

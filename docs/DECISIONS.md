@@ -184,7 +184,10 @@ small projects.
 
 ## D9 — Public demo
 
-**Status:** OPEN.
+**Status:** DECIDED 2026-07-26 — the recommendation as written: a minimal
+Vite demo in `examples/`, with a GitHub Pages workflow prepared in the
+repository. Decided at agent level while building Phase 6; non-blocking, and
+the recommendation was already written here.
 
 A date picker is close to unsellable without something to click. A single static
 page with a locale switcher (including one RTL locale) and a disabled-days
@@ -193,6 +196,31 @@ example would carry most of the value.
 **Recommendation:** a minimal Vite demo in `examples/`, deployed to GitHub Pages
 from CI. Defer to Phase 6 — after the component works, before announcing it
 anywhere.
+
+### How it consumes the package
+
+The demo installs the package as `file:..` and imports
+`react-locale-datepicker` by name. It deliberately does **not** deep-import
+`../src`, which would have been simpler and would have made the demo prove
+nothing: the point is to exercise the same entry points, `exports` map and
+built `dist` that a real consumer resolves. A demo that imports the source
+cannot catch a broken `exports` map, a missing `"use client"` banner or a
+stylesheet that fails to resolve — which are exactly the failures that
+reach users and never reach the test suite.
+
+`resolve.dedupe` for `react` and `react-dom` is load-bearing rather than
+tidy-up: a `file:` dependency is symlinked, so the linked package resolves
+React from the repository root while the app resolves its own copy, and two
+Reacts in one tree is an immediate hooks crash.
+
+### What is deliberately NOT done here
+
+Enabling GitHub Pages and running the first deployment are repository
+**settings** actions, which `AGENTS.md` reserves to the operator. The
+workflow is therefore written and committed but triggered by
+`workflow_dispatch` only. It cannot fire, and cannot fail noisily, until the
+operator enables Pages and adds the push trigger — a one-line change
+documented in the workflow itself.
 
 ---
 

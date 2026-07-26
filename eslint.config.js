@@ -10,6 +10,7 @@ export default tseslint.config(
       "coverage/**",
       "node_modules/**",
       "e2e/harness/dist/**",
+      "examples/dist/**",
       "playwright-report/**",
       "test-results/**",
       "*.tgz",
@@ -20,7 +21,12 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}", "e2e/**/*.{ts,tsx}"],
+    files: [
+      "src/**/*.{ts,tsx}",
+      "tests/**/*.{ts,tsx}",
+      "e2e/**/*.{ts,tsx}",
+      "examples/src/**/*.{ts,tsx}",
+    ],
     languageOptions: {
       ecmaVersion: 2020,
       globals: { ...globals.browser, ...globals.node },

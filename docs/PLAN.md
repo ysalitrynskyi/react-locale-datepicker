@@ -144,14 +144,26 @@ verified: CJS `require`, `resolveLocale("ua")` → `uk`, SSR render, and
 
 ## Phase 6 — Demo and announcement
 
-**Status:** NOT STARTED. Unblocked by Phase 5. See D9.
+**Status:** DEMO DONE 2026-07-26, DEPLOYMENT AND ANNOUNCEMENT PENDING THE
+OPERATOR. D9 decided the same day.
 
-1. Minimal demo app with a locale switcher, an RTL locale and a disabled-days
-   example.
-2. Deploy to GitHub Pages from CI; link it from the README and the repository
-   description.
-3. Only then consider announcing anywhere. **Announcing is outward-facing and
-   needs explicit operator approval per venue.**
+1. [x] Minimal Vite demo in `examples/`: locale switcher (eleven locales
+      including two RTL, the `ua` alias and an unknown tag), a disabled-days
+      example using `shouldDisableDate` for weekends plus a blackout week, an
+      opt-outs example, and theme and colour-scheme toggles. It consumes the
+      **built package** through a `file:..` install and imports by package
+      name, never `../src`, so it exercises the real `exports` map and
+      stylesheet path. Verified end to end against the built package: renders,
+      opens, commits, RTL flips, `ua` normalizes, themes repaint, no console
+      errors.
+2. [ ] Deploy to GitHub Pages. The workflow is written
+      (`.github/workflows/pages.yml`) and is `workflow_dispatch` only.
+      **Enabling Pages is a repository-settings action and belongs to the
+      operator** — see the instructions at the top of that file. Linking it
+      from the README and the repository description follows the first
+      successful deployment.
+3. [ ] Announcing. Outward-facing; **needs explicit operator approval per
+      venue.** Not done, not started.
 
 ---
 

@@ -243,6 +243,16 @@ npm run test:e2e       # Playwright matrix
 npm run build          # tsup → dist/ (ESM + CJS + d.ts + styles.css)
 ```
 
+### Demo
+
+[`examples/`](examples/) is a small Vite app consuming the **built** package,
+with a locale switcher (including RTL), disabled days and theme toggles. It
+resolves `dist/`, so build the package first:
+
+```bash
+npm run build && cd examples && npm install && npm run dev
+```
+
 ## Documentation
 
 | Document | What it covers |
