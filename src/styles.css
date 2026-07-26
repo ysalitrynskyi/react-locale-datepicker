@@ -259,10 +259,18 @@
 
   /* --- Grids ------------------------------------------------------------ */
 
+  /* The days grid is one seven-column track per week rather than one flat
+   * 42-cell grid, because role="grid" needs real rows to own the cells.
+   * Visually identical: the row is the grid container, the cell is the grid
+   * item, and the day button still fills it. */
   :where(.rldp-weekdays),
-  :where(.rldp-days) {
+  :where(.rldp-week) {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  :where(.rldp-daycell) {
+    display: flex;
+    min-width: 0; /* never let a cell widen its column */
   }
   :where(.rldp-weekday) {
     display: flex;

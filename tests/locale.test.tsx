@@ -118,10 +118,9 @@ describe("locale-driven labels from Intl", () => {
       initialValue: localDate(2024, 5, 15),
     });
     await us.openViaClick();
-    // Weekday header cells are div[aria-hidden] with text; SVG icons also
-    // use aria-hidden but have empty textContent — keep only labelled cells.
+    // Weekday header cells are the grid's column headers, in column order.
     const usLabels = Array.from(
-      us.dialog().querySelectorAll("div[aria-hidden='true']"),
+      us.dialog().querySelectorAll("[role='columnheader']"),
     )
       .map((el) => el.textContent?.trim() ?? "")
       .filter(Boolean);
@@ -140,7 +139,7 @@ describe("locale-driven labels from Intl", () => {
     });
     await de.openViaClick();
     const deLabels = Array.from(
-      de.dialog().querySelectorAll("div[aria-hidden='true']"),
+      de.dialog().querySelectorAll("[role='columnheader']"),
     )
       .map((el) => el.textContent?.trim() ?? "")
       .filter(Boolean);

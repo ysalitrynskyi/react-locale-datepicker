@@ -396,6 +396,17 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       }),
     [resolvedLocale],
   );
+  // Column headers show the short weekday but are announced with the long
+  // one, the role="columnheader" equivalent of the APG example's
+  // <th abbr="Sunday">Su</th>.
+  const weekdayLongFmt = React.useMemo(
+    () =>
+      new Intl.DateTimeFormat(resolvedLocale, {
+        calendar: "gregory",
+        weekday: "long",
+      }),
+    [resolvedLocale],
+  );
   const fullDateFmt = React.useMemo(
     () =>
       new Intl.DateTimeFormat(resolvedLocale, {
@@ -589,15 +600,29 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     return cells;
   }, [viewMonth, weekStart]);
 
+  // role="grid" requires the cells to be grouped into rows, so the flat cell
+  // list above is also sliced into weeks. Both shapes are kept: the flat list
+  // is what the roving-target search scans, the rows are what renders.
+  const weeks = React.useMemo(() => {
+    const rows: (Date | null)[][] = [];
+    for (let i = 0; i < daysGrid.length; i += 7) {
+      rows.push(daysGrid.slice(i, i + 7));
+    }
+    return rows;
+  }, [daysGrid]);
+
   const weekdayLabels = React.useMemo(() => {
     // 2024-06-02 was a Sunday; offset from it to label each column.
-    const labels: string[] = [];
+    const labels: { short: string; long: string }[] = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(2024, 5, 2 + ((weekStart + i) % 7));
-      labels.push(weekdayFmt.format(day));
+      labels.push({
+        short: weekdayFmt.format(day),
+        long: weekdayLongFmt.format(day),
+      });
     }
     return labels;
-  }, [weekStart, weekdayFmt]);
+  }, [weekStart, weekdayFmt, weekdayLongFmt]);
 
   const today = localToday();
 
@@ -973,56 +998,95 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             </button>
           </div>
 
-          {/* Days */}
+          {/* Days.
+              role="grid" with aria-selected is the APG/Duet side of the
+              schism the roadmap records (Cally's aria-pressed is the other);
+              grid matches how screen readers navigate tables and what audit
+              checklists look for. The migration is an accessibility
+              correction, so it ships as a default rather than an opt-in.
+              aria-selected lives on the gridcell because a button role does
+              not permit it; aria-current="date" now marks TODAY, which is
+              what it means, instead of the selection. */}
           {view === "days" && (
             <div
               ref={gridRef}
+              role="grid"
+              aria-label={monthTitleFmt.format(viewMonth)}
               className={cx("rldp-grid", classNames?.grid)}
               onKeyDown={onGridKeyDown}
             >
-              <div className="rldp-weekdays">
+              <div className="rldp-weekdays" role="row">
                 {weekdayLabels.map((w, i) => (
-                  <div key={i} className="rldp-weekday" aria-hidden="true">
-                    {w}
+                  <div
+                    key={i}
+                    role="columnheader"
+                    aria-label={w.long}
+                    className="rldp-weekday"
+                  >
+                    {w.short}
                   </div>
                 ))}
               </div>
-              <div className="rldp-days">
-                {daysGrid.map((d, i) => {
-                  if (!d) return <div key={i} />;
-                  const isDisabled = shouldDisableDate(d);
-                  const isSelected = sameDay(d, value);
-                  const isToday = sameDay(d, today);
-                  const isRove = roveTarget !== null && sameDay(d, roveTarget);
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      data-day={dayKey(d)}
-                      // aria-disabled keeps the cell focusable so arrow-key
-                      // traversal never dead-ends on a disabled date.
-                      aria-disabled={isDisabled || undefined}
-                      tabIndex={isRove ? 0 : -1}
-                      aria-label={formatDayAccessibleName(d)}
-                      aria-current={isSelected ? "date" : undefined}
-                      data-selected={isSelected || undefined}
-                      data-disabled={isDisabled || undefined}
-                      data-today={(isToday && !isSelected) || undefined}
-                      className={cx(
-                        "rldp-day",
-                        classNames?.day,
-                        isSelected && classNames?.daySelected,
-                        isDisabled && classNames?.dayDisabled,
-                      )}
-                      onClick={() => {
-                        if (!isDisabled) commit(d);
-                      }}
-                      onFocus={() => setFocusDay(d)}
-                    >
-                      {d.getDate()}
-                    </button>
-                  );
-                })}
+              <div className="rldp-days" role="rowgroup">
+                {weeks.map((week, wi) => (
+                  <div key={wi} role="row" className="rldp-week">
+                    {week.map((d, i) => {
+                      if (!d) {
+                        // Padding cell. It still carries role="gridcell" so
+                        // every row has seven cells and grid navigation does
+                        // not report a ragged table.
+                        return (
+                          <div
+                            key={i}
+                            role="gridcell"
+                            aria-disabled="true"
+                            className="rldp-daycell"
+                          />
+                        );
+                      }
+                      const isDisabled = shouldDisableDate(d);
+                      const isSelected = sameDay(d, value);
+                      const isToday = sameDay(d, today);
+                      const isRove =
+                        roveTarget !== null && sameDay(d, roveTarget);
+                      return (
+                        <div
+                          key={i}
+                          role="gridcell"
+                          aria-selected={isSelected}
+                          className="rldp-daycell"
+                        >
+                          <button
+                            type="button"
+                            data-day={dayKey(d)}
+                            // aria-disabled keeps the cell focusable so
+                            // arrow-key traversal never dead-ends on a
+                            // disabled date.
+                            aria-disabled={isDisabled || undefined}
+                            tabIndex={isRove ? 0 : -1}
+                            aria-label={formatDayAccessibleName(d)}
+                            aria-current={isToday ? "date" : undefined}
+                            data-selected={isSelected || undefined}
+                            data-disabled={isDisabled || undefined}
+                            data-today={(isToday && !isSelected) || undefined}
+                            className={cx(
+                              "rldp-day",
+                              classNames?.day,
+                              isSelected && classNames?.daySelected,
+                              isDisabled && classNames?.dayDisabled,
+                            )}
+                            onClick={() => {
+                              if (!isDisabled) commit(d);
+                            }}
+                            onFocus={() => setFocusDay(d)}
+                          >
+                            {d.getDate()}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
           )}
