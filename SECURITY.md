@@ -4,8 +4,11 @@
 
 | Version | Supported |
 |---|---|
-| 0.1.x (latest) | Yes |
+| 0.3.x (latest) | Yes |
 | anything older | No — upgrade to the latest 0.x |
+
+**0.3.1 and earlier contain a crash** that unmounts the consuming application's
+tree when an unusable `Date` reaches the component. Fixed in 0.3.2.
 
 Pre-1.0, fixes land in the newest release only.
 

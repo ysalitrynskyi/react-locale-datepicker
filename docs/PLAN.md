@@ -173,9 +173,30 @@ operator approval and has not happened.
 
 ## Phase 7 — Steady state
 
+**Status:** ACTIVE since 0.3.2 (2026-07-26). The extraction is finished; work
+now arrives as bugs, locale reports and `ROADMAP.md` items rather than phases.
+
 - Triage issues per the D8 posture.
 - Keep the parity contract green; it is the reason the component is trustworthy.
 - If the source product ever adopts the package (D7), pin an exact version.
+
+### Releases so far
+
+| Version | What it was |
+|---|---|
+| 0.1.0 | First publish — the extracted component |
+| 0.2.0 | Theming, anatomy, opt-outs |
+| 0.3.0 / 0.3.1 | Injectable `today` and business `timeZone` (D16) |
+| **0.3.2** | Bug fixes from an external review: the Invalid-Date crash, the missing `box-sizing`, and the `light-dark()` fallback |
+
+**A lesson worth keeping from 0.3.2.** The first fix for the Invalid-Date crash
+guarded only `value`, and looked complete — the reproduction passed. It was not:
+`defaultCalendarMonth` still crashed at mount through the header labels, which
+format on every render whether the popup is open or not, and invalid
+`minDate`/`maxDate` still produced an empty year grid. A partial guard against a
+whole class of bad input reads exactly like a finished one. When a fix is about
+a *kind* of value rather than one call site, enumerate every entry point for
+that kind before calling it done.
 
 ---
 
