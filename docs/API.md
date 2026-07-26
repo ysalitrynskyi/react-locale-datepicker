@@ -32,7 +32,7 @@ import "react-locale-datepicker/styles.css"; // depends on D3
 | Prop | Type | Default | Notes |
 |---|---|---|---|
 | `locale` | `string` | `"en"` | Any BCP 47 tag `Intl` accepts. Non-standard aliases are normalized — see § Locale resolution. |
-| `placeholder` | `string` | — | Not derived from the locale: the display format is caller-controlled, so the hint must be too. |
+| `placeholder` | `string` | — | Not derived from the locale: the display format is fixed (`dd.MM.yyyy`), and the component does not translate hint text, so the caller supplies a hint matching it. A format contract is planned — see `ROADMAP.md`. |
 | `direction` | `"ltr" \| "rtl" \| "auto"` | `"auto"` | `"auto"` resolves from the locale. |
 
 ### Constraints

@@ -3,9 +3,10 @@
 A React date picker that localizes itself from the `Intl` API — every locale the
 browser knows, no locale files to register, right-to-left aware.
 
-> **Status: pre-implementation.** This repository currently contains the plan,
-> the API design and the open decisions. There is no shipping code yet, and
-> nothing has been published to npm. Start with [`docs/PLAN.md`](docs/PLAN.md).
+> **Status: ported, pre-release.** The component is in [`src/`](src/) and
+> type-checks under strict mode; styling, tests and packaging are still ahead
+> and nothing has been published to npm. Start with
+> [`docs/PLAN.md`](docs/PLAN.md).
 
 ## Why another date picker
 
@@ -55,6 +56,7 @@ checkout where a mis-entered date costs a sale, not by a component gallery.
 | [`docs/API.md`](docs/API.md) | Proposed public API surface |
 | [`docs/EXTRACTION.md`](docs/EXTRACTION.md) | Porting rules and behaviour that must not regress |
 | [`docs/TESTING.md`](docs/TESTING.md) | Required test matrix |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Post-extraction feature and theming roadmap |
 | [`docs/RELEASING.md`](docs/RELEASING.md) | Versioning and npm publish process |
 | [`AGENTS.md`](AGENTS.md) | Operating guide for AI agents working in this repo |
 

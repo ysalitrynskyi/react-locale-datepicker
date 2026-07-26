@@ -68,7 +68,10 @@ Recommended, adjust with reason:
 
 - [ ] RTL renders correctly, including navigation arrow direction.
 - [ ] 320px viewport is usable.
-- [ ] The popover does not clip inside a scrolling container.
+- [ ] The popover flips above the field and shifts horizontally so the
+      viewport never clips it. (Escaping `overflow: hidden` ancestors needs
+      the portal/top-layer work scheduled in `ROADMAP.md` and is a documented
+      limitation until then.)
 
 ## Browser matrix
 
