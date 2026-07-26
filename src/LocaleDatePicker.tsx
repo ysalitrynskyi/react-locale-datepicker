@@ -1181,10 +1181,30 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     btn?.focus();
   }, [focusDay, open, view, viewMonth]);
 
+  // The year span runs a century-plus back by default, so the years grid
+  // must bring the current view year into sight when it opens — otherwise
+  // the list opens at the oldest year and the user scrolls for decades.
+  // scrollIntoView is optional-chained because jsdom does not implement it.
+  React.useEffect(() => {
+    if (view !== "years") return;
+    const el = popupRef.current?.querySelector<HTMLElement>(
+      '[data-part="year"][data-current]',
+    );
+    el?.scrollIntoView?.({ block: "center" });
+  }, [view]);
+
   // --- Months / years grids ------------------------------------------------
   const yearNow = today.getFullYear();
   const yearsRange = React.useMemo(() => {
-    const from = minDate ? minDate.getFullYear() : yearNow;
+    // Without an explicit minDate the year grid used to start at the
+    // CURRENT year, which quietly made past years unreachable through the
+    // year view — hostile to the birth-date use case, where a 1967 entry
+    // is routine, and the kind of gap users read as "the app does not
+    // allow earlier dates". 120 years back is the span birth-date
+    // dropdowns conventionally offer. Month navigation and typed entry
+    // were never limited; this widens only the year GRID. Selection
+    // stays governed solely by shouldDisableDate either way.
+    const from = minDate ? minDate.getFullYear() : yearNow - 120;
     const to = maxDate ? maxDate.getFullYear() : yearNow + 2;
     const years: number[] = [];
     for (let y = from; y <= to; y++) years.push(y);

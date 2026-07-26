@@ -1,6 +1,28 @@
 # Changelog
 
-## 0.3.0 — unreleased
+## 0.3.1 — unreleased
+
+Prompted by a field report against a consumer product whose users could not
+enter birth dates before the Unix epoch. This package never had an epoch
+floor — a new regression suite now pins that permanently — but the audit
+surfaced one real gap and fixed it.
+
+### Fixed
+
+- Without an explicit `minDate`, the year grid started at the current year,
+  quietly making past years unreachable through the year view (month
+  navigation and typed entry were never limited). It now spans 120 years
+  back — the span birth-date dropdowns conventionally offer — and the years
+  view scrolls itself to the current year when it opens. Selection stays
+  governed solely by `shouldDisableDate`.
+
+### Added
+
+- A pre-epoch regression suite: 1967 dates type, parse, commit, click and
+  navigate like any other date, and the year grid reaches 1900 when
+  `minDate` asks for it.
+
+## 0.3.0 — 2026-07-26
 
 Driven by operator testing of the 0.2.0 live demo: the typed-input path and
 the open calendar lived in separate worlds, and "today" could not follow a
