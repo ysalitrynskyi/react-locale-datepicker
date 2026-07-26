@@ -83,8 +83,10 @@ all.
 ## Phase 3 — Tests
 
 **Status:** DONE 2026-07-26. Vitest + Testing Library unit/interaction suite
-(39 tests) covers every line of [`TESTING.md`](TESTING.md); Playwright matrix
-runs Chromium/Firefox/WebKit at 320/768/1280 (93 passed, 6 viewport-skipped).
+(49 tests across 9 files) covers every line of [`TESTING.md`](TESTING.md);
+Playwright matrix runs Chromium/Firefox/WebKit at 320/768/1280 (111 passed,
+6 viewport-skipped, after the Phase 2 dark-mode and RTL computed-style tests
+joined it).
 CI runs typecheck, lint, unit tests under `TZ=UTC`, `America/Los_Angeles` and
 `Asia/Tokyo`, and the Playwright matrix on every push/PR. Each parity-contract
 test names the bug it guards in its failure message.

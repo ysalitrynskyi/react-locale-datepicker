@@ -317,7 +317,7 @@ this concrete:
   echo can today disagree with the Gregorian grid (a Gregorian selection
   echoes as a Hijri date). Near-term fix: pin `calendar: "gregory"` (and the
   grid's numbering assumptions) in the formatters so echo and grid always
-  agree — this is the substance of D11 and gates the 0.3 release. **Fixed
+  agree — the substance of D11. **Fixed
   2026-07-26:** D11 decided and applied; regression tests in
   `tests/calendar-gregory.test.tsx`. Longer term: opt-in display calendars
   via `-u-ca-` (always pinning a variant — bare `islamic` diverges from
@@ -399,10 +399,16 @@ gaps against it found in the current component are listed honestly:
 Versions after the 0.1.0 first publish (PLAN.md Phase 5). Each minor ships
 with tests to the TESTING.md bar; a red suite blocks any release.
 
+Already shipped in 0.1.0, ahead of this table: the token layer, CSS-only
+light/dark, basic forced-colors and reduced-motion rules, `classNames` and
+`icons` (Phase 2 / D3); the completed keyboard map, voice-control-safe day
+names and the Gregorian echo pinning (D11). The rows below carry only what
+remains.
+
 | Version | Contents | Depends on |
 |---|---|---|
-| 0.2 | Track 1 complete: tokens, anatomy, light/dark, shipped themes + `themeName`, forced-colors, reduced motion; `classNames`/`styles`/`icons`/`labels`; opt-outs for existing built-ins | D3 outcome, D10 |
-| 0.3 | Track 5 keyboard/announcement completion; echo calendar pinning; digit-map generalization; voice-control day names; `onValidationError` | 0.2, D11 |
+| 0.2 | Track 1 remainder: published data-part anatomy, named themes + `themeName`, `styles` map, `labels`, opt-outs for existing built-ins, oklch palette pass, documented Tailwind bridge | D10 |
+| 0.3 | Track 5 remainder: aria-atomic month heading, grid-entry keyboard-help announcement, trigger accessible-name echo, `role="grid"` migration; digit-map generalization; `onValidationError` | 0.2 |
 | 0.4 | `disabledDates` matchers, modifiers, presets, week numbers, fixed weeks, month/year modes + `openTo`, standalone Calendar, controlled/uncontrolled state, slots + `renderDay`/`getDayProps`, footer utilities, `clearable`, ref API, `onMonthChange`/`month`, native input surface, placement + Popover-API/portal escape, `today` prop | D12, D16 |
 | 0.5 | Range and multiple selection; `numberOfMonths` | D13 |
 | 0.6 | Display format contract; localized digit rendering; `-u-ca-` display calendars; typed month names; Temporal adapters | D11, D14, D17 |
@@ -425,7 +431,8 @@ here so the shape of each is not lost:
   in Track 1.
 - **D11 — Echo calendar policy.** Pin `gregory` for formatter consistency
   versus honouring locale-default calendars. Recommendation: pin, then make
-  display calendars opt-in. Gates 0.3.
+  display calendars opt-in. Decided and shipped 2026-07-26 (see
+  DECISIONS.md); only the opt-in display-calendar half remains, in 0.6.
 - **D12 — Matcher API adoption.** Whether the `Matcher` union lands, under
   what prop name (`disabledDates` recommended; `disabled` is taken by the
   whole-picker prop), and how it compiles into `shouldDisableDate` without
