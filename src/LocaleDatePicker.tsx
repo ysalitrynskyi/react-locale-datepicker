@@ -109,6 +109,20 @@ export type IconName =
   | "chevronRight"
   | "chevronDown";
 
+// Why a typed date was not committed. Follows GOV.UK's error taxonomy, and
+// deliberately stops at three: the component classifies and REPORTS, the
+// consumer decides what that means and renders it. hasError stays visual
+// only and commitTyped still consults nothing but shouldDisableDate, so the
+// never-decides-validity contract in docs/API.md is intact.
+export type ValidationErrorReason =
+  /** The field was left empty. */
+  | "missing"
+  /** Text was typed but does not name a real calendar day — incomplete
+   *  entry, or a day that does not exist such as 31.02. */
+  | "impossible-date"
+  /** A real date that shouldDisableDate rejects. */
+  | "not-selectable";
+
 // The themes shipped in the stylesheet. Each is a block redefining the same
 // --rldp-* token set under [data-rldp-theme="<name>"]; this prop stamps that
 // attribute on the root. The attribute path stays available for CSS-only
@@ -205,6 +219,11 @@ export interface LocaleDatePickerProps {
    *  fixed-timezone business day, rather than the visitor's, are the case
    *  this exists for; see the note at localToday. */
   showTodayMarker?: boolean;
+  /** Reports why a TYPED entry did not commit — see the
+   *  ValidationErrorReason type. Never fires for calendar clicks, which
+   *  cannot produce an invalid date. The component only reports; it does
+   *  not render anything or change hasError. */
+  onValidationError?: (reason: ValidationErrorReason) => void;
   /** Fired when the user tries to open the picker while it is disabled
    *  (e.g. while a prerequisite field is still empty) so the form can guide
    *  the user to the field they must fill first. */
@@ -556,6 +575,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   showEcho = true,
   showWeekdayHeader = true,
   showTodayMarker = true,
+  onValidationError,
   onDisabledOpenAttempt,
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
@@ -854,16 +874,22 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       // resync the text. Typing never commits null — a parent that supports
       // clearing does it from outside through value/onChange.
       setDraft(null);
+      onValidationError?.("missing");
       return undefined;
     }
     const parsed = parseTyped(draft);
     setDraft(null); // invalid input reverts to the committed value
-    if (parsed && !shouldDisableDate(parsed)) {
-      const d = startOfDay(parsed);
-      onChange(d);
-      return d;
+    if (!parsed) {
+      onValidationError?.("impossible-date");
+      return undefined;
     }
-    return undefined;
+    if (shouldDisableDate(parsed)) {
+      onValidationError?.("not-selectable");
+      return undefined;
+    }
+    const d = startOfDay(parsed);
+    onChange(d);
+    return d;
   };
 
   // --- Days grid model -----------------------------------------------------

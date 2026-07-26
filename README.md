@@ -107,6 +107,7 @@ means passing a different string.
 | `showEcho` / `showWeekdayHeader` / `showTodayMarker` | `boolean` | Opt out of a built-in. All default to `true` — today's behaviour. |
 | `onBlur` | `(current: Date \| null) => void` | Receives the **just-committed** value. |
 | `onDisabledOpenAttempt` | `() => void` | Fires when a disabled picker is tapped. |
+| `onValidationError` | `(reason) => void` | Why a typed entry did not commit: `"missing"`, `"impossible-date"`, `"not-selectable"`. |
 | `aria-label` / `aria-invalid` / `aria-describedby` | | Pass through to the input. |
 | `className` | `string` | Root element. |
 | `themeName` | `"default" \| "minimal" \| "soft" \| "high-contrast"` | Selects a shipped theme. Unset inherits an ancestor's. |

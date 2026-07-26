@@ -3,6 +3,7 @@ export type {
   LocaleDatePickerProps,
   Labels,
   ThemeName,
+  ValidationErrorReason,
   Slot,
   PartSlot,
   Part,

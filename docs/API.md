@@ -66,6 +66,20 @@ Every entry defaults to the 0.1.0 behaviour, so no existing caller changes.
 | `showTodayMarker` | `boolean` | `true` | Mark today. Turning it off removes both `data-today` and `aria-current="date"` — never one without the other. |
 | `onBlur` | `(current: Date \| null) => void` | **Receives the just-committed value.** See § Blur ordering. |
 | `onDisabledOpenAttempt` | `() => void` | Fires when a user tries to open a disabled picker, so the form can point them at the field they must fill first. |
+| `onValidationError` | `(reason: ValidationErrorReason) => void` | Reports why a **typed** entry did not commit. The component classifies and reports; the consumer renders. Never fires for calendar clicks. |
+
+`ValidationErrorReason` follows GOV.UK's error taxonomy:
+
+| Reason | Meaning |
+|---|---|
+| `"missing"` | The field was left empty. |
+| `"impossible-date"` | Text was typed but does not name a real calendar day — incomplete, or a day that does not exist such as `31.02`. |
+| `"not-selectable"` | A real date that `shouldDisableDate` rejects. |
+
+This does **not** make the component an authority on validity. `hasError`
+stays visual-only and consumer-controlled, and `shouldDisableDate` remains
+the single authority on selectability — a rejection is reported, never
+overridden.
 
 ### Accessibility
 
