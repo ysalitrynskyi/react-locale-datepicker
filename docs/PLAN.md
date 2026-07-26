@@ -127,21 +127,22 @@ working picker.
 
 ## Phase 5 — First publish
 
-**Status:** PARTIAL 2026-07-26 — GitHub tag/release `v0.1.0` published;
-npm registry publish blocked on expired/invalid local npm auth token
-(operator must re-run `npm login` then `npm publish --access public`).
+**Status:** DONE 2026-07-26. `react-locale-datepicker@0.1.0` is on npm
+(latest). GitHub tag/release `v0.1.0` published. Clean-registry install
+verified: CJS `require`, `resolveLocale("ua")` → `uk`, SSR render, and
+`./styles.css` export resolve.
 
 1. [x] Confirm `/LICENSE` exists and matches the D1 outcome.
 2. [x] Flip `"private": false` in `package.json`.
-3. [ ] Publish `0.1.0` to npm — package ready; auth required on this machine.
+3. [x] Publish `0.1.0` to npm.
 4. [x] Tag the release and write release notes (`v0.1.0` + GitHub Release).
-5. [ ] Verify the published package installs from the registry into a clean project.
+5. [x] Verify the published package installs from the registry into a clean project.
 
 ---
 
 ## Phase 6 — Demo and announcement
 
-**Status:** BLOCKED on Phase 5. See D9.
+**Status:** NOT STARTED. Unblocked by Phase 5. See D9.
 
 1. Minimal demo app with a locale switcher, an RTL locale and a disabled-days
    example.
