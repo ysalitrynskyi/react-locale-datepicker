@@ -150,6 +150,9 @@ rejects. **Never pass a caller-supplied locale string directly into
 ### Input masking
 
 Typed digits are masked into the display format as the user types, because an
-iOS numeric keypad offers no separator keys. Eastern Arabic-Indic digits are
-normalized to ASCII before parsing. Both behaviours are load-bearing for mobile
-and RTL users respectively, and both are easy to lose in a refactor.
+iOS numeric keypad offers no separator keys. Localized digits are normalized
+to ASCII before parsing, for **every** numbering system `Intl` knows — the
+map is generated from `Intl.NumberFormat` rather than hand-maintained, so
+Devanagari, Bengali, Myanmar, Thai and the rest work alongside the two
+Arabic-Indic ranges. Both behaviours are load-bearing for mobile and
+non-Latin-script users respectively, and both are easy to lose in a refactor.

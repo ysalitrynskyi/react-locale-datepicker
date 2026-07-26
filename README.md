@@ -80,8 +80,8 @@ means passing a different string.
 - **Localization with no locale files.** Names, week start and echo from `Intl`.
 - **RTL by construction.** Arabic and Hebrew lay out correctly.
 - **One tap to select.** Clicking a day commits and closes — no confirm step.
-- **Typing that survives mobile.** Digits mask into `dd.MM.yyyy`; Eastern
-  Arabic-Indic digits normalize to ASCII.
+- **Typing that survives mobile.** Digits mask into `dd.MM.yyyy`; localized
+  digits normalize to ASCII for every numbering system `Intl` knows.
 - **Readable echo.** The committed date is restated in words under the field.
 - **Timezone-safe values.** Local-midnight `Date` objects — never a silent
   day-shift from a UTC round trip.

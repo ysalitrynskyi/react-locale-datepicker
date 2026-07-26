@@ -425,15 +425,98 @@ const formatDisplay = (date: Date | null): string => {
   return `${dd}.${mm}.${date.getFullYear()}`;
 };
 
-// Normalize Eastern Arabic-Indic (٠-٩) and Extended (۰-۹) digits, drop
-// everything but digits, and re-mask as dd.MM.yyyy while typing. The mask
-// means the iOS numeric keypad (which has no "." key) can still type dates.
+// Typed digits are normalized to ASCII before parsing. This used to handle
+// exactly two ranges by hand — Eastern Arabic-Indic (٠-٩) and Extended
+// (۰-۹) — which meant a user whose locale defaults to beng, deva, mymr or
+// any other numbering system could not type a date at all: their digits hit
+// the non-digit filter and vanished.
+//
+// The map is generated from Intl.NumberFormat instead, one entry per digit
+// per numbering system the engine knows. That is the only version of this
+// that stays correct as CLDR grows without anyone maintaining a table; it
+// is React Aria's technique (ROADMAP Track 4).
+let digitMap: Map<string, string> | null = null;
+
+// Used only by engines predating Intl.supportedValuesOf (ES2022). Not an
+// attempt at completeness — just the systems that are a locale default
+// somewhere, so those users keep working on an older engine.
+const FALLBACK_NUMBERING_SYSTEMS = [
+  "arab",
+  "arabext",
+  "beng",
+  "deva",
+  "gujr",
+  "guru",
+  "khmr",
+  "knda",
+  "laoo",
+  "mlym",
+  "mymr",
+  "orya",
+  "taml",
+  "telu",
+  "thai",
+  "tibt",
+];
+
+const buildDigitMap = (): Map<string, string> => {
+  const map = new Map<string, string>();
+  let systems: readonly string[] = FALLBACK_NUMBERING_SYSTEMS;
+  try {
+    const supported = (
+      Intl as typeof Intl & {
+        supportedValuesOf?: (key: string) => string[];
+      }
+    ).supportedValuesOf?.("numberingSystem");
+    if (supported && supported.length > 0) systems = supported;
+  } catch {
+    /* older engine: the fallback list above still covers the defaults */
+  }
+  for (const system of systems) {
+    let format: Intl.NumberFormat;
+    try {
+      format = new Intl.NumberFormat(`en-u-nu-${system}`, {
+        useGrouping: false,
+      });
+    } catch {
+      continue; // engine does not know this numbering system
+    }
+    for (let digit = 0; digit <= 9; digit++) {
+      const glyph = format.format(digit);
+      // Decimal-digit glyphs only. Algorithmic systems format 1 as "I"
+      // (roman) or 5 as "五" (hanidec); those are letters, not digits, and
+      // silently reading a letter as a digit would be worse than ignoring
+      // it. \p{Nd} is exactly the right test.
+      if (!/^\p{Nd}$/u.test(glyph)) continue;
+      const existing = map.get(glyph);
+      // A glyph two systems disagree about is ambiguous; keep the first.
+      if (existing !== undefined && existing !== String(digit)) continue;
+      map.set(glyph, String(digit));
+    }
+  }
+  return map;
+};
+
+// Drop everything but digits and re-mask as dd.MM.yyyy while typing. The
+// mask means the iOS numeric keypad (which has no "." key) can still type
+// dates.
 const maskTyped = (raw: string): string => {
-  const digits = raw
-    .replace(/[٠-٩]/g, (c) => String(c.charCodeAt(0) - 0x0660))
-    .replace(/[۰-۹]/g, (c) => String(c.charCodeAt(0) - 0x06f0))
-    .replace(/\D/g, "")
-    .slice(0, 8);
+  let digits = "";
+  for (const char of raw) {
+    if (char >= "0" && char <= "9") {
+      digits += char;
+    } else if (/^\p{Nd}$/u.test(char)) {
+      // A digit in some other script. The map is built on first need and
+      // cached for the page: ASCII typing, which is the overwhelming
+      // majority, never pays for constructing ~60 Intl.NumberFormats.
+      const ascii = (digitMap ??= buildDigitMap()).get(char);
+      if (ascii === undefined) continue;
+      digits += ascii;
+    } else {
+      continue; // separators, letters, anything else
+    }
+    if (digits.length === 8) break;
+  }
   if (digits.length <= 2) return digits;
   if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
   return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
