@@ -562,8 +562,24 @@ const buildDigitMap = (): Map<string, string> => {
 // which is how people actually type short dates. Swallowing the separator —
 // what 0.2.0 did — made the field feel broken to anyone who typed one.
 // Recognized separators cover the scripts the component ships for: dot,
-// comma, slash, hyphen, Arabic comma, ideographic comma.
-const SEPARATOR_CHAR = /[.,/\-،、]/;
+// comma, slash, hyphen, Arabic comma, ideographic comma — plus whitespace and
+// the two Cyrillic-layout phantoms below.
+//
+// Why "ю" and "б" are in a date mask: on a Cyrillic (ЙЦУКЕН) layout the
+// physical QWERTY period and comma keys emit "ю" and "б". They were dropped as
+// letters, so the surrounding digits closed up and "1ю8ю2026" became
+// "18.20.26" — a different date, shown as if the user had typed it. Space did
+// the same. A rejection would have been survivable; silently changing the date
+// is not, and Ukrainian and Russian typists are a large share of this
+// component's users.
+//
+// This stays an allowlist rather than "any non-digit is a separator", because
+// interleaved junk from mid-string editing and paste must still be STRIPPED so
+// the digits close up — see the mid-string editing test. Those two rules
+// genuinely conflict, and the allowlist is what lets both hold: characters a
+// user pressed meaning "next field" separate, characters that arrive as noise
+// are dropped.
+const SEPARATOR_CHAR = /[.,/\-،、\sюбЮБ]/;
 const SEGMENT_MAX = [2, 2, 4] as const;
 const maskTyped = (raw: string): string => {
   // Segments: day, month, year. Digits fill the current segment and roll
@@ -598,7 +614,7 @@ const maskTyped = (raw: string): string => {
         segments.push("");
       }
     }
-    // Letters and anything else: dropped, as before.
+    // Other letters and symbols: dropped, so interleaved editing junk closes up.
   }
   let out = segments[0];
   if (segments.length > 1) out += `.${segments[1]}`;
