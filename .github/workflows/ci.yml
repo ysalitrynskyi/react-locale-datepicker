@@ -1,0 +1,76 @@
+name: CI
+
+# Skeleton. Steps are commented out until the phase that creates them lands —
+# see docs/PLAN.md. A workflow that passes because it does nothing is worse than
+# no workflow, so each step is enabled only when it can genuinely fail.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Repository guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # This repository is public; the source product repository is private.
+      # Fail loudly if a local-context file is ever committed.
+      - name: No local context committed
+        run: |
+          if git ls-files --error-unmatch LOCAL-CONTEXT.md 2>/dev/null; then
+            echo "::error::LOCAL-CONTEXT.md is committed. It names a private repository and must stay gitignored."
+            exit 1
+          fi
+          echo "OK — no local context in the index."
+
+      # Publishing before the license decision would be hard to walk back.
+      - name: Not publishable while unlicensed
+        run: |
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            const licensed = fs.existsSync("LICENSE");
+            if (pkg.private === false && !licensed) {
+              console.log("::error::package.json is publishable but there is no LICENSE. Resolve decision D1 first.");
+              process.exit(1);
+            }
+            console.log(licensed ? "OK — licensed." : "OK — unlicensed and private, as expected pre-D1.");
+          '
+
+  # checks:
+  #   name: Types, lint, tests
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22
+  #         cache: npm
+  #     - run: npm ci
+  #     - run: npm run typecheck
+  #     - run: npm run lint
+  #     - run: npm test
+  #
+  #     # Timezone regression: values must never shift a day. See docs/TESTING.md.
+  #     - run: TZ=UTC npm test
+  #     - run: TZ=America/Los_Angeles npm test
+  #     - run: TZ=Asia/Tokyo npm test
+
+  # browsers:
+  #   name: Browser matrix
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 22
+  #         cache: npm
+  #     - run: npm ci
+  #     - run: npx playwright install --with-deps
+  #     - run: npm run test:e2e

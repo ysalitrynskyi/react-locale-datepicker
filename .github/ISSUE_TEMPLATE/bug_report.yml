@@ -1,0 +1,58 @@
+name: Bug report
+description: Something behaves incorrectly
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a problem specific to one language or region, please use the
+        **Locale problem** template instead.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Steps, or ideally a minimal sandbox. Include the props you passed.
+    validations:
+      required: true
+
+  - type: input
+    id: timezone
+    attributes:
+      label: Your timezone
+      description: >
+        Required. Off-by-one-day bugs are the most common failure in date
+        components and are invisible to anyone in a different offset.
+      placeholder: "America/Sao_Paulo (UTC-3)"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Package version
+    validations:
+      required: true
+
+  - type: input
+    id: env
+    attributes:
+      label: React version, browser, OS
+      placeholder: "React 18.3, Safari 17, macOS 14"
+    validations:
+      required: true

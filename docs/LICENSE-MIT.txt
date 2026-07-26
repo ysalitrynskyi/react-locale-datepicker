@@ -1,0 +1,33 @@
+STAGED — NOT YET IN EFFECT.
+
+This file is not a license grant. It is the text that will become /LICENSE once
+decision D1 in DECISIONS.md is resolved and the copyright holder is confirmed.
+Until it is moved to /LICENSE at the repository root, all rights are reserved.
+
+To apply it: replace <YEAR> and <COPYRIGHT HOLDER>, move this text to /LICENSE
+without this header, set the matching "license" field in package.json, and
+record the outcome in DECISIONS.md.
+
+----------------------------------------------------------------------
+
+MIT License
+
+Copyright (c) <YEAR> <COPYRIGHT HOLDER>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

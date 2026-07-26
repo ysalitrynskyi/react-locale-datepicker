@@ -1,0 +1,40 @@
+# Local, machine-specific context for agents and the operator.
+# Contains the path to the PRIVATE source product repository.
+# This repository is public — never commit it.
+LOCAL-CONTEXT.md
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tgz
+
+# Test and coverage output
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Agent tooling
+.claude/
+graphify-out/
+
+# Logs
+*.log
+npm-debug.log*

@@ -1,0 +1,47 @@
+{
+  "name": "react-locale-datepicker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A React date picker that localizes itself from the Intl API — every locale, no locale files, RTL-aware.",
+  "keywords": [
+    "react",
+    "datepicker",
+    "date-picker",
+    "calendar",
+    "i18n",
+    "internationalization",
+    "intl",
+    "l10n",
+    "rtl",
+    "accessibility",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ysalitrynskyi/react-locale-datepicker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ysalitrynskyi/react-locale-datepicker/issues"
+  },
+  "homepage": "https://github.com/ysalitrynskyi/react-locale-datepicker#readme",
+  "type": "module",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "scripts": {
+    "check": "echo 'Not implemented yet — see docs/PLAN.md Phase 1' && exit 1"
+  },
+  "COMMENT_private": "private:true is a deliberate safety catch against an accidental publish. Flip it only at PLAN.md Phase 5, after decision D1 (license) is resolved.",
+  "COMMENT_license": "No license field until D1 is resolved. Adding one asserts ownership — see docs/DECISIONS.md.",
+  "COMMENT_version": "0.0.0 means unreleased. The first published version is 0.1.0.",
+  "COMMENT_scripts": "Scripts are filled in as PLAN.md phases complete: build (tsup), test (vitest), test:e2e (playwright), lint, typecheck. See docs/DECISIONS.md D6."
+}

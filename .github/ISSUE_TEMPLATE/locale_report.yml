@@ -1,0 +1,60 @@
+name: Locale problem
+description: Something renders wrong in a specific language or region
+title: "[locale] "
+labels: ["locale"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This component derives month names, weekday names, week start and the
+        long-form date echo from the browser's `Intl` data. That means it
+        supports every locale — and that a problem in one locale is usually
+        invisible to everyone else. These reports are genuinely valuable.
+
+  - type: input
+    id: locale
+    attributes:
+      label: Locale tag
+      description: The exact value passed to the `locale` prop.
+      placeholder: "ar-EG"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: What is wrong
+      options:
+        - Month or weekday names
+        - First day of the week
+        - Right-to-left layout
+        - The long-form date echo under the field
+        - Typed input or digit handling
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should it show
+      description: If you read this language, please write what a native reader expects.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What it shows instead
+      description: A screenshot helps more than a description here.
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      description: Intl data varies between browsers and versions, so this matters.
+      placeholder: "Firefox 128 on Windows 11"
+    validations:
+      required: true
