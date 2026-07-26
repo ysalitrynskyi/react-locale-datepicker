@@ -203,6 +203,19 @@ export interface LocaleDatePickerProps {
   /** Called with the field's current committed value after a blur commit —
    *  never validate captured parent state instead of this argument. */
   onBlur?: (current: Date | null) => void;
+  /** Overrides what counts as "today" (the ring, the default view month,
+   *  the default keyboard target, the default year range). A local-midnight
+   *  Date. Wins over timeZone. For deterministic tests and screenshots, and
+   *  for consumers whose "today" is not a wall-clock fact. */
+  today?: Date;
+  /** IANA timezone "today" is derived in — for availability rules that run
+   *  on a fixed business calendar day (a shop selling from one country to
+   *  visitors a whole day away in either direction). "default" and
+   *  "system" both mean the visitor's own zone; invalid names fall back to
+   *  it. Committed values remain local-midnight Dates regardless — this
+   *  never converts the value. See docs/DECISIONS.md D16 and the exported
+   *  todayInTimeZone helper. */
+  timeZone?: string;
   /** Render the long-form echo under the field. Default true, which is
    *  0.1.0 behaviour. Turn it off when the surrounding form already
    *  restates the date — the echo exists so a day/month transposition is
@@ -412,17 +425,44 @@ const startOfDay = (d: Date): Date =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 // "Today" for the today ring, the default keyboard target, and the default
-// year range — derived in local time, matching the local-midnight Dates the
-// component emits. Known limitation, recorded from a real bug: when a
-// consumer's shouldDisableDate rules run in one fixed timezone, a marker
-// derived in the user's own timezone can ring an already-disabled
-// neighbouring day near midnight. The source of this component fixed that
-// by computing "today" in the timezone its rules ran in; a generic
-// component cannot know the consumer's rule timezone, so the mismatch is
-// cosmetic-possible here (selection stays governed solely by
-// shouldDisableDate). Restoring the guarantee needs a today/timeZone prop —
-// record a decision in docs/DECISIONS.md before adding that API.
+// year range — derived in the visitor's local time by default, matching the
+// local-midnight Dates the component emits. When a consumer's
+// shouldDisableDate rules run on a fixed business calendar day instead, a
+// visitor-local marker can ring an already-disabled neighbouring day near
+// midnight — the bug the source product hit and fixed by pinning its
+// business timezone. The timeZone and today props restore that guarantee
+// generically (decision D16).
 const localToday = (): Date => startOfDay(new Date());
+
+// Local-midnight "today" as observed in an arbitrary IANA timezone: format
+// the current instant in that zone, rebuild the wall-clock date as a plain
+// local Date. This is the seller's-calendar-day case — availability rules
+// anchored to one business timezone while visitors sit up to a full day
+// away in either direction. Exported so consumers can build their
+// shouldDisableDate on the same business day the component's marker uses.
+// An invalid zone name falls back to the visitor's local today rather than
+// throwing — the same never-throw posture as resolveLocale.
+export const todayInTimeZone = (timeZone: string): Date => {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const num = (type: string) =>
+      Number(parts.find((p) => p.type === type)?.value);
+    const y = num("year");
+    const m = num("month");
+    const d = num("day");
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+      return localToday();
+    }
+    return new Date(y, m - 1, d);
+  } catch {
+    return localToday();
+  }
+};
 const sameDay = (a: Date | null, b: Date | null): boolean =>
   !!a &&
   !!b &&
@@ -516,35 +556,64 @@ const buildDigitMap = (): Map<string, string> => {
   return map;
 };
 
-// Drop everything but digits and re-mask as dd.MM.yyyy while typing. The
-// mask means the iOS numeric keypad (which has no "." key) can still type
-// dates.
+// Re-mask as dd.MM.yyyy while typing. Digits auto-mask (the iOS numeric
+// keypad has no "." key), and separator KEYSTROKES are accepted rather than
+// stripped: typing "1." pads the day to "01." and moves on to the month,
+// which is how people actually type short dates. Swallowing the separator —
+// what 0.2.0 did — made the field feel broken to anyone who typed one.
+// Recognized separators cover the scripts the component ships for: dot,
+// comma, slash, hyphen, Arabic comma, ideographic comma.
+const SEPARATOR_CHAR = /[.,/\-،、]/;
+const SEGMENT_MAX = [2, 2, 4] as const;
 const maskTyped = (raw: string): string => {
-  let digits = "";
+  // Segments: day, month, year. Digits fill the current segment and roll
+  // into the next when it is full (so pure-digit typing behaves exactly as
+  // before); a separator closes the current segment early, padding a
+  // single-digit day or month to two.
+  const segments: string[] = [""];
   for (const char of raw) {
+    let ascii: string | undefined;
     if (char >= "0" && char <= "9") {
-      digits += char;
+      ascii = char;
     } else if (/^\p{Nd}$/u.test(char)) {
       // A digit in some other script. The map is built on first need and
       // cached for the page: ASCII typing, which is the overwhelming
       // majority, never pays for constructing ~60 Intl.NumberFormats.
-      const ascii = (digitMap ??= buildDigitMap()).get(char);
-      if (ascii === undefined) continue;
-      digits += ascii;
-    } else {
-      continue; // separators, letters, anything else
+      ascii = (digitMap ??= buildDigitMap()).get(char);
     }
-    if (digits.length === 8) break;
+    if (ascii !== undefined) {
+      let idx = segments.length - 1;
+      if (segments[idx].length >= SEGMENT_MAX[idx]) {
+        if (idx === 2) break; // year full: the date is complete
+        segments.push("");
+        idx++;
+      }
+      segments[idx] += ascii;
+    } else if (SEPARATOR_CHAR.test(char)) {
+      const idx = segments.length - 1;
+      // Only meaningful after at least one digit and before the year; an
+      // empty or trailing-position separator is swallowed as before.
+      if (idx < 2 && segments[idx].length >= 1) {
+        if (segments[idx].length === 1) segments[idx] = `0${segments[idx]}`;
+        segments.push("");
+      }
+    }
+    // Letters and anything else: dropped, as before.
   }
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}.${digits.slice(2, 4)}.${digits.slice(4)}`;
+  let out = segments[0];
+  if (segments.length > 1) out += `.${segments[1]}`;
+  if (segments.length > 2) out += `.${segments[2]}`;
+  return out;
 };
 
-// Accepts dd.MM.yyyy with . / - separators and 1-digit day/month (pasted
-// text can carry its own separators; masked input always matches).
+// Accepts dd.MM.yyyy with . , / - separators (plus the Arabic and
+// ideographic commas maskTyped accepts) and 1-digit day/month — pasted
+// text can carry its own separators; masked input always matches.
 const parseTyped = (raw: string): Date | null => {
-  const m = raw.trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  const m = raw
+    .trim()
+    .replace(/[,،、]/g, ".")
+    .match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
   if (!m) return null;
   const day = parseInt(m[1], 10);
   const month = parseInt(m[2], 10);
@@ -572,6 +641,8 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   minDate,
   maxDate,
   onBlur,
+  today: todayProp,
+  timeZone,
   showEcho = true,
   showWeekdayHeader = true,
   showTodayMarker = true,
@@ -761,14 +832,30 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     [minMonth, maxMonth, minDate, maxDate],
   );
 
+  // "Today" per decision D16: an injected date wins, then a business
+  // timezone, then the visitor's own clock.
+  const resolveToday = (): Date => {
+    if (todayProp) return startOfDay(todayProp);
+    if (timeZone && timeZone !== "default" && timeZone !== "system") {
+      return todayInTimeZone(timeZone);
+    }
+    return localToday();
+  };
+
   const openPopup = () => {
     if (disabled) {
       onDisabledOpenAttempt?.();
       return;
     }
-    const base = value || defaultCalendarMonth || localToday();
+    // An uncommitted but fully typed draft wins over the committed value:
+    // reopening the calendar right after typing must show the month that
+    // was just typed, not the stale committed one.
+    const typed = draft !== null ? parseTyped(draft) : null;
+    const base = typed || value || defaultCalendarMonth || resolveToday();
     setViewMonth(clampMonth(startOfDay(base)));
-    setFocusDay(value ? startOfDay(value) : null);
+    setFocusDay(
+      typed ? startOfDay(typed) : value ? startOfDay(value) : null,
+    );
     setView("days");
     keyboardNavRef.current = false;
     setGridHelpShown(false);
@@ -934,7 +1021,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     return labels;
   }, [weekStart, weekdayFmt, weekdayLongFmt]);
 
-  const today = localToday();
+  const today = resolveToday();
 
   // The one grid cell holding tabindex=0. Chain: keyboard cursor → selected
   // value → today → first enabled day of the visible month. Without the
@@ -1208,7 +1295,22 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           onClick={() => !open && openPopup()}
           onChange={(e) => {
             if (disabled) return;
-            setDraft(maskTyped(e.target.value));
+            const masked = maskTyped(e.target.value);
+            setDraft(masked);
+            // Follow the typing in the open calendar: once the draft names
+            // a complete date, navigate the grid to it and hand it the
+            // roving target. DOM focus stays in the input (keyboardNavRef
+            // is untouched) so typing is never interrupted, and clampMonth
+            // keeps the min/max navigation bounds authoritative. Partial
+            // drafts do not navigate — guessing the year wrong and yanking
+            // the view around mid-entry is worse than waiting.
+            if (open) {
+              const parsed = parseTyped(masked);
+              if (parsed) {
+                setViewMonth(clampMonth(startOfDay(parsed)));
+                setFocusDay(startOfDay(parsed));
+              }
+            }
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {

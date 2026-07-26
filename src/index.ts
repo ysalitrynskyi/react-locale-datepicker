@@ -1,4 +1,9 @@
-export { LocaleDatePicker, resolveLocale, ANATOMY } from "./LocaleDatePicker";
+export {
+  LocaleDatePicker,
+  resolveLocale,
+  todayInTimeZone,
+  ANATOMY,
+} from "./LocaleDatePicker";
 export type {
   LocaleDatePickerProps,
   Labels,
