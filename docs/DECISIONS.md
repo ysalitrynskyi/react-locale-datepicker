@@ -122,12 +122,18 @@ Revisit only if someone opens an issue.
 
 ## D6 — Bundling and module format
 
-**Status:** OPEN.
+**Status:** DECIDED 2026-07-26 — `tsup` library mode, ESM + CJS + `.d.ts`,
+`"sideEffects": false`. No UMD.
 
-**Recommendation:** `tsup` in library mode, emitting ESM plus CJS plus `.d.ts`,
-with `"sideEffects": false` so consumers tree-shake cleanly. Include the CSS
-build from D3 as a separate export path (`./styles.css`). Do not ship a UMD
-bundle unless someone asks.
+**Recommendation (and outcome):** `tsup` in library mode, emitting ESM plus CJS
+plus `.d.ts`, with `"sideEffects": false` so consumers tree-shake cleanly.
+Include the CSS build from D3 as a separate export path (`./styles.css`) once
+D3 lands — the styles export is intentionally absent until then. Do not ship a
+UMD bundle unless someone asks.
+
+Decided at agent level during Phase 4 packaging prep: non-blocking, matches
+the recommendation already in this file, and is required to produce a
+verifiable tarball without waiting on D3.
 
 ---
 

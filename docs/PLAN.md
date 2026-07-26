@@ -99,15 +99,20 @@ Follow [`TESTING.md`](TESTING.md). Minimum before any publish:
 
 ## Phase 4 — Packaging
 
-**Status:** BLOCKED on D3, D4, D6.
+**Status:** PARTIAL 2026-07-26 — library build and tarball verified; styles
+export still blocked on D3. D4 and D6 decided.
 
-1. `tsup` library build — ESM, CJS, `.d.ts`, `sideEffects: false`.
-2. Correct `exports` map, including the stylesheet path if D3 produces one.
-3. `files` allowlist so only `dist` and the license ship.
-4. Verify the built artifact in a scratch consumer project, both ESM and CJS,
-   TypeScript and plain JavaScript.
-5. `npm pack` and inspect the tarball contents by hand. Publishing a package
-   containing something unintended cannot be undone.
+1. [x] `tsup` library build — ESM, CJS, `.d.ts`, `sideEffects: false`.
+2. [x] Correct `exports` map for the JS entry. Stylesheet path deferred until
+      D3 produces one (no empty export).
+3. [x] `files` allowlist so only `dist` and README ship (license still absent
+      pending D1).
+4. [x] Verify the built artifact in a scratch consumer project, both ESM and
+      CJS, TypeScript and plain JavaScript.
+5. [x] `npm pack` and inspect the tarball contents by hand.
+
+**Still open for a full Phase 4 close:** D3 styles export path; D1 `/LICENSE`
+in the pack allowlist before first publish.
 
 **Done when:** a local `npm install ./package.tgz` in a fresh app renders a
 working picker.

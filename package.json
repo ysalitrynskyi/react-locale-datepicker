@@ -26,6 +26,22 @@
   "homepage": "https://github.com/ysalitrynskyi/react-locale-datepicker#readme",
   "type": "module",
   "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "COMMENT_exports_styles": "A ./styles.css export is deferred until decision D3 (styling strategy) lands. Do not add a styles path that points at nothing.",
   "files": [
     "dist",
     "README.md"
@@ -45,12 +61,14 @@
     "test:tz": "TZ=UTC vitest run && TZ=America/Los_Angeles vitest run && TZ=Asia/Tokyo vitest run",
     "test:e2e": "playwright test",
     "e2e:harness": "vite --config e2e/harness/vite.config.ts",
+    "build": "tsup",
+    "prepack": "npm run build",
     "check": "npm run typecheck && npm run lint && npm run test"
   },
   "COMMENT_private": "private:true is a deliberate safety catch against an accidental publish. Flip it only at PLAN.md Phase 5, after decision D1 (license) is resolved.",
   "COMMENT_license": "No license field until D1 is resolved. Adding one asserts ownership — see docs/DECISIONS.md.",
   "COMMENT_version": "0.0.0 means unreleased. The first published version is 0.1.0.",
-  "COMMENT_scripts": "typecheck + lint + unit tests are the local gate (npm run check). test:tz re-runs the unit suite under three timezones. test:e2e is the Playwright browser matrix. build (tsup) lands with Phase 4 — see docs/DECISIONS.md D6.",
+  "COMMENT_scripts": "typecheck + lint + unit tests are the local gate (npm run check). test:tz re-runs the unit suite under three timezones. test:e2e is the Playwright browser matrix. build uses tsup (D6).",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.62.0",
