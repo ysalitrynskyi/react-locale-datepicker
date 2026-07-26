@@ -151,6 +151,12 @@ export interface LocaleDatePickerProps {
   /** Per-slot class overrides — see the Slot type. Appended after the
    *  built-in classes, never replacing them. */
   classNames?: Partial<Record<Slot, string>>;
+  /** Per-slot inline styles, keyed exactly like classNames. Inline styles
+   *  win over the shipped stylesheet without any specificity argument,
+   *  which is the point: it is the escape hatch for the one value a
+   *  consumer cannot express as a token or a class. State slots layer on
+   *  top of their part's own entry. */
+  styles?: Partial<Record<Slot, React.CSSProperties>>;
   /** Substitute the built-in inline SVG icons — see the IconName type.
    *  A substituted node is rendered as-is; the consumer owns its sizing. */
   icons?: Partial<Record<IconName, React.ReactNode>>;
@@ -397,21 +403,41 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   "aria-describedby": ariaDescribedBy,
   className,
   classNames,
+  styles,
   icons,
 }) => {
   const resolvedLocale = resolveLocale(locale);
 
-  // Every element the component renders takes its data-part and its class
-  // override from the same anatomy key, so the published contract and the
-  // rendered DOM cannot drift apart.
+  // Every element the component renders takes its data-part, its class
+  // override and its inline-style override from the same anatomy key, so
+  // the published contract and the rendered DOM cannot drift apart.
+  //
+  // Trailing arguments name the STATE slots that are currently active
+  // (daySelected, monthCurrent, ...). Both maps layer them on top of the
+  // part's own entry, in the order given, so a consumer styling `day` and
+  // `daySelected` gets what they would expect from CSS.
   const slotProps = (
     slot: PartSlot,
-    builtin: string,
-    ...extra: Array<string | false | null | undefined>
-  ) => ({
-    "data-part": SLOT_PART[slot],
-    className: cx(builtin, ...extra, classNames?.[slot]),
-  });
+    base: string,
+    ...states: Array<Slot | false | null | undefined>
+  ) => {
+    const active = states.filter(Boolean) as Slot[];
+    let style: React.CSSProperties | undefined;
+    if (styles) {
+      for (const key of [slot, ...active]) {
+        if (styles[key]) style = { ...style, ...styles[key] };
+      }
+    }
+    return {
+      "data-part": SLOT_PART[slot],
+      className: cx(
+        base,
+        classNames?.[slot],
+        ...active.map((state) => classNames?.[state]),
+      ),
+      style,
+    };
+  };
 
   const [open, setOpen] = React.useState(false);
   const [view, setView] = React.useState<"days" | "months" | "years">("days");
@@ -940,7 +966,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       : monthTitleFmt.format(nextMonthDate);
 
   return (
-    <div ref={rootRef} {...slotProps("root", "rldp-root", className)}>
+    <div ref={rootRef} {...slotProps("root", cx("rldp-root", className))}>
       <div
         {...slotProps("field", "rldp-field")}
         data-error={hasError || undefined}
@@ -1018,7 +1044,6 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           ref={popupRef}
           role="dialog"
           aria-label={ariaLabel}
-          style={{ left: pos.shift }}
           // Keep focus in the input while clicking inside the popup: a
           // mousedown blur would run the parent's validation against a
           // still-empty field and flash a false error.
@@ -1029,6 +1054,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           }}
           data-placement={pos.up ? "top" : "bottom"}
           {...slotProps("popover", "rldp-popover")}
+          // The measured horizontal offset is applied first so a consumer
+          // style can layer on top of it rather than being clobbered by it.
+          style={{ left: pos.shift, ...styles?.popover }}
         >
           {/* Header */}
           <div {...slotProps("header", "rldp-header")}>
@@ -1161,9 +1189,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                             {...slotProps(
                               "day",
                               "rldp-day",
-                              isSelected && classNames?.daySelected,
-                              isDisabled && classNames?.dayDisabled,
-                              isToday && !isSelected && classNames?.dayToday,
+                              isSelected && "daySelected",
+                              isDisabled && "dayDisabled",
+                              isToday && !isSelected && "dayToday",
                             )}
                             onClick={() => {
                               if (!isDisabled) commit(d);
@@ -1198,7 +1226,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                     {...slotProps(
                       "month",
                       "rldp-month",
-                      isCurrent && classNames?.monthCurrent,
+                      isCurrent && "monthCurrent",
                     )}
                     data-current={isCurrent || undefined}
                     onClick={() => {
@@ -1229,7 +1257,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                     {...slotProps(
                       "year",
                       "rldp-year",
-                      isCurrent && classNames?.yearCurrent,
+                      isCurrent && "yearCurrent",
                     )}
                     data-current={isCurrent || undefined}
                     onClick={() => {

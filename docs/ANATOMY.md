@@ -5,7 +5,7 @@ The published styling contract. One canonical list — exported at runtime as
 
 1. the `data-part` attribute stamped on **every** element the component
    renders;
-2. the keys of the `classNames` prop;
+2. the keys of the `classNames` and `styles` props;
 3. this document.
 
 `data-part` values are kebab-case, because they get written into CSS
@@ -54,7 +54,7 @@ them. The list only ever grows.
 ## State-only slots
 
 These address a **state** of a part rather than an element of its own. They
-exist in `classNames` only — there is no matching `data-part`.
+exist in `classNames` and `styles` only — there is no matching `data-part`.
 
 | Slot key | Applies to |
 | --- | --- |
@@ -97,13 +97,19 @@ Present only when true, so `[data-selected]` is a sufficient selector.
 ## Styling through the props
 
 `classNames` appends to the built-in classes; it never replaces them.
+`styles` sets inline styles, which win over everything the stylesheet does.
+Both take state slots, which layer on top of the part's own entry.
 
 ```tsx
 <LocaleDatePicker
   classNames={{ day: "my-day", daySelected: "my-day-selected" }}
+  styles={{ popover: { borderRadius: 16 }, daySelected: { fontWeight: 700 } }}
   /* ... */
 />
 ```
+
+The popover's measured horizontal offset is applied before your `popover`
+entry, so styling it cannot strand the popup off screen.
 
 ## Using the list programmatically
 

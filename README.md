@@ -108,7 +108,8 @@ means passing a different string.
 | `onDisabledOpenAttempt` | `() => void` | Fires when a disabled picker is tapped. |
 | `aria-label` / `aria-invalid` / `aria-describedby` | | Pass through to the input. |
 | `className` | `string` | Root element. |
-| `classNames` | `Partial<Record<Slot, string>>` | Per-slot overrides (appended after built-ins). |
+| `classNames` | `Partial<Record<Slot, string>>` | Per-slot class overrides (appended after built-ins). |
+| `styles` | `Partial<Record<Slot, CSSProperties>>` | Per-slot inline styles, same keys. |
 | `icons` | `Partial<Record<IconName, ReactNode>>` | Substitute calendar / chevron glyphs. |
 
 Full contract: [`docs/API.md`](docs/API.md).
