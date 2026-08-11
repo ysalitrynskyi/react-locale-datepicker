@@ -90,6 +90,7 @@ overridden.
 | `aria-label` | `string` |
 | `aria-invalid` | `boolean` |
 | `aria-describedby` | `string` |
+| `portal` | `boolean \| HTMLElement` | Opt-in escape from `overflow: hidden` ancestors. Default `false` = in-tree absolute popover (0.3.x). `true` portals to `document.body` with fixed coordinates; an element portals there. See D17. |
 
 #### `labels`
 
@@ -101,11 +102,11 @@ this is four.
 
 | Key | Default | Used for |
 |---|---|---|
-| `keyboardHelp` | "Use the arrow keys to move between days, Page Up and Page Down to change month, and Enter to select." | Announced once, when focus first enters the days grid. |
-| `openCalendar` | "Open calendar" | Trigger name while no date is committed. |
-| `changeDate` | "Change date" | Prefixes the committed date in the trigger name: "Change date, 17 November 2026". |
-| `closeCalendar` | "Close calendar" | Trigger name while the calendar is open. |
-| `previousMonth` / `nextMonth` | *derived* | **Override only.** By default the nav buttons are named with the month and year they navigate to, from `Intl` — better than a static string. Set these only for fixed wording. |
+| `keyboardHelp` | "Use the arrow keys to move between days, Page Up and Page Down to change month, and Enter to select." | Announced once, when focus first enters the days grid. **English default — override for non-English UIs.** |
+| `openCalendar` | "Open calendar" | Trigger name while no date is committed. **English default — override for non-English UIs.** |
+| `changeDate` | "Change date" | Prefixes the committed date in the trigger name: "Change date, 17 November 2026". **English default — override for non-English UIs.** |
+| `closeCalendar` | "Close calendar" | Trigger name while the calendar is open. **English default — override for non-English UIs.** |
+| `previousMonth` / `nextMonth` | *derived from `Intl`* | **Override only.** When omitted, the nav buttons are named with the month and year they navigate *to* (e.g. "August 2026"), or with the target year in the months view — taken from `Intl` for the active `locale`. A 34-locale consumer does not need to translate these two. |
 
 ### Styling — per D3 (option D): self-contained CSS, overridable
 
@@ -162,6 +163,29 @@ crashed hydration of the entire surrounding form.
 `resolveLocale` maps known aliases and falls back safely on anything `Intl`
 rejects. **Never pass a caller-supplied locale string directly into
 `Intl.DateTimeFormat` without it.**
+
+### Display format
+
+The typed and displayed format is fixed **`dd.MM.yyyy`** for every locale.
+It does not follow `en-US` month-first ordering or any other locale-derived
+numeric shape. Consumers that format the same string for a provider API and
+for the buyer rely on this; a silent switch to `MM/dd/yyyy` is data
+corruption, not a cosmetic change. Changing it is a major.
+
+### No storage, no network
+
+The component never reads or writes `localStorage` or `sessionStorage`, never
+makes network calls, and never phones home. A payment form under GDPR and a
+hardened browser (Tor, Firefox ETP Strict) both require this. Adding either
+is a major — and almost certainly a reason not to adopt the package on a
+checkout path.
+
+### SSR
+
+The module imports and renders under Node with no `window` / `document`.
+Effects that touch the DOM (outside-click, positioning, portal) only run
+client-side when the popover is open. Portaling is a no-op during
+`renderToString`.
 
 ### Input masking
 

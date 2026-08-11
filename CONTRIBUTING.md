@@ -12,7 +12,7 @@ git clone https://github.com/ysalitrynskyi/react-locale-datepicker
 cd react-locale-datepicker
 npm install
 npm run check        # typecheck + lint + unit tests
-npm run test:tz      # unit suite under UTC, America/Los_Angeles, Asia/Tokyo
+npm run test:tz      # unit suite under UTC, America/Los_Angeles, Asia/Tokyo, Asia/Kathmandu
 npm run test:e2e     # Playwright matrix (npx playwright install first)
 npm run build        # tsup -> dist/ (ESM + CJS + d.ts + styles.css)
 npm run screenshots  # regenerate README images and GIF from the harness

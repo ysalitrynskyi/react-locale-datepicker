@@ -1,6 +1,44 @@
 # Changelog
 
-## 0.3.1 — unreleased
+## 0.4.0 — 2026-08-11
+
+Prompted by an adoption audit from a live travel-insurance checkout (34
+locales, cross-origin `/embed`, payment path under GDPR). The package was
+already a behavioural superset of that product's in-house picker; this
+release turns the behaviours that checkout bets on into a **published
+contract**, and adds the one escape the audit could not resolve from the
+outside.
+
+### Added
+
+- **`portal?: boolean | HTMLElement`** (decision D17). Opt-in escape from
+  `overflow: hidden` ancestors. Default stays the in-tree
+  `position: absolute` popover (identical to 0.3.x layout). `true` portals
+  to `document.body` with `position: fixed` coordinates measured from the
+  field; an element portals into that host. Keyboard model, Escape-to-close
+  and outside-click close keep working; theme tokens are copied onto the
+  portaled node. Observed clip without portal in the harness: dialog
+  ~282px tall inside a 72px overflow card, only ~90px visible.
+- **Consumer-contract regression suite** pinning, for anyone on a money
+  path: `resolveLocale("ua") === "uk"` and never-throw / malformed→`"en"`;
+  committed values are local midnight (suite also runs under
+  `Asia/Kathmandu`, a non-hour offset); no `localStorage`/`sessionStorage`
+  in source; SSR import + `renderToString` with no `window`/`document`;
+  display format fixed `dd.MM.yyyy` across locales (not locale-derived).
+- README section on **labels**: `previousMonth`/`nextMonth` are
+  Intl-derived when omitted; the four English defaults
+  (`keyboardHelp`, `openCalendar`, `changeDate`, `closeCalendar`) **must**
+  be overridden for a non-English UI, with a worked Ukrainian example.
+- README / API / D17 documentation of the portal escape and the overflow
+  finding.
+
+### Why a minor, not a major
+
+Additive optional prop; default layout behaviour is unchanged. A consumer
+that never sets `portal` sees 0.3.x stacking. Changing the default to
+always-portal would have been a major.
+
+## 0.3.1 — 2026-07-26
 
 Prompted by a field report against a consumer product whose users could not
 enter birth dates before the Unix epoch. This package never had an epoch

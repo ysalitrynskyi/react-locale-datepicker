@@ -425,6 +425,19 @@
     bottom: 100%;
     margin-bottom: 0.25rem;
   }
+  /* Portaled popovers leave the component root (see the `portal` prop).
+   * Inline top/left/position:fixed win over the absolute placement rules
+   * above; reset the absolute anchors so they cannot fight the fixed box. */
+  :where(.rldp-popover[data-portaled]) {
+    position: fixed;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  :where(.rldp-popover[data-portaled][data-placement="bottom"]),
+  :where(.rldp-popover[data-portaled][data-placement="top"]) {
+    top: auto;
+    bottom: auto;
+  }
 
   /* --- Header ----------------------------------------------------------- */
 

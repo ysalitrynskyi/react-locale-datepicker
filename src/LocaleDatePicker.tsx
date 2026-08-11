@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 
 // Lightweight locale-aware date picker, extracted from a production form.
 // Design rationale carried over from the third-party picker it replaced:
@@ -104,10 +105,7 @@ const SLOT_PART = Object.fromEntries(
 
 // The four built-in glyphs, substitutable through the icons prop (D4).
 export type IconName =
-  | "calendar"
-  | "chevronLeft"
-  | "chevronRight"
-  | "chevronDown";
+  "calendar" | "chevronLeft" | "chevronRight" | "chevronDown";
 
 // Why a typed date was not committed. Follows GOV.UK's error taxonomy, and
 // deliberately stops at three: the component classifies and REPORTS, the
@@ -265,6 +263,29 @@ export interface LocaleDatePickerProps {
   /** Substitute the built-in inline SVG icons — see the IconName type.
    *  A substituted node is rendered as-is; the consumer owns its sizing. */
   icons?: Partial<Record<IconName, React.ReactNode>>;
+  /**
+   * Escape an `overflow: hidden` (or clipped) ancestor by rendering the
+   * calendar popover into a different DOM node.
+   *
+   * - `false` / omitted (default): popover stays inside the component root
+   *   as `position: absolute` — the 0.3.x behaviour, which is clipped by
+   *   any overflow-hidden ancestor (card shells, modals, framed embeds).
+   * - `true`: portal to `document.body` with `position: fixed` coordinates
+   *   measured from the field.
+   * - `HTMLElement`: portal to that node instead (e.g. a modal host that
+   *   already owns stacking context).
+   *
+   * Opt-in so existing layouts do not reflow. Keyboard navigation,
+   * Escape-to-close and outside-click close keep working; the outside-click
+   * listener treats the portaled popover as inside the component. Works
+   * inside a same-document iframe (including cross-origin embeds of the
+   * host page — the portal targets the iframe's own document, never the
+   * parent frame, which the browser would block).
+   *
+   * Theme tokens (`--rldp-*`) and `color-scheme` are copied from the root
+   * onto the portaled node so ancestor-scoped theming still applies.
+   */
+  portal?: boolean | HTMLElement;
 }
 
 // Join class fragments, skipping empty ones — keeps the package free of a
@@ -357,7 +378,10 @@ const ChevronLeft: React.FC<IconProps> = ({ className, "data-part": part }) => (
     <path d="m15 18-6-6 6-6" />
   </svg>
 );
-const ChevronRight: React.FC<IconProps> = ({ className, "data-part": part }) => (
+const ChevronRight: React.FC<IconProps> = ({
+  className,
+  "data-part": part,
+}) => (
   <svg
     className={className}
     data-part={part}
@@ -687,6 +711,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   styles,
   labels,
   icons,
+  portal = false,
 }) => {
   const resolvedLocale = resolveLocale(locale);
 
@@ -754,11 +779,19 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const [draft, setDraft] = React.useState<string | null>(null);
   // Day that owns the roving tabindex inside the grid.
   const [focusDay, setFocusDay] = React.useState<Date | null>(null);
-  // Measured after render: whether the popup flips above the field, and the
-  // horizontal offset (px) that keeps it inside the viewport.
-  const [pos, setPos] = React.useState<{ up: boolean; shift: number }>({
+  // Measured after render: whether the popup flips above the field, the
+  // horizontal offset (px) that keeps an in-tree popup inside the viewport,
+  // and (when portaled) the fixed top/left in viewport coordinates.
+  const [pos, setPos] = React.useState<{
+    up: boolean;
+    shift: number;
+    top: number;
+    left: number;
+  }>({
     up: false,
     shift: 0,
+    top: 0,
+    left: 0,
   });
   // DOM focus only follows focusDay after keyboard navigation — opening the
   // popup with the mouse must NOT steal focus from the text input.
@@ -768,6 +801,19 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const popupRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const gridRef = React.useRef<HTMLDivElement>(null);
+
+  // Resolved portal target. `true` → document.body; an element → that node;
+  // false/undefined → in-tree. SSR-safe: HTMLElement and document are only
+  // touched when present (Node has neither during renderToString).
+  const portalTarget: HTMLElement | null =
+    portal === true
+      ? typeof document !== "undefined"
+        ? document.body
+        : null
+      : typeof HTMLElement !== "undefined" && portal instanceof HTMLElement
+        ? portal
+        : null;
+  const usePortal = portalTarget !== null;
 
   const weekStart = React.useMemo(
     () => firstDayOfWeek(resolvedLocale),
@@ -899,9 +945,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     const typed = draft !== null ? parseTyped(draft) : null;
     const base = typed || value || defaultCalendarMonth || resolveToday();
     setViewMonth(clampMonth(startOfDay(base)));
-    setFocusDay(
-      typed ? startOfDay(typed) : value ? startOfDay(value) : null,
-    );
+    setFocusDay(typed ? startOfDay(typed) : value ? startOfDay(value) : null);
     setView("days");
     keyboardNavRef.current = false;
     setGridHelpShown(false);
@@ -917,12 +961,18 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   }, []);
 
   // Outside interaction closes the popup. `mousedown` (not click) so the
-  // popup is gone before any other control processes the press.
+  // popup is gone before any other control processes the press. When the
+  // popover is portaled it is no longer a DOM descendant of the root, so
+  // both containers are checked — a click on a day must not count as
+  // "outside".
   React.useEffect(() => {
     if (!open) return;
     const onDocDown = (e: MouseEvent | TouchEvent) => {
       const t = e.target as Node;
-      if (rootRef.current && !rootRef.current.contains(t)) close();
+      if (rootRef.current?.contains(t) || popupRef.current?.contains(t)) {
+        return;
+      }
+      close();
     };
     document.addEventListener("mousedown", onDocDown);
     document.addEventListener("touchstart", onDocDown);
@@ -947,33 +997,88 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     return () => document.removeEventListener("keydown", onKey, true);
   }, [open, close]);
 
+  // Copy --rldp-* custom properties and color-scheme from the component
+  // root onto a portaled popover. Portaling detaches the node from the
+  // root's inheritance chain, so without this an ancestor theme (or a
+  // token set on a form card) would silently stop applying to the calendar.
+  const syncPortaledTheme = React.useCallback(() => {
+    const root = rootRef.current;
+    const pop = popupRef.current;
+    if (!root || !pop) return;
+    const cs = getComputedStyle(root);
+    for (let i = 0; i < cs.length; i++) {
+      const name = cs.item(i);
+      if (name.startsWith("--rldp")) {
+        pop.style.setProperty(name, cs.getPropertyValue(name));
+      }
+    }
+    const scheme = cs.colorScheme;
+    if (scheme) pop.style.colorScheme = scheme;
+  }, []);
+
   // Position the popup from its real rendered size: flip above the field
-  // when the space below is too small, and shift horizontally so it never
-  // leaves the viewport (the field can sit near the viewport edge on 320px
-  // screens). Re-measured when the view changes — the month/year grids are
-  // shorter than the days grid.
+  // when the space below is too small, and shift (or, when portaled, place)
+  // horizontally so it never leaves the viewport. Re-measured when the view
+  // changes — the month/year grids are shorter than the days grid — and on
+  // scroll/resize while portaled, because fixed coords go stale.
   useIsoLayoutEffect(() => {
     if (!open) return;
     const root = rootRef.current;
     const pop = popupRef.current;
     if (!root || !pop) return;
-    const r = root.getBoundingClientRect();
-    const ph = pop.offsetHeight;
-    const pw = pop.offsetWidth;
-    const spaceBelow = window.innerHeight - r.bottom;
-    // When neither side fits fully, open toward the roomier side; the page
-    // can scroll to reveal the rest.
-    const up = spaceBelow < ph + 8 && r.top > spaceBelow;
-    let shift = 0;
-    const maxLeft = window.innerWidth - 8 - pw;
-    if (r.left > maxLeft) shift = maxLeft - r.left;
-    if (r.left + shift < 8) shift = 8 - r.left;
-    setPos((p) => (p.up === up && p.shift === shift ? p : { up, shift }));
-    // Nudge the page so the whole calendar is on screen (no-op when it is).
-    requestAnimationFrame(() => {
-      popupRef.current?.scrollIntoView({ block: "nearest" });
-    });
-  }, [open, view, viewMonth]);
+
+    const measure = () => {
+      const r = root.getBoundingClientRect();
+      const ph = pop.offsetHeight;
+      const pw = pop.offsetWidth;
+      const spaceBelow = window.innerHeight - r.bottom;
+      // When neither side fits fully, open toward the roomier side; the page
+      // can scroll to reveal the rest (in-tree) or the fixed coords place it
+      // on the roomier side (portaled).
+      const up = spaceBelow < ph + 8 && r.top > spaceBelow;
+      if (usePortal) {
+        let left = r.left;
+        const maxLeft = window.innerWidth - 8 - pw;
+        if (left > maxLeft) left = maxLeft;
+        if (left < 8) left = 8;
+        const top = up ? r.top - ph - 4 : r.bottom + 4;
+        setPos((p) =>
+          p.up === up && p.top === top && p.left === left && p.shift === 0
+            ? p
+            : { up, shift: 0, top, left },
+        );
+        syncPortaledTheme();
+      } else {
+        let shift = 0;
+        const maxLeft = window.innerWidth - 8 - pw;
+        if (r.left > maxLeft) shift = maxLeft - r.left;
+        if (r.left + shift < 8) shift = 8 - r.left;
+        setPos((p) =>
+          p.up === up && p.shift === shift && p.top === 0 && p.left === 0
+            ? p
+            : { up, shift, top: 0, left: 0 },
+        );
+        // Nudge the page so the whole calendar is on screen (no-op when it is).
+        // Portaled popovers are already viewport-placed; do not scroll the page.
+        requestAnimationFrame(() => {
+          popupRef.current?.scrollIntoView({ block: "nearest" });
+        });
+      }
+    };
+
+    measure();
+
+    if (!usePortal) return;
+    // Capture-phase scroll catches overflow containers between the field and
+    // the viewport — window scroll alone would leave the fixed calendar behind.
+    const onScrollOrResize = () => measure();
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    return () => {
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [open, view, viewMonth, usePortal, syncPortaledTheme]);
 
   const commit = (date: Date) => {
     onChange(startOfDay(date));
@@ -1157,10 +1262,18 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         );
         break;
       case "ArrowUp":
-        next = new Date(base.getFullYear(), base.getMonth(), base.getDate() - 7);
+        next = new Date(
+          base.getFullYear(),
+          base.getMonth(),
+          base.getDate() - 7,
+        );
         break;
       case "ArrowDown":
-        next = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 7);
+        next = new Date(
+          base.getFullYear(),
+          base.getMonth(),
+          base.getDate() + 7,
+        );
         break;
       case "PageUp":
         next = e.shiftKey
@@ -1300,14 +1413,10 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   };
   const headerPrevDisabled =
     view === "years" ||
-    (view === "months"
-      ? viewMonth.getFullYear() - 1 < yearMin
-      : !canPrevMonth);
+    (view === "months" ? viewMonth.getFullYear() - 1 < yearMin : !canPrevMonth);
   const headerNextDisabled =
     view === "years" ||
-    (view === "months"
-      ? viewMonth.getFullYear() + 1 > yearMax
-      : !canNextMonth);
+    (view === "months" ? viewMonth.getFullYear() + 1 > yearMax : !canNextMonth);
   // Named with the month and year they navigate to, from Intl. A labels
   // entry replaces that only if the consumer supplied one.
   const headerPrevLabel =
@@ -1331,6 +1440,296 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     : value
       ? `${labelText.changeDate}, ${fullDateFmt.format(value)}`
       : labelText.openCalendar;
+
+  // Popover tree — built outside the return so createPortal is a plain
+  // expression (not an IIFE), which keeps the react-hooks ref linter happy
+  // about event handlers that close over commit/close.
+  const popoverTree = !open ? null : (
+            <div
+              ref={popupRef}
+              role="dialog"
+              aria-label={ariaLabel}
+              // Keep focus in the input while clicking inside the popup: a
+              // mousedown blur would run the parent's validation against a
+              // still-empty field and flash a false error.
+              onMouseDown={(e) => {
+                if ((e.target as HTMLElement).tagName !== "INPUT") {
+                  e.preventDefault();
+                }
+              }}
+              data-placement={pos.up ? "top" : "bottom"}
+              data-portaled={usePortal || undefined}
+              {...slotProps("popover", "rldp-popover")}
+              // In-tree: measured horizontal shift keeps the absolute popover in
+              // the viewport. Portaled: fixed top/left from the field's viewport
+              // rect. Consumer styles layer on top either way.
+              style={{
+                ...(usePortal
+                  ? {
+                      position: "fixed" as const,
+                      top: pos.top,
+                      left: pos.left,
+                    }
+                  : { left: pos.shift }),
+                ...styles?.popover,
+              }}
+            >
+              {/* One-time keyboard help. The region is mounted empty with the
+              popover so that filling it later is a live-region UPDATE — a
+              region that appears already populated is not announced. */}
+              <span
+                {...slotProps("keyboardHelp", "rldp-sr-only")}
+                aria-live="polite"
+              >
+                {gridHelpShown ? labelText.keyboardHelp : ""}
+              </span>
+
+              {/* Header */}
+              <div {...slotProps("header", "rldp-header")}>
+                <button
+                  type="button"
+                  {...slotProps("navPrevious", "rldp-nav")}
+                  disabled={headerPrevDisabled}
+                  aria-label={headerPrevLabel}
+                  onClick={headerPrev}
+                >
+                  {icons?.chevronLeft ?? (
+                    <ChevronLeft {...slotProps("navIcon", "rldp-nav-icon")} />
+                  )}
+                </button>
+                {/* Month + year read as dropdown selects: bordered pill with a
+                caret that flips while its grid is open. */}
+                <div {...slotProps("selects", "rldp-selects")}>
+                  {/* aria-atomic so the month and year are announced as one
+                  string. Without it a screen reader may read only the part
+                  that changed — "2027" alone when navigating across a year
+                  boundary, or a bare month name — which is Cally's
+                  documented fix for the same fragment problem. */}
+                  <span
+                    {...slotProps("liveRegion", "rldp-sr-only")}
+                    aria-live="polite"
+                    aria-atomic="true"
+                  >
+                    {monthTitleFmt.format(viewMonth)}
+                  </span>
+                  <button
+                    type="button"
+                    {...slotProps("monthPill", "rldp-pill")}
+                    data-active={view === "months" || undefined}
+                    aria-expanded={view === "months"}
+                    onClick={() =>
+                      setView(view === "months" ? "days" : "months")
+                    }
+                  >
+                    {monthLongFmt.format(viewMonth)}
+                    {icons?.chevronDown ?? (
+                      <ChevronDown {...slotProps("caret", "rldp-caret")} />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    {...slotProps("yearPill", "rldp-pill")}
+                    data-active={view === "years" || undefined}
+                    aria-expanded={view === "years"}
+                    onClick={() => setView(view === "years" ? "days" : "years")}
+                  >
+                    {viewMonth.getFullYear()}
+                    {icons?.chevronDown ?? (
+                      <ChevronDown {...slotProps("caret", "rldp-caret")} />
+                    )}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  {...slotProps("navNext", "rldp-nav")}
+                  disabled={headerNextDisabled}
+                  aria-label={headerNextLabel}
+                  onClick={headerNext}
+                >
+                  {icons?.chevronRight ?? (
+                    <ChevronRight {...slotProps("navIcon", "rldp-nav-icon")} />
+                  )}
+                </button>
+              </div>
+
+              {/* Days.
+              role="grid" with aria-selected is the APG/Duet side of the
+              schism the roadmap records (Cally's aria-pressed is the other);
+              grid matches how screen readers navigate tables and what audit
+              checklists look for. The migration is an accessibility
+              correction, so it ships as a default rather than an opt-in.
+              aria-selected lives on the gridcell because a button role does
+              not permit it; aria-current="date" now marks TODAY, which is
+              what it means, instead of the selection. */}
+              {view === "days" && (
+                <div
+                  ref={gridRef}
+                  role="grid"
+                  aria-label={monthTitleFmt.format(viewMonth)}
+                  {...slotProps("grid", "rldp-grid")}
+                  onKeyDown={onGridKeyDown}
+                  // React's onFocus bubbles, so this fires however focus arrives
+                  // — ArrowDown from the input, Tab onto the roving cell, or a
+                  // click on a day.
+                  onFocus={() => setGridHelpShown(true)}
+                >
+                  {showWeekdayHeader && (
+                    <div {...slotProps("weekdays", "rldp-weekdays")} role="row">
+                      {weekdayLabels.map((w, i) => (
+                        <div
+                          key={i}
+                          role="columnheader"
+                          aria-label={w.long}
+                          {...slotProps("weekday", "rldp-weekday")}
+                        >
+                          {w.short}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div {...slotProps("days", "rldp-days")} role="rowgroup">
+                    {weeks.map((week, wi) => (
+                      <div
+                        key={wi}
+                        role="row"
+                        {...slotProps("week", "rldp-week")}
+                      >
+                        {week.map((d, i) => {
+                          if (!d) {
+                            // Padding cell. It still carries role="gridcell" so
+                            // every row has seven cells and grid navigation does
+                            // not report a ragged table.
+                            return (
+                              <div
+                                key={i}
+                                role="gridcell"
+                                aria-disabled="true"
+                                {...slotProps("dayBlank", "rldp-daycell")}
+                              />
+                            );
+                          }
+                          const isDisabled = shouldDisableDate(d);
+                          const isSelected = sameDay(d, value);
+                          const isToday = showTodayMarker && sameDay(d, today);
+                          const isRove =
+                            roveTarget !== null && sameDay(d, roveTarget);
+                          return (
+                            <div
+                              key={i}
+                              role="gridcell"
+                              aria-selected={isSelected}
+                              {...slotProps("dayCell", "rldp-daycell")}
+                            >
+                              <button
+                                type="button"
+                                data-day={dayKey(d)}
+                                // aria-disabled keeps the cell focusable so
+                                // arrow-key traversal never dead-ends on a
+                                // disabled date.
+                                aria-disabled={isDisabled || undefined}
+                                tabIndex={isRove ? 0 : -1}
+                                aria-label={formatDayAccessibleName(d)}
+                                aria-current={isToday ? "date" : undefined}
+                                data-selected={isSelected || undefined}
+                                data-disabled={isDisabled || undefined}
+                                data-today={
+                                  (isToday && !isSelected) || undefined
+                                }
+                                {...slotProps(
+                                  "day",
+                                  "rldp-day",
+                                  isSelected && "daySelected",
+                                  isDisabled && "dayDisabled",
+                                  isToday && !isSelected && "dayToday",
+                                )}
+                                onClick={() => {
+                                  if (!isDisabled) commit(d);
+                                }}
+                                onFocus={() => setFocusDay(d)}
+                              >
+                                {d.getDate()}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Months */}
+              {view === "months" && (
+                <div {...slotProps("months", "rldp-months")}>
+                  {Array.from({ length: 12 }, (_, m) => {
+                    const enabled = monthEnabled(viewMonth.getFullYear(), m);
+                    const isCurrent = m === viewMonth.getMonth();
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        disabled={!enabled}
+                        aria-label={monthLongFmt.format(
+                          new Date(viewMonth.getFullYear(), m, 15),
+                        )}
+                        {...slotProps(
+                          "month",
+                          "rldp-month",
+                          isCurrent && "monthCurrent",
+                        )}
+                        data-current={isCurrent || undefined}
+                        onClick={() => {
+                          setViewMonth(
+                            clampMonth(new Date(viewMonth.getFullYear(), m, 1)),
+                          );
+                          setView("days");
+                        }}
+                      >
+                        {monthShortFmt.format(
+                          new Date(viewMonth.getFullYear(), m, 15),
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Years */}
+              {view === "years" && (
+                <div {...slotProps("years", "rldp-years")}>
+                  {yearsRange.map((y) => {
+                    const isCurrent = y === viewMonth.getFullYear();
+                    return (
+                      <button
+                        key={y}
+                        type="button"
+                        {...slotProps(
+                          "year",
+                          "rldp-year",
+                          isCurrent && "yearCurrent",
+                        )}
+                        data-current={isCurrent || undefined}
+                        onClick={() => {
+                          setViewMonth(
+                            clampMonth(new Date(y, viewMonth.getMonth(), 1)),
+                          );
+                          setView("months");
+                        }}
+                      >
+                        {y}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+  );
+
+  const portaledPopover =
+    popoverTree && usePortal && portalTarget
+      ? createPortal(popoverTree, portalTarget)
+      : popoverTree;
 
   return (
     <div
@@ -1425,264 +1824,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         <p {...slotProps("echo", "rldp-echo")}>{fullDateFmt.format(value)}</p>
       )}
 
-      {open && (
-        <div
-          ref={popupRef}
-          role="dialog"
-          aria-label={ariaLabel}
-          // Keep focus in the input while clicking inside the popup: a
-          // mousedown blur would run the parent's validation against a
-          // still-empty field and flash a false error.
-          onMouseDown={(e) => {
-            if ((e.target as HTMLElement).tagName !== "INPUT") {
-              e.preventDefault();
-            }
-          }}
-          data-placement={pos.up ? "top" : "bottom"}
-          {...slotProps("popover", "rldp-popover")}
-          // The measured horizontal offset is applied first so a consumer
-          // style can layer on top of it rather than being clobbered by it.
-          style={{ left: pos.shift, ...styles?.popover }}
-        >
-          {/* One-time keyboard help. The region is mounted empty with the
-              popover so that filling it later is a live-region UPDATE — a
-              region that appears already populated is not announced. */}
-          <span {...slotProps("keyboardHelp", "rldp-sr-only")} aria-live="polite">
-            {gridHelpShown ? labelText.keyboardHelp : ""}
-          </span>
-
-          {/* Header */}
-          <div {...slotProps("header", "rldp-header")}>
-            <button
-              type="button"
-              {...slotProps("navPrevious", "rldp-nav")}
-              disabled={headerPrevDisabled}
-              aria-label={headerPrevLabel}
-              onClick={headerPrev}
-            >
-              {icons?.chevronLeft ?? (
-                <ChevronLeft {...slotProps("navIcon", "rldp-nav-icon")} />
-              )}
-            </button>
-            {/* Month + year read as dropdown selects: bordered pill with a
-                caret that flips while its grid is open. */}
-            <div {...slotProps("selects", "rldp-selects")}>
-              {/* aria-atomic so the month and year are announced as one
-                  string. Without it a screen reader may read only the part
-                  that changed — "2027" alone when navigating across a year
-                  boundary, or a bare month name — which is Cally's
-                  documented fix for the same fragment problem. */}
-              <span
-                {...slotProps("liveRegion", "rldp-sr-only")}
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                {monthTitleFmt.format(viewMonth)}
-              </span>
-              <button
-                type="button"
-                {...slotProps("monthPill", "rldp-pill")}
-                data-active={view === "months" || undefined}
-                aria-expanded={view === "months"}
-                onClick={() => setView(view === "months" ? "days" : "months")}
-              >
-                {monthLongFmt.format(viewMonth)}
-                {icons?.chevronDown ?? (
-                  <ChevronDown {...slotProps("caret", "rldp-caret")} />
-                )}
-              </button>
-              <button
-                type="button"
-                {...slotProps("yearPill", "rldp-pill")}
-                data-active={view === "years" || undefined}
-                aria-expanded={view === "years"}
-                onClick={() => setView(view === "years" ? "days" : "years")}
-              >
-                {viewMonth.getFullYear()}
-                {icons?.chevronDown ?? (
-                  <ChevronDown {...slotProps("caret", "rldp-caret")} />
-                )}
-              </button>
-            </div>
-            <button
-              type="button"
-              {...slotProps("navNext", "rldp-nav")}
-              disabled={headerNextDisabled}
-              aria-label={headerNextLabel}
-              onClick={headerNext}
-            >
-              {icons?.chevronRight ?? (
-                <ChevronRight {...slotProps("navIcon", "rldp-nav-icon")} />
-              )}
-            </button>
-          </div>
-
-          {/* Days.
-              role="grid" with aria-selected is the APG/Duet side of the
-              schism the roadmap records (Cally's aria-pressed is the other);
-              grid matches how screen readers navigate tables and what audit
-              checklists look for. The migration is an accessibility
-              correction, so it ships as a default rather than an opt-in.
-              aria-selected lives on the gridcell because a button role does
-              not permit it; aria-current="date" now marks TODAY, which is
-              what it means, instead of the selection. */}
-          {view === "days" && (
-            <div
-              ref={gridRef}
-              role="grid"
-              aria-label={monthTitleFmt.format(viewMonth)}
-              {...slotProps("grid", "rldp-grid")}
-              onKeyDown={onGridKeyDown}
-              // React's onFocus bubbles, so this fires however focus arrives
-              // — ArrowDown from the input, Tab onto the roving cell, or a
-              // click on a day.
-              onFocus={() => setGridHelpShown(true)}
-            >
-              {showWeekdayHeader && (
-                <div {...slotProps("weekdays", "rldp-weekdays")} role="row">
-                  {weekdayLabels.map((w, i) => (
-                    <div
-                      key={i}
-                      role="columnheader"
-                      aria-label={w.long}
-                      {...slotProps("weekday", "rldp-weekday")}
-                    >
-                      {w.short}
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div {...slotProps("days", "rldp-days")} role="rowgroup">
-                {weeks.map((week, wi) => (
-                  <div key={wi} role="row" {...slotProps("week", "rldp-week")}>
-                    {week.map((d, i) => {
-                      if (!d) {
-                        // Padding cell. It still carries role="gridcell" so
-                        // every row has seven cells and grid navigation does
-                        // not report a ragged table.
-                        return (
-                          <div
-                            key={i}
-                            role="gridcell"
-                            aria-disabled="true"
-                            {...slotProps("dayBlank", "rldp-daycell")}
-                          />
-                        );
-                      }
-                      const isDisabled = shouldDisableDate(d);
-                      const isSelected = sameDay(d, value);
-                      const isToday = showTodayMarker && sameDay(d, today);
-                      const isRove =
-                        roveTarget !== null && sameDay(d, roveTarget);
-                      return (
-                        <div
-                          key={i}
-                          role="gridcell"
-                          aria-selected={isSelected}
-                          {...slotProps("dayCell", "rldp-daycell")}
-                        >
-                          <button
-                            type="button"
-                            data-day={dayKey(d)}
-                            // aria-disabled keeps the cell focusable so
-                            // arrow-key traversal never dead-ends on a
-                            // disabled date.
-                            aria-disabled={isDisabled || undefined}
-                            tabIndex={isRove ? 0 : -1}
-                            aria-label={formatDayAccessibleName(d)}
-                            aria-current={isToday ? "date" : undefined}
-                            data-selected={isSelected || undefined}
-                            data-disabled={isDisabled || undefined}
-                            data-today={(isToday && !isSelected) || undefined}
-                            {...slotProps(
-                              "day",
-                              "rldp-day",
-                              isSelected && "daySelected",
-                              isDisabled && "dayDisabled",
-                              isToday && !isSelected && "dayToday",
-                            )}
-                            onClick={() => {
-                              if (!isDisabled) commit(d);
-                            }}
-                            onFocus={() => setFocusDay(d)}
-                          >
-                            {d.getDate()}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Months */}
-          {view === "months" && (
-            <div {...slotProps("months", "rldp-months")}>
-              {Array.from({ length: 12 }, (_, m) => {
-                const enabled = monthEnabled(viewMonth.getFullYear(), m);
-                const isCurrent = m === viewMonth.getMonth();
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    disabled={!enabled}
-                    aria-label={monthLongFmt.format(
-                      new Date(viewMonth.getFullYear(), m, 15),
-                    )}
-                    {...slotProps(
-                      "month",
-                      "rldp-month",
-                      isCurrent && "monthCurrent",
-                    )}
-                    data-current={isCurrent || undefined}
-                    onClick={() => {
-                      setViewMonth(
-                        clampMonth(new Date(viewMonth.getFullYear(), m, 1)),
-                      );
-                      setView("days");
-                    }}
-                  >
-                    {monthShortFmt.format(
-                      new Date(viewMonth.getFullYear(), m, 15),
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Years */}
-          {view === "years" && (
-            <div {...slotProps("years", "rldp-years")}>
-              {yearsRange.map((y) => {
-                const isCurrent = y === viewMonth.getFullYear();
-                return (
-                  <button
-                    key={y}
-                    type="button"
-                    {...slotProps(
-                      "year",
-                      "rldp-year",
-                      isCurrent && "yearCurrent",
-                    )}
-                    data-current={isCurrent || undefined}
-                    onClick={() => {
-                      setViewMonth(
-                        clampMonth(new Date(y, viewMonth.getMonth(), 1)),
-                      );
-                      setView("months");
-                    }}
-                  >
-                    {y}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {portaledPopover}
     </div>
   );
 };

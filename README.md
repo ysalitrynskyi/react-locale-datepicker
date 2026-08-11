@@ -124,8 +124,9 @@ means passing a different string.
 | `themeName` | `"default" \| "minimal" \| "soft" \| "high-contrast"` | Selects a shipped theme. Unset inherits an ancestor's. |
 | `classNames` | `Partial<Record<Slot, string>>` | Per-slot class overrides (appended after built-ins). |
 | `styles` | `Partial<Record<Slot, CSSProperties>>` | Per-slot inline styles, same keys. |
-| `labels` | `Partial<Labels>` | The four strings `Intl` cannot supply (keyboard help, trigger names). Navigation labels stay Intl-derived. |
+| `labels` | `Partial<Labels>` | Strings `Intl` cannot supply — **English defaults; override for non-English UIs**. See below. |
 | `icons` | `Partial<Record<IconName, ReactNode>>` | Substitute calendar / chevron glyphs. |
+| `portal` | `boolean \| HTMLElement` | Opt-in escape from `overflow: hidden` ancestors. Default `false` keeps the 0.3.x in-tree popover. |
 
 Full contract: [`docs/API.md`](docs/API.md).
 
@@ -140,6 +141,67 @@ resolveLocale("en_US"); // "en" — malformed tags fall back instead of throwing
 
 Never pass a raw caller-supplied locale into `Intl` without this (or equivalent)
 normalization: a bad tag throws and can take down a whole React island.
+
+### Labels — what you must translate
+
+Month names, weekday names, the long-form echo, day accessible names, and the
+**previous / next navigation** labels come from `Intl` for the `locale` you
+pass. When `labels.previousMonth` / `labels.nextMonth` are omitted, the nav
+buttons are named with the month and year they navigate *to* (e.g.
+`"серпень 2026"` under `locale="uk"`) — not a static "Previous month" string.
+You do **not** need to translate those two.
+
+The other four defaults are English and **will ship English into a non-English
+page unless you override them**:
+
+| Key | Default | When it is heard |
+| --- | --- | --- |
+| `keyboardHelp` | "Use the arrow keys…" | Once, when keyboard focus first enters the day grid |
+| `openCalendar` | "Open calendar" | Trigger name while empty |
+| `changeDate` | "Change date" | Trigger name prefix while a date is committed |
+| `closeCalendar` | "Close calendar" | Trigger name while the calendar is open |
+
+Worked example for a Ukrainian UI (the rest of the calendar still follows
+`locale="uk"` / `locale="ua"` via `Intl`):
+
+```tsx
+<LocaleDatePicker
+  value={value}
+  onChange={setValue}
+  locale="ua"
+  placeholder="дд.мм.рррр"
+  aria-label="Дата початку подорожі"
+  labels={{
+    keyboardHelp:
+      "Клавіші зі стрілками — між днями, Page Up/Down — місяць, Enter — вибір.",
+    openCalendar: "Відкрити календар",
+    changeDate: "Змінити дату",
+    closeCalendar: "Закрити календар",
+  }}
+/>
+```
+
+Do not invent machine translations inside the package — the consumer owns these
+four strings across their locales.
+
+### Popover inside `overflow: hidden`
+
+The default popover is `position: absolute` inside the component root. A card
+shell like `overflow-hidden rounded-2xl` **clips** it — verified in the
+browser matrix. Pass `portal` to escape:
+
+```tsx
+// Portal to document.body with position:fixed coordinates.
+<LocaleDatePicker portal /* ... */ />
+
+// Or into a host you already use for modals / stacking.
+<LocaleDatePicker portal={modalRootEl} /* ... */ />
+```
+
+Default stays in-tree so existing layouts do not reflow. Keyboard model,
+Escape-to-close and outside-click close keep working with either mode. Inside
+a cross-origin iframe the portal targets the **iframe's** document (the only
+document the script can reach).
 
 ### Constraints example
 
@@ -249,7 +311,7 @@ WebKit at 320 / 768 / 1280 px.
 ```bash
 npm install
 npm run check          # typecheck + lint + unit tests
-npm run test:tz        # unit suite under UTC, America/Los_Angeles, Asia/Tokyo
+npm run test:tz        # unit suite under UTC, America/Los_Angeles, Asia/Tokyo, Asia/Kathmandu
 npm run test:e2e       # Playwright matrix
 npm run build          # tsup → dist/ (ESM + CJS + d.ts + styles.css)
 ```

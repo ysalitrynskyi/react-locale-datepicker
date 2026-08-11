@@ -1,5 +1,5 @@
-import { test, expect, type Page } from "@playwright/test";
-import { paintedColor, expectColor } from "./color";
+import { expect, test, type Page } from "@playwright/test";
+import { expectColor, paintedColor } from "./color";
 
 async function openPicker(page: Page, query = "") {
   await page.goto(`/${query ? `?${query}` : ""}`);
@@ -143,5 +143,99 @@ test.describe("disabled open", () => {
     await page.getByRole("textbox").click({ force: true });
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page.getByTestId("disabled-attempts")).toHaveText("1");
+  });
+});
+
+test.describe("overflow:hidden containment", () => {
+  test("in-tree popover is clipped by an overflow:hidden ancestor", async ({
+    page,
+  }, testInfo) => {
+    // Run once per browser (1280) — the clip is geometry, not viewport.
+    test.skip(
+      !testInfo.project.name.includes("1280"),
+      "geometry assertion — one viewport is enough",
+    );
+    await openPicker(
+      page,
+      "locale=en&defaultMonth=2026-07-01&overflowHidden=1&showEcho=0",
+    );
+    const metrics = await page.evaluate(() => {
+      const card = document.querySelector("[data-testid='overflow-card']");
+      const dialog = document.querySelector("[role='dialog']");
+      if (!card || !dialog) return null;
+      const c = card.getBoundingClientRect();
+      const d = dialog.getBoundingClientRect();
+      const visibleH = Math.max(
+        0,
+        Math.min(d.bottom, c.bottom) - Math.max(d.top, c.top),
+      );
+      return {
+        dialogHeight: d.height,
+        visibleHeight: visibleH,
+        clipped: visibleH < d.height - 1,
+        insideCard: card.contains(dialog),
+        portaled: dialog.getAttribute("data-portaled"),
+      };
+    });
+    expect(metrics, "card and dialog must both exist").toBeTruthy();
+    expect(
+      metrics!.insideCard,
+      "default popover is a DOM child of the overflow card",
+    ).toBe(true);
+    expect(
+      metrics!.clipped,
+      "absolute popover must be clipped by overflow:hidden — if this fails, the portal prop is unnecessary and D17 should be revisited",
+    ).toBe(true);
+    expect(metrics!.portaled).toBeNull();
+  });
+
+  test("portal=1 escapes overflow:hidden and keeps the calendar fully visible", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      !testInfo.project.name.includes("1280"),
+      "geometry assertion — one viewport is enough",
+    );
+    await openPicker(
+      page,
+      "locale=en&defaultMonth=2026-07-01&overflowHidden=1&portal=1&showEcho=0",
+    );
+    const metrics = await page.evaluate(() => {
+      const card = document.querySelector("[data-testid='overflow-card']");
+      const dialog = document.querySelector("[role='dialog']");
+      if (!card || !dialog) return null;
+      const c = card.getBoundingClientRect();
+      const d = dialog.getBoundingClientRect();
+      const visibleH = Math.max(
+        0,
+        Math.min(d.bottom, c.bottom) - Math.max(d.top, c.top),
+      );
+      return {
+        dialogHeight: d.height,
+        visibleHeight: visibleH,
+        insideCard: card.contains(dialog),
+        onBody: dialog.parentElement === document.body,
+        portaled: dialog.getAttribute("data-portaled"),
+        dayCount: dialog.querySelectorAll("[data-day]").length,
+      };
+    });
+    expect(metrics).toBeTruthy();
+    expect(metrics!.insideCard).toBe(false);
+    expect(metrics!.onBody).toBe(true);
+    expect(metrics!.portaled).toBe("true");
+    expect(
+      metrics!.dialogHeight,
+      "portaled calendar must render at full height",
+    ).toBeGreaterThan(200);
+    // Fully outside the card's clip rect — intersection with the card may
+    // be partial (the field still sits in the card) but days must be
+    // clickable. Assert the grid is present and a day is in the viewport.
+    expect(metrics!.dayCount).toBeGreaterThan(20);
+    const day = page.locator("[role='dialog'] [data-day]").nth(10);
+    await expect(day).toBeVisible();
+    await expect(day).toBeInViewport();
+    await day.click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByTestId("committed-iso")).not.toHaveText("");
   });
 });

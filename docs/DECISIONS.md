@@ -373,7 +373,46 @@ contract exists to prevent. Only the derivation of "today" is affected.
 
 ---
 
-## D12–D15, D17 — Roadmap decisions (not yet opened)
+## D17 — Popover containment / portal escape
+
+**Status:** DECIDED 2026-08-11 — opt-in `portal?: boolean | HTMLElement`.
+Default remains the in-tree `position: absolute` popover (0.3.x behaviour).
+
+**Prompt:** a live travel-insurance checkout audited the package for adoption.
+Its form card is `overflow: hidden` (rounded shadow shell). An absolute
+popover inside that shell is clipped — observed in the e2e harness, not
+reasoned about: dialog height ≈ 282px, only ≈ 90px visible through a 72px
+card (clip ratio ~0.32). Eight partner sites also frame `/embed` cross-origin,
+so any escape must work inside an iframe's own document.
+
+**Options:**
+
+| Option | Upside | Downside |
+|---|---|---|
+| **A. Always portal to `document.body`** | Never clips | Changes stacking for every existing consumer; breaks layouts that relied on the popover living inside a transformed/stacked parent |
+| **B. Opt-in `portal` prop** | Additive; default unchanged | Consumers with clipped cards must discover and set it |
+| **C. `position: fixed` without portaling** | Smaller code | Still clipped by `overflow: hidden` ancestors — does not solve the bug |
+| **D. Document only, no escape** | Zero code | Blocks the checkout adoption |
+
+**Outcome: B.** `portal={true}` → `createPortal` into `document.body` with
+`position: fixed` coordinates measured from the field; `portal={HTMLElement}`
+→ that host (modal roots, app shells). Outside-click treats the portaled node
+as inside the component; Escape and the keyboard model are unchanged. Theme
+tokens (`--rldp-*`) and `color-scheme` are copied from the root onto the
+portaled node so ancestor-scoped theming still applies. Semver: additive
+optional prop → minor (0.4.0). Not a major: default layout behaviour is
+identical to 0.3.x.
+
+Cross-origin iframe note: a portal cannot leave the iframe (browser security).
+It targets the iframe's `document.body`, which is exactly what an embedded
+checkout needs — the clip ancestor is inside the same document.
+
+Rejected C after the harness observation: fixed-without-portal still paints
+as a descendant and is clipped by the overflow card.
+
+---
+
+## D12–D15 — Roadmap decisions (not yet opened)
 
 See `docs/ROADMAP.md` § "Decisions this roadmap creates". Opened only when the
 relevant work starts so this register stays the single source of truth.

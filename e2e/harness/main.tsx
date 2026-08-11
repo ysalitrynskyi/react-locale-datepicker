@@ -1,9 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  LocaleDatePicker,
-  type ThemeName,
-} from "../../src/LocaleDatePicker";
+import { LocaleDatePicker, type ThemeName } from "../../src/LocaleDatePicker";
 import "../../src/styles.css";
 
 type HarnessConfig = {
@@ -29,6 +26,11 @@ type HarnessConfig = {
   showEcho: boolean;
   showWeekdayHeader: boolean;
   showTodayMarker: boolean;
+  /** Wrap the picker in a short overflow:hidden card — reproduces the
+   *  checkout-form card shell that clips an in-tree absolute popover. */
+  overflowHidden: boolean;
+  /** Opt into the portal escape (`portal={true}` on the component). */
+  portal: boolean;
 };
 
 function parseIsoLocal(iso: string | null): Date | null {
@@ -65,6 +67,8 @@ function readConfig(): HarnessConfig {
     showEcho: params.get("showEcho") !== "0",
     showWeekdayHeader: params.get("showWeekdayHeader") !== "0",
     showTodayMarker: params.get("showTodayMarker") !== "0",
+    overflowHidden: params.get("overflowHidden") === "1",
+    portal: params.get("portal") === "1",
   };
 }
 
@@ -78,8 +82,8 @@ function App() {
 
   const dir =
     cfg.dir === "auto"
-      ? ["ar", "he", "fa", "ur"].some((t) =>
-          cfg.locale === t || cfg.locale.startsWith(`${t}-`),
+      ? ["ar", "he", "fa", "ur"].some(
+          (t) => cfg.locale === t || cfg.locale.startsWith(`${t}-`),
         )
         ? "rtl"
         : "ltr"
@@ -110,6 +114,28 @@ function App() {
         </div>
       );
     }
+    if (cfg.overflowHidden) {
+      // Short card with overflow:hidden — the form-card shape that clips an
+      // in-tree absolute popover. Height is deliberately smaller than the
+      // calendar so the clip is unambiguous when portal is off.
+      out = (
+        <div
+          data-testid="overflow-card"
+          style={{
+            width: 360,
+            height: 72,
+            overflow: "hidden",
+            border: "2px solid #2563eb",
+            borderRadius: 16,
+            padding: 8,
+            background: "#dbeafe",
+            position: "relative",
+          }}
+        >
+          {out}
+        </div>
+      );
+    }
     return out;
   };
 
@@ -117,25 +143,26 @@ function App() {
     <div dir={dir} data-testid="harness-root">
       <h1>LocaleDatePicker harness</h1>
       {wrap(
-      <LocaleDatePicker
-        value={value}
-        onChange={setValue}
-        locale={cfg.locale}
-        placeholder={cfg.placeholder}
-        disabled={cfg.disabled}
-        hasError={cfg.hasError}
-        minDate={parseIsoLocal(cfg.minIso)}
-        maxDate={parseIsoLocal(cfg.maxIso)}
-        defaultCalendarMonth={parseIsoLocal(cfg.defaultMonthIso)}
-        shouldDisableDate={shouldDisableDate}
-        aria-label={cfg.ariaLabel}
-        themeName={cfg.themeName}
-        showEcho={cfg.showEcho}
-        showWeekdayHeader={cfg.showWeekdayHeader}
-        showTodayMarker={cfg.showTodayMarker}
-        onBlur={(current) => setLastBlur(toIsoLocal(current))}
-        onDisabledOpenAttempt={() => setDisabledAttempts((n) => n + 1)}
-      />,
+        <LocaleDatePicker
+          value={value}
+          onChange={setValue}
+          locale={cfg.locale}
+          placeholder={cfg.placeholder}
+          disabled={cfg.disabled}
+          hasError={cfg.hasError}
+          minDate={parseIsoLocal(cfg.minIso)}
+          maxDate={parseIsoLocal(cfg.maxIso)}
+          defaultCalendarMonth={parseIsoLocal(cfg.defaultMonthIso)}
+          shouldDisableDate={shouldDisableDate}
+          aria-label={cfg.ariaLabel}
+          themeName={cfg.themeName}
+          showEcho={cfg.showEcho}
+          showWeekdayHeader={cfg.showWeekdayHeader}
+          showTodayMarker={cfg.showTodayMarker}
+          portal={cfg.portal}
+          onBlur={(current) => setLastBlur(toIsoLocal(current))}
+          onDisabledOpenAttempt={() => setDisabledAttempts((n) => n + 1)}
+        />,
       )}
       <pre data-testid="committed-iso">{toIsoLocal(value) ?? ""}</pre>
       <pre data-testid="blur-iso">{lastBlur ?? ""}</pre>
