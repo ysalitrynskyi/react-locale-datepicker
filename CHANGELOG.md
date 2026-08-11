@@ -32,6 +32,40 @@ outside.
 - README / API / D17 documentation of the portal escape and the overflow
   finding.
 
+### Fixed
+
+Found in review of the portal work, before it reached the registry.
+
+- **A portal host from another realm was silently ignored.** The host check
+  used `instanceof HTMLElement`, which answers "was this built by *this*
+  realm's constructor" rather than "is this an element". An element from an
+  iframe, a popup window, or a consumer's second jsdom document failed it and
+  the popover fell back to rendering in-tree — reappearing as the clipping the
+  caller used `portal` to escape, with nothing logged to explain it. Host
+  detection is now duck-typed (`nodeType === 1` plus `appendChild`), so it is
+  realm-independent. A truthy non-element (a ref object, a stray value from
+  consumer state) still degrades to in-tree instead of reaching `createPortal`,
+  and that case is now pinned by a test.
+- **Portaled repositioning forced layout on every scroll event.** The
+  capture-phase scroll listener called a measure that reads
+  `getBoundingClientRect`, `offsetHeight` and `offsetWidth` — three forced
+  layouts — and scroll fires far more often than once per frame on a touch
+  device. Coalesced to one measure per animation frame, which is the most a
+  paint can show anyway, with the pending frame cancelled on unmount. Matters
+  because the package's stated home is checkout forms, where jank during a
+  scroll is very visible.
+
+### Added (review follow-ups)
+
+- SSR contract now exercises **`portal: true`**, not just the default. The
+  portal branch resolves `document.body` during render; that guard existed but
+  was asserted only in a comment, so a regression in the opted-in path — the
+  one a clipping checkout is most likely to use — would have shipped green.
+- Contract test for a host belonging to another document. It states its own
+  limit honestly: jsdom's `createHTMLDocument` makes a second document but not
+  a second realm, so it cannot distinguish duck-typing from `instanceof`; only
+  a real iframe would, and that belongs in e2e.
+
 ### Why a minor, not a major
 
 Additive optional prop; default layout behaviour is unchanged. A consumer

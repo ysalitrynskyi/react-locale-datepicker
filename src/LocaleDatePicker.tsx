@@ -288,6 +288,27 @@ export interface LocaleDatePickerProps {
   portal?: boolean | HTMLElement;
 }
 
+/**
+ * Whether a value is a DOM element, without `instanceof`.
+ *
+ * `instanceof HTMLElement` answers "was this built by THIS realm's constructor",
+ * which is not the question. An element from an iframe, a popup window, or a
+ * consumer's jsdom container is a valid portal host and fails that check, so the
+ * component would fall back to rendering in-tree — the exact clipping the caller
+ * used `portal` to escape, with nothing logged to explain it.
+ *
+ * nodeType 1 is ELEMENT_NODE. Checking `appendChild` too keeps out plain objects
+ * that merely carry a `nodeType` field.
+ */
+function isElement(value: unknown): value is HTMLElement {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as Node).nodeType === 1 &&
+    typeof (value as HTMLElement).appendChild === "function"
+  );
+}
+
 // Join class fragments, skipping empty ones — keeps the package free of a
 // classnames-style dependency.
 const cx = (...parts: Array<string | false | null | undefined>): string =>
@@ -803,14 +824,23 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const gridRef = React.useRef<HTMLDivElement>(null);
 
   // Resolved portal target. `true` → document.body; an element → that node;
-  // false/undefined → in-tree. SSR-safe: HTMLElement and document are only
-  // touched when present (Node has neither during renderToString).
+  // false/undefined → in-tree. SSR-safe: `document` is only touched when
+  // present (Node has neither during renderToString).
+  //
+  // Duck-typed rather than `instanceof HTMLElement`, because `instanceof` is
+  // bound to the realm that defined the constructor. An element belonging to a
+  // different document — an iframe's modal host, a popup window, a jsdom
+  // container in a consumer's test — is a perfectly valid portal target but
+  // fails `instanceof` in this realm, and the component would then silently
+  // render in-tree. Silent is the problem: the caller asked for a portal
+  // precisely because in-tree gets clipped, so the failure would surface as the
+  // bug they were escaping, with no error to explain it.
   const portalTarget: HTMLElement | null =
     portal === true
       ? typeof document !== "undefined"
         ? document.body
         : null
-      : typeof HTMLElement !== "undefined" && portal instanceof HTMLElement
+      : isElement(portal)
         ? portal
         : null;
   const usePortal = portalTarget !== null;
@@ -1071,10 +1101,26 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     if (!usePortal) return;
     // Capture-phase scroll catches overflow containers between the field and
     // the viewport — window scroll alone would leave the fixed calendar behind.
-    const onScrollOrResize = () => measure();
+    //
+    // Coalesced to one measure per frame. `measure` reads
+    // getBoundingClientRect + offsetHeight + offsetWidth, so it forces layout
+    // three times; scroll fires far faster than a frame on a touch device, and
+    // this component's whole reason to exist is running on checkout forms,
+    // where a janky calendar during a scroll is very visible. Positioning can
+    // only be observed once per paint anyway, so the extra work bought nothing.
+    let frame = 0;
+    const onScrollOrResize = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        // The popup can unmount between the event and the frame.
+        if (popupRef.current) measure();
+      });
+    };
     window.addEventListener("scroll", onScrollOrResize, true);
     window.addEventListener("resize", onScrollOrResize);
     return () => {
+      if (frame) cancelAnimationFrame(frame);
       window.removeEventListener("scroll", onScrollOrResize, true);
       window.removeEventListener("resize", onScrollOrResize);
     };

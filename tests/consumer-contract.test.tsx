@@ -7,7 +7,7 @@
  * future release changes it. Prompt: adoption audit against that consumer's
  * in-product TravelDatePicker, 2026-08.
  */
-import { fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
@@ -181,6 +181,60 @@ describe("consumer contract: portal escape for overflow:hidden", () => {
       h.unmount();
     } finally {
       host.remove();
+    }
+  });
+
+  it("accepts a host element belonging to another document", async () => {
+    // Host detection is duck-typed (nodeType === 1 + appendChild) rather than
+    // `instanceof HTMLElement`, because `instanceof` is bound to the realm that
+    // defined the constructor. In a real browser an iframe or popup window is a
+    // separate realm, so a host from one fails `instanceof` in this one and the
+    // component would silently fall back to in-tree — the exact clipping
+    // `portal` exists to escape, with nothing logged to explain it.
+    //
+    // HONEST LIMIT: jsdom cannot reproduce that. `createHTMLDocument` makes a
+    // second *document* but not a second *realm*, so its elements still satisfy
+    // `instanceof HTMLElement` here — an earlier version of this test asserted
+    // they would not, and failed. So this pins the foreign-document path works;
+    // it does NOT distinguish duck-typing from instanceof. Only a real
+    // cross-origin-free iframe would, which belongs in e2e, not jsdom.
+    const otherDoc = document.implementation.createHTMLDocument("other");
+    const foreignHost = otherDoc.createElement("div");
+    otherDoc.body.appendChild(foreignHost);
+    expect(foreignHost.ownerDocument).not.toBe(document);
+
+    const h = renderPicker({
+      defaultCalendarMonth: localDate(2026, 6, 1),
+      portal: foreignHost as unknown as HTMLElement,
+    });
+
+    // Opened inline rather than with the shared helper: that helper waits for
+    // the dialog via Testing Library's `screen`, which queries the MAIN
+    // document — and the entire point of this case is that the popover left it.
+    fireEvent.mouseDown(screen.getByRole("button", { hidden: true }));
+    await waitFor(() => {
+      expect(foreignHost.querySelector('[role="dialog"]')).not.toBe(null);
+    });
+
+    const dialog = foreignHost.querySelector('[role="dialog"]');
+    expect(dialog?.getAttribute("data-portaled")).toBe("true");
+    // And it is genuinely not in the main document.
+    expect(document.querySelector('[role="dialog"]')).toBe(null);
+    h.unmount();
+  });
+
+  it("a truthy non-element portal value degrades to in-tree instead of throwing", async () => {
+    // This one DOES discriminate: a ref object or a stray value from consumer
+    // state is truthy, is not an element, and must not reach createPortal.
+    for (const bad of [{ current: null }, {}, 42, "body"]) {
+      const h = renderPicker({
+        defaultCalendarMonth: localDate(2026, 6, 1),
+        portal: bad as unknown as HTMLElement,
+      });
+      await h.openViaClick();
+      const dialog = h.dialog();
+      expect(dialog.getAttribute("data-portaled")).toBe(null);
+      h.unmount();
     }
   });
 
