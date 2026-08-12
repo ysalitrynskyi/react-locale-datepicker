@@ -282,6 +282,69 @@ Slot overrides, per [`docs/ANATOMY.md`](docs/ANATOMY.md):
 />
 ```
 
+### Tailwind preflight beats the package's own styling
+
+The stylesheet is built so consumer CSS always wins: every rule sits in the
+`rldp` cascade layer and is written with `:where()`. Both halves work exactly
+as designed. The half that is easy to miss is what "consumer CSS" includes —
+**Tailwind's preflight is unlayered consumer CSS, so preflight wins too**, on
+every property it resets.
+
+Two independent barriers, and preflight clears both:
+
+- **Cascade layer.** Unlayered CSS beats *any* cascade layer regardless of
+  selector. In Tailwind v3 preflight is emitted unlayered, so it outranks
+  `@layer rldp` even where the package rule is more specific. Layer order is
+  decided before specificity is ever consulted.
+- **Specificity.** `:where(…)` scores 0,0,0, so preflight's `button, input, …`
+  at 0,0,1 would win on specificity as well.
+
+The rules that collide, from Tailwind's `preflight.css`:
+
+| Preflight rule | Effect on the picker |
+| --- | --- |
+| `button, input, … { color: inherit }` | The field and every day cell take the host's text colour. `--rldp-foreground` and `--rldp-disabled-foreground` never land. |
+| `button, input, … { font-size: 100% }` | The field renders at the browser default, not the picker's. |
+| `button { background-color: transparent }` | A themed field background disappears. |
+| `*, ::before, ::after { border-width: 0 }` | The field can lose its border entirely. |
+
+None of this throws, and none of it looks wrong in a default light theme in
+English — which is exactly why it reaches production. Three real ways it has:
+
+- a dark-mode visitor got a dark field with the host's near-black text on it,
+  i.e. the date they had just typed, invisible;
+- disabled days rendered pixel-identical to selectable ones, because
+  `--rldp-disabled-foreground` never applied — a click on a closed date simply
+  did nothing, with no visual reason why;
+- the field lost its border and read as a different control from the inputs
+  beside it.
+
+**The rule to work from: anything this package styles on a `<button>` or an
+`<input>` needs an explicit class from you.** That is what `classNames` is for,
+and a Tailwind utility is unlayered too, so it lands where the package cannot:
+
+```tsx
+<LocaleDatePicker
+  classNames={{
+    field: "border-2 border-gray-200 bg-white",
+    input: "text-base text-gray-900",
+    dayDisabled: "text-gray-400 cursor-not-allowed",
+  }}
+  /* ... */
+/>
+```
+
+Reaching the same result without touching the component: put Tailwind in a
+layer of its own and order it under `rldp`. Tailwind v4 does this natively —
+`@import "tailwindcss" layer(tw);` then `@layer tw, rldp;`. Under v3 the
+equivalent is wrapping `@tailwind base` in a layer via PostCSS. Either way the
+package stops being outranked, which is the fix if you would rather not repeat
+host styling in `classNames`.
+
+Doing that ordering for the consumer is on the roadmap
+([`docs/ROADMAP.md`](docs/ROADMAP.md)); until then the table above is the
+contract.
+
 ## Keyboard
 
 | Key | Action |

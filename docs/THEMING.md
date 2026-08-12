@@ -157,6 +157,15 @@ Utility classes still work per slot when you want them:
 - Every shipped rule sits in the `rldp` cascade layer and is written with
   `:where()`, so **unlayered consumer CSS always wins**, whatever the import
   order and whatever the selector.
+- Read that guarantee literally, because it is not only a benefit: a CSS
+  **reset** is unlayered consumer CSS too, and it wins on exactly the same
+  terms. Tailwind's preflight resets `color`, `font-size` and
+  `background-color` on `button, input, …` and `border-width` on `*`, so on
+  those properties the picker's tokens never land — most visibly on the field
+  and on disabled day cells. Anything this package styles on a `<button>` or
+  an `<input>` needs an explicit class from the consumer; see
+  [the README](../README.md#tailwind-preflight-beats-the-packages-own-styling)
+  for the full table and the two ways out.
 - Tokens are defined on the component root, never `:root`, so two
   differently themed pickers coexist on one page.
 - Forced-colors mode and `prefers-reduced-motion` are handled in the shipped

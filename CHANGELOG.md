@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.4.1 — 2026-08-12
+
+Documentation only. No runtime, type or stylesheet change; `0.4.0` and
+`0.4.1` are byte-identical in `dist/`.
+
+### Documented
+
+- **Tailwind preflight overrides the package's own styling, and the cascade
+  layer is why.** The stylesheet's guarantee — every rule inside
+  `@layer rldp`, written with `:where()`, so unlayered consumer CSS always
+  wins — was documented as a benefit only. A CSS reset is unlayered consumer
+  CSS too and wins on identical terms, and layer order is resolved *before*
+  specificity, so preflight beats `@layer rldp` even where the package rule
+  is the more specific of the two. Verified in a browser: a rule at 0,1,0
+  inside a layer loses to an unlayered `button` selector at 0,0,1.
+
+  Preflight resets `color`, `font-size` and `background-color` on
+  `button, input, …` and `border-width` on `*`, which covers the field and
+  every day cell. The three failures this produced on a live checkout, none
+  of which throws or looks wrong in a default light theme in English: a
+  dark-mode field painted dark while the host's near-black text stayed on it
+  (the date the buyer had just typed, invisible); disabled days rendered
+  pixel-identical to selectable ones because `--rldp-disabled-foreground`
+  never applied; the field lost its border and read as a different control
+  from the inputs beside it.
+
+  README gains the rule to work from — anything this package styles on a
+  `<button>` or an `<input>` needs an explicit class from the consumer — the
+  collision table, and the alternative fix of ordering Tailwind into a layer
+  below `rldp`. `docs/THEMING.md` now states the cost beside the guarantee
+  instead of the guarantee alone.
+
 ## 0.4.0 — 2026-08-11
 
 Prompted by an adoption audit from a live travel-insurance checkout (34

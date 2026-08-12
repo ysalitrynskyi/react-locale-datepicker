@@ -118,6 +118,17 @@ zero-dependency component that ships its own stylesheet.
 - **[x] Shipped 0.2.0** (`docs/THEMING.md`). A one-line documented Tailwind v4
   bridge (`@theme inline` alias) so utility users can map our tokens without
   any shipped Tailwind.
+- **[ ] Survive a CSS reset by default.** Documented in 0.4.1; not yet solved.
+  `@layer rldp` means unlayered consumer CSS always wins, which is the point —
+  and a reset is unlayered consumer CSS. Tailwind preflight therefore takes
+  `color`, `font-size` and `background-color` on the field and every day cell,
+  and `border-width` everywhere, so those tokens never land. Today the consumer
+  pays for it in `classNames`, or orders Tailwind into a layer below `rldp`.
+  Raising specificity does **not** fix it: layer order is resolved before
+  specificity. The candidates are a ship-time reset-resistant sublayer for the
+  handful of properties resets touch, or an opt-in import that emits those rules
+  unlayered — either has to keep the "consumer CSS always wins" guarantee for
+  everything else, which is what makes this a design item and not a patch.
 
 ### Light and dark mode
 
