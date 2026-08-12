@@ -91,6 +91,35 @@ overridden.
 | `aria-invalid` | `boolean` |
 | `aria-describedby` | `string` |
 | `portal` | `boolean \| HTMLElement` | Opt-in escape from `overflow: hidden` ancestors. Default `false` = in-tree absolute popover (0.3.x). `true` portals to `document.body` with fixed coordinates; an element portals there. See D17. |
+| `manualEntryOnTouch` | `"second-tap" \| "immediate"` | When the on-screen keyboard may appear. Default `"second-tap"` since 0.5.0. See below. |
+
+#### `manualEntryOnTouch`
+
+The field renders `inputMode="none"` until the visitor taps the *text* a second
+time while the calendar is open — the one unambiguous signal that they mean to
+type rather than pick. `"immediate"` restores the pre-0.5 behaviour, where any
+tap on the field raises the keyboard.
+
+Typing is never removed. `inputMode` governs only the *virtual* keyboard, so
+hardware keyboards, paste and every a11y affordance are unaffected, and on a
+device with a physical keyboard nothing about this is observable at all. That is
+why the attribute is not gated behind a pointer check: rendering it
+unconditionally is what keeps the server and client markup identical, and the
+first tap — the one that must not raise a keyboard — happens before anything
+decided after mount could take effect.
+
+Two related behaviours are **not** configurable, because both were defects:
+
+- Picking a day returns focus to the input for every activation except a finger.
+  On touch, focusing a text input *is* asking for the keyboard, and this path
+  runs on the tap that selected a date. Keyboard and assistive-tech activation
+  (`detail === 0`) and mouse or pen still get focus back, so APG's return-focus
+  contract holds for everyone it was written for.
+- The popover's above/below side is decided once per open and frozen until
+  close. It used to be re-decided on every scroll and resize frame, and an
+  on-screen keyboard halves `window.innerHeight`, which collapsed the space
+  below the field and flipped the calendar over the top of it mid-interaction.
+  Coordinates keep updating, so the popover still tracks the field.
 
 #### `labels`
 

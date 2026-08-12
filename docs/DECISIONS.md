@@ -412,6 +412,65 @@ as a descendant and is clipped by the overflow card.
 
 ---
 
+## D18 — When the on-screen keyboard may appear
+
+**Status:** DECIDED 2026-08-12 — `manualEntryOnTouch?: "second-tap" |
+"immediate"`, defaulting to `"second-tap"`. Shipped 0.5.0.
+
+**Prompt:** the same live checkout, now in production, reported from a phone:
+every tap on the date field raised the on-screen keyboard, which costs roughly
+half a phone viewport; the calendar then jumped as the viewport shrank under
+it; and picking a day from the grid raised the keyboard too — on the tap that
+exists precisely so nobody has to type. The hand-rolled picker this package was
+extracted from did none of this: its `close()` defaulted to *not* refocusing,
+so a day selection never brought the keyboard back. The regression arrived with
+the extraction.
+
+**Options:**
+
+| Option | Upside | Downside |
+|---|---|---|
+| **A. Read-only field on touch** | Zero accidental keyboards | Removes manual entry on phones entirely. A buyer picking a date months out has to page through the calendar, and most checkout traffic is mobile |
+| **B. Second tap on the text = intent to type** | Keeps typing; no new UI; nothing to translate | The affordance is invisible until discovered — mitigated by the first tap doing the useful thing anyway |
+| **C. Long-press to type** | Fewer accidental keyboards than B | Undiscoverable, and collides with the iOS text-selection menu |
+| **D. A "type it" control inside the popover** | Explicit and discoverable | A new UI string in every consumer's locale set, and a control inside a popover consumers have already signed off on visually |
+
+**Outcome: B.** First tap opens the grid with `inputMode="none"`; tapping the
+text again while the calendar is open raises the keyboard. `"immediate"` is
+kept as an escape hatch for consumers who want the old behaviour. Semver: a
+behavioural default change with an opt-out → minor while 0.x.
+
+Two implementation notes that cost a round each, recorded because both look
+like details and are not:
+
+**The attribute is rendered unconditionally, not behind a pointer check.** On a
+device with a physical keyboard `inputMode` does nothing observable, so gating
+it buys nothing and costs the thing that matters: identical server and client
+markup. The first tap is the one that must not raise a keyboard, so anything
+decided after mount is decided too late. A `useSyncExternalStore` version —
+server snapshot `false`, live client snapshot, subscribed to `(pointer:
+coarse)` — passed all 12 tests and then, on the real page, left the attribute
+at `numeric` through the entire first tap, because nothing re-rendered the
+component until the visitor interacted with it.
+
+**Activation is read from the event, not from the device.** `(pointer: coarse)`
+describes the *primary* pointer, so a touchscreen laptop on its trackpad and
+the same laptop under a finger are indistinguishable to it — and those two want
+opposite handling of the focus return. `PointerEvent.pointerType` on the click
+is the interaction itself and is exact; `detail === 0` identifies synthesized
+clicks (assistive tech, Enter/Space on a button) first, since those are keyboard
+users whatever hardware is attached. The media query survives only as a fallback
+for synthetic events.
+
+Two behaviours changed alongside and are deliberately **not** configurable,
+because neither has a defensible other side: focus is no longer returned to the
+input after a touch pick, and the popover's above/below side is frozen for the
+lifetime of an open popover. The second one is what "the calendar goes up and
+looks weird" was — a keyboard halves `window.innerHeight`, collapsing the space
+below the field, and the side was being re-decided on every resize frame.
+
+---
+
 ## D12–D15 — Roadmap decisions (not yet opened)
 
 See `docs/ROADMAP.md` § "Decisions this roadmap creates". Opened only when the
