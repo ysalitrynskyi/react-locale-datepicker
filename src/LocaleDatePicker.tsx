@@ -1,5 +1,5 @@
 import React from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 
 // Lightweight locale-aware date picker, extracted from a production form.
 // Design rationale carried over from the third-party picker it replaced:
@@ -1959,23 +1959,29 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
              * `inputMode` alone does not do it: the field is already focused,
              * and browsers decide what keyboard to show when focus arrives, so
              * flipping the attribute under a focused input changes nothing
-             * until focus is taken away and given back. The blur/focus pair
-             * runs after paint so React has committed `inputMode="numeric"`
-             * first — reversed, the browser re-reads `none` and no keyboard
-             * appears.
+             * until focus is taken away and given back.
+             *
+             * Both halves have to happen inside this handler, which is what
+             * `flushSync` buys. iOS Safari only honours a programmatic
+             * `focus()` while it is still processing the gesture that caused
+             * it; deferring the blur/focus pair to a `requestAnimationFrame`
+             * leaves that window and Safari silently declines to raise the
+             * keyboard — the tap does nothing, which is worse than the bug
+             * being fixed. And the order cannot be relaxed either: React must
+             * have committed `inputMode="numeric"` to the DOM before focus
+             * returns, or the browser re-reads `none` and shows nothing.
              */
             if (
               activationOf(e) === "touch" &&
               manualEntryOnTouch === "second-tap" &&
               !typingIntent
             ) {
-              setTypingIntent(true);
-              requestAnimationFrame(() => {
-                const el = inputRef.current;
-                if (!el || document.activeElement !== el) return;
+              flushSync(() => setTypingIntent(true));
+              const el = inputRef.current;
+              if (el) {
                 el.blur();
                 el.focus();
-              });
+              }
             }
           }}
           onChange={(e) => {

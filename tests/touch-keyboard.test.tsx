@@ -79,6 +79,24 @@ describe("touch: the keyboard waits for a second tap", () => {
     await waitFor(() => expect(inputMode()).toBe("numeric"));
   });
 
+  test("the keyboard is requested inside the gesture, not after it", async () => {
+    // iOS Safari honours a programmatic focus() only while it is still
+    // processing the gesture that caused it. Deferring the blur/focus pair to
+    // a requestAnimationFrame leaves that window, and Safari declines silently
+    // — the second tap does nothing at all, which is worse than the bug this
+    // fixes. So the assertion is not "focus eventually lands" but "focus has
+    // already landed by the time the click handler returns".
+    const p = renderPicker();
+    fireEvent.click(p.input(), { detail: 1 });
+    await waitFor(() => expect(p.queryDialog()).toBeTruthy());
+
+    fireEvent.click(p.input(), { detail: 1 });
+
+    // Deliberately synchronous: no waitFor, no act, nothing awaited.
+    expect(inputMode()).toBe("numeric");
+    expect(document.activeElement).toBe(p.input());
+  });
+
   test("intent lasts one interaction and does not survive a close", async () => {
     const p = renderPicker();
     await waitFor(() => expect(inputMode()).toBe("none"));

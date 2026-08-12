@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.5.1 — 2026-08-12
+
+### Fixed
+
+- **iOS Safari: the second tap could do nothing.** 0.5.0 raised the keyboard by
+  flipping `inputMode` and then blurring/refocusing the input from a
+  `requestAnimationFrame`, so the attribute would be committed before focus
+  returned. But iOS honours a programmatic `focus()` only while it is still
+  processing the gesture that caused it, and a rAF callback is outside that
+  window — Safari declines silently, and the tap that asks to type does
+  nothing at all. Worse than the bug 0.5.0 fixed, for the platform most likely
+  to hit it.
+
+  Both halves now run inside the click handler: `flushSync` commits
+  `inputMode="numeric"` to the DOM, then blur/focus follows synchronously. The
+  ordering constraint is unchanged — focus must arrive *after* the attribute
+  lands, or the browser re-reads `none` and shows nothing.
+
+  Guarded by a test that asserts focus has landed by the time the handler
+  returns, rather than that it eventually lands; reverting to the rAF form
+  turns it red.
+
 ## 0.5.0 — 2026-08-12
 
 Three defects a desktop cannot show you. All reported from a phone on a live
