@@ -286,6 +286,28 @@ export interface LocaleDatePickerProps {
    * onto the portaled node so ancestor-scoped theming still applies.
    */
   portal?: boolean | HTMLElement;
+  /**
+   * When the on-screen keyboard is allowed to appear.
+   *
+   * Devices with a physical keyboard cannot tell this prop exists: `inputMode`
+   * governs only the *virtual* keyboard, so the suppression is inert there and
+   * typing stays possible everywhere, throughout. That is why the attribute is
+   * not gated on detecting a touch device — see the `inputMode` note at the
+   * input for why detecting one would be too late to help anyway.
+   *
+   * - `"second-tap"` (default): the first tap on the field opens the calendar
+   *   with the keyboard suppressed (`inputMode="none"`). Tapping the text
+   *   again while the calendar is open is read as deliberate intent to type,
+   *   and raises the keyboard. Picking a day never raises it.
+   * - `"immediate"`: the pre-0.5 behaviour — any tap on the field focuses it
+   *   and the keyboard appears.
+   *
+   * The default changed in 0.5.0. On a phone the keyboard costs roughly half
+   * the viewport, and it was appearing for the majority of taps that only
+   * wanted to pick a date from the grid — including, before the accompanying
+   * fix, on the tap that *selected* a day and closed the calendar.
+   */
+  manualEntryOnTouch?: "second-tap" | "immediate";
 }
 
 /**
@@ -300,6 +322,60 @@ export interface LocaleDatePickerProps {
  * nodeType 1 is ELEMENT_NODE. Checking `appendChild` too keeps out plain objects
  * that merely carry a `nodeType` field.
  */
+/**
+ * Whether the pointer being used right now is a finger rather than a mouse.
+ *
+ * Read at interaction time, never cached into state: a hybrid device answers
+ * differently between two taps, and the only thing that matters is what the
+ * current interaction was made with. A wrong answer is cheap in one direction
+ * and expensive in the other — treating a mouse as a finger merely delays the
+ * keyboard by one click, while treating a finger as a mouse pops the keyboard
+ * over half the screen — so an environment that cannot answer (`matchMedia`
+ * absent, SSR, jsdom) is treated as a mouse and keeps the old behaviour.
+ */
+function isCoarsePointer(): boolean {
+  const mq = coarsePointerQuery();
+  return mq ? mq.matches : false;
+}
+
+function coarsePointerQuery(): MediaQueryList | null {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function")
+    return null;
+  try {
+    return window.matchMedia("(pointer: coarse)");
+  } catch {
+    // jsdom's matchMedia stub throws on some media queries.
+    return null;
+  }
+}
+
+/**
+ * What actually produced this click: a finger, a mouse, or a keyboard.
+ *
+ * Read from the event rather than from the device, because the device is the
+ * wrong question. `(pointer: coarse)` describes the *primary* pointer, so a
+ * touchscreen laptop driven by its trackpad and the same laptop driven by a
+ * finger are indistinguishable to it — and those two want opposite handling.
+ * `PointerEvent.pointerType` is the interaction itself and is exact.
+ *
+ * `detail === 0` means the click was synthesized rather than pressed, which is
+ * how assistive tech and Enter/Space-on-a-button arrive. Checked first: those
+ * are keyboard users whatever hardware is attached.
+ *
+ * The media query is only a fallback, for synthetic events and any browser that
+ * still delivers a plain MouseEvent here.
+ */
+function activationOf(e: {
+  detail: number;
+  nativeEvent: Event;
+}): "keyboard" | "touch" | "mouse" {
+  if (e.detail === 0) return "keyboard";
+  const pointerType = (e.nativeEvent as Partial<PointerEvent>)?.pointerType;
+  if (pointerType === "touch" || pointerType === "pen") return "touch";
+  if (pointerType === "mouse") return "mouse";
+  return isCoarsePointer() ? "touch" : "mouse";
+}
+
 function isElement(value: unknown): value is HTMLElement {
   return (
     typeof value === "object" &&
@@ -733,6 +809,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   labels,
   icons,
   portal = false,
+  manualEntryOnTouch = "second-tap",
 }) => {
   const resolvedLocale = resolveLocale(locale);
 
@@ -817,6 +894,15 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   // DOM focus only follows focusDay after keyboard navigation — opening the
   // popup with the mouse must NOT steal focus from the text input.
   const keyboardNavRef = React.useRef(false);
+
+  // Touch only: has this visitor asked to type, by tapping the text a second
+  // time while the calendar is open? Reset on every close, so the intent lasts
+  // one interaction and the next tap starts from the grid again.
+  const [typingIntent, setTypingIntent] = React.useState(false);
+
+  // The flip decision (above/below the field) is frozen for as long as the
+  // popover stays open — see the measure effect.
+  const flipRef = React.useRef<boolean | null>(null);
 
   const rootRef = React.useRef<HTMLDivElement>(null);
   const popupRef = React.useRef<HTMLDivElement>(null);
@@ -979,6 +1065,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     setView("days");
     keyboardNavRef.current = false;
     setGridHelpShown(false);
+    // A fresh open re-decides which side to open toward; it stays frozen from
+    // there until this popover closes.
+    flipRef.current = null;
     setOpen(true);
   };
 
@@ -987,6 +1076,11 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     setView("days");
     keyboardNavRef.current = false;
     setGridHelpShown(false);
+    flipRef.current = null;
+    // Typing intent is per-interaction: the next tap on the field opens the
+    // grid again rather than resuming with a keyboard the visitor did not ask
+    // for a second time.
+    setTypingIntent(false);
     if (refocus) inputRef.current?.focus();
   }, []);
 
@@ -1065,7 +1159,22 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       // When neither side fits fully, open toward the roomier side; the page
       // can scroll to reveal the rest (in-tree) or the fixed coords place it
       // on the roomier side (portaled).
-      const up = spaceBelow < ph + 8 && r.top > spaceBelow;
+      //
+      // Decided ONCE per open and then frozen. Re-deciding on every scroll and
+      // resize is what made the calendar jump from under the field to over it
+      // mid-interaction, and the on-screen keyboard triggers it every time: the
+      // keyboard takes about half the viewport, `window.innerHeight` shrinks by
+      // that much, `spaceBelow` collapses, and a calendar the visitor was
+      // reading vaults over the field on the very frame their keyboard appears.
+      // Reported from a live checkout in exactly those words — "the calendar
+      // goes up and looks weird".
+      //
+      // Coordinates keep updating, so the popover still tracks the field
+      // through scrolling and layout changes. Only the side is sticky, and only
+      // until the popover closes.
+      const fits = spaceBelow < ph + 8 && r.top > spaceBelow;
+      const up = flipRef.current ?? fits;
+      flipRef.current = up;
       if (usePortal) {
         let left = r.left;
         const maxLeft = window.innerWidth - 8 - pw;
@@ -1126,7 +1235,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     };
   }, [open, view, viewMonth, usePortal, syncPortaledTheme]);
 
-  const commit = (date: Date) => {
+  const commit = (date: Date, by: "keyboard" | "touch" | "mouse" = "keyboard") => {
     onChange(startOfDay(date));
     setDraft(null);
     // Swallow clicks for a beat after the popup unmounts: the second click
@@ -1146,7 +1255,17 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         document.removeEventListener("click", guard, true);
       }, 350);
     }
-    close(true);
+    // Return focus to the input for anyone who arrived by keyboard — APG says
+    // a dialog hands focus back to the control that opened it, and without it
+    // a keyboard user is dropped onto <body> mid-form.
+    //
+    // But NOT for a finger. On touch, focusing a text input is a request for
+    // the on-screen keyboard, and this path runs on the tap that PICKED a day
+    // and closed the calendar — a visitor who used the grid precisely so they
+    // would not have to type got the keyboard anyway, over the form they were
+    // trying to see. Reported from a live checkout. A mouse is unaffected:
+    // there is no virtual keyboard to raise, and the focus return is free.
+    close(by !== "touch");
   };
 
   // Returns the newly committed Date, or undefined when nothing changed —
@@ -1355,7 +1474,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       case " ":
         if (focusDay && !shouldDisableDate(focusDay)) {
           e.preventDefault();
-          commit(focusDay);
+          commit(focusDay, "keyboard");
         } else {
           e.preventDefault(); // disabled day: swallow, keep dialog open
         }
@@ -1688,8 +1807,8 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                                   isDisabled && "dayDisabled",
                                   isToday && !isSelected && "dayToday",
                                 )}
-                                onClick={() => {
-                                  if (!isDisabled) commit(d);
+                                onClick={(e) => {
+                                  if (!isDisabled) commit(d, activationOf(e));
                                 }}
                                 onFocus={() => setFocusDay(d)}
                               >
@@ -1791,7 +1910,30 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         <input
           ref={inputRef}
           type="text"
-          inputMode="numeric"
+          /**
+           * `none` suppresses the on-screen keyboard without making the field
+           * read-only: the value stays selectable, a hardware keyboard still
+           * types into it, and every a11y affordance is unchanged. It is the
+           * one property that separates "focused" from "keyboard on screen",
+           * which is the whole distinction this behaviour needs.
+           *
+           * Suppressed for EVERY visitor, not only the ones a media query calls
+           * touch — because on a device with a physical keyboard the attribute
+           * does nothing at all. Nobody on a desktop can tell it is set: they
+           * click the field and type, exactly as before. That is what lets this
+           * render identically on the server and the client, which is the whole
+           * ballgame here — the very first tap is the one that must not raise a
+           * keyboard, and anything decided after mount is decided too late.
+           * An earlier attempt read the pointer through `useSyncExternalStore`
+           * and measured correct in every test, while on the actual page the
+           * attribute stayed `numeric` until something else re-rendered — i.e.
+           * through the entire first tap.
+           */
+          inputMode={
+            manualEntryOnTouch === "second-tap" && !typingIntent
+              ? "none"
+              : "numeric"
+          }
           autoComplete="off"
           {...slotProps("input", "rldp-input")}
           value={inputText}
@@ -1803,7 +1945,39 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           aria-describedby={ariaDescribedBy}
           aria-haspopup="dialog"
           aria-expanded={open}
-          onClick={() => !open && openPopup()}
+          onClick={(e) => {
+            if (!open) {
+              openPopup();
+              return;
+            }
+            /**
+             * Calendar already open and the visitor tapped the text itself —
+             * not the trigger, not a day. On touch that is the second tap, and
+             * the only unambiguous signal that they want to type rather than
+             * pick. Raise the keyboard for them.
+             *
+             * `inputMode` alone does not do it: the field is already focused,
+             * and browsers decide what keyboard to show when focus arrives, so
+             * flipping the attribute under a focused input changes nothing
+             * until focus is taken away and given back. The blur/focus pair
+             * runs after paint so React has committed `inputMode="numeric"`
+             * first — reversed, the browser re-reads `none` and no keyboard
+             * appears.
+             */
+            if (
+              activationOf(e) === "touch" &&
+              manualEntryOnTouch === "second-tap" &&
+              !typingIntent
+            ) {
+              setTypingIntent(true);
+              requestAnimationFrame(() => {
+                const el = inputRef.current;
+                if (!el || document.activeElement !== el) return;
+                el.blur();
+                el.focus();
+              });
+            }
+          }}
           onChange={(e) => {
             if (disabled) return;
             const masked = maskTyped(e.target.value);

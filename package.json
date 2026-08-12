@@ -1,6 +1,6 @@
 {
   "name": "react-locale-datepicker",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "private": false,
   "description": "A React date picker that localizes itself from the Intl API — every locale, no locale files, RTL-aware.",
   "license": "MIT",

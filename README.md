@@ -127,8 +127,37 @@ means passing a different string.
 | `labels` | `Partial<Labels>` | Strings `Intl` cannot supply — **English defaults; override for non-English UIs**. See below. |
 | `icons` | `Partial<Record<IconName, ReactNode>>` | Substitute calendar / chevron glyphs. |
 | `portal` | `boolean \| HTMLElement` | Opt-in escape from `overflow: hidden` ancestors. Default `false` keeps the 0.3.x in-tree popover. |
+| `manualEntryOnTouch` | `"second-tap" \| "immediate"` | When the on-screen keyboard may appear, touch only. Default `"second-tap"`. See below. |
 
 Full contract: [`docs/API.md`](docs/API.md).
+
+### The on-screen keyboard (touch)
+
+On a phone the keyboard costs roughly half the viewport, and most taps on a date
+field only ever wanted the grid. Since 0.5.0 the default is:
+
+```
+tap the field   → calendar opens, no keyboard
+tap the text again (calendar open) → keyboard: deliberate manual entry
+tap the icon    → calendar opens, no keyboard
+pick a day      → closes, no keyboard
+```
+
+The field carries `inputMode="none"` until that second tap. **Typing is never
+removed** — `inputMode` governs only the *virtual* keyboard, so hardware
+keyboards, paste and every a11y affordance keep working, and a fine pointer is
+unaffected entirely. Pointer type is read live from `(pointer: coarse)`, so a
+hybrid device is judged per interaction, not once at mount.
+
+Pass `manualEntryOnTouch="immediate"` for the pre-0.5 behaviour, where any tap
+on the field raises the keyboard.
+
+Two related behaviours are not optional, because both were plain defects:
+picking a day never returns focus to the input on touch (it did, and that raised
+the keyboard on the tap meant to finish the job — keyboard and assistive-tech
+activation still get focus back), and the popover's above/below decision is made
+once per open and frozen, so a viewport shrinking under the keyboard cannot flip
+a calendar the visitor is reading over the top of the field.
 
 ### Locale helper
 

@@ -1,5 +1,69 @@
 # Changelog
 
+## 0.5.0 — 2026-08-12
+
+Three defects a desktop cannot show you. All reported from a phone on a live
+checkout, all invisible to the 172 tests that existed before this release,
+because jsdom reports no pointer at all and every one of these is
+touch-only.
+
+### Changed
+
+- **The on-screen keyboard no longer appears on the first tap of the field.**
+  New prop `manualEntryOnTouch`, default `"second-tap"`. The field carries
+  `inputMode="none"` until the visitor taps the *text* a second time while the
+  calendar is open — the one unambiguous signal that they want to type rather
+  than pick. `"immediate"` restores the previous behaviour.
+
+  Typing is never removed: `inputMode` governs only the virtual keyboard, so a
+  hardware keyboard, paste, and every a11y affordance work throughout. On a
+  phone the keyboard costs about half the viewport, and it was appearing for the
+  majority of taps that only ever wanted the grid.
+
+  The attribute is rendered unconditionally rather than behind a pointer check,
+  because on a device with a physical keyboard it does nothing observable — and
+  that is what keeps the server and client markup identical. It matters more
+  than it sounds: the very first tap is the one that must not raise a keyboard,
+  so anything decided after mount is decided too late. A `useSyncExternalStore`
+  version of this passed every test and then left the attribute at `numeric`
+  through the whole first tap on the real page.
+
+  What *is* judged per interaction is the activation itself, read from
+  `PointerEvent.pointerType` on the event rather than from a media query about
+  the device — `(pointer: coarse)` describes the primary pointer, so a
+  touchscreen laptop driven by its trackpad and the same laptop driven by a
+  finger are indistinguishable to it, and those two want opposite handling.
+
+### Fixed
+
+- **Picking a day raised the keyboard.** `commit()` returned focus to the text
+  input unconditionally, and on touch, focusing a text input *is* a request for
+  the keyboard. So the tap that selected a date — the tap that exists precisely
+  so nobody has to type — closed the calendar and threw a keyboard over the
+  form. Focus is now returned for every activation except a finger: keyboard
+  and assistive tech (`detail === 0`, or Enter/Space handled by the grid) and
+  mouse or pen, where there is no virtual keyboard to raise and dropping the
+  user on `<body>` would be its own regression. APG's return-focus contract is
+  preserved for everyone it was written for.
+
+- **The calendar changed sides mid-interaction.** The above/below decision was
+  re-made on every scroll and resize frame. Opening the keyboard shrinks
+  `window.innerHeight` by roughly half, which collapses `spaceBelow` and flips
+  a calendar the visitor is reading over the top of the field, on the frame
+  their keyboard appears. Reported verbatim as "the calendar goes up and looks
+  weird". The side is now decided once per open and frozen until close;
+  coordinates keep updating, so the popover still tracks the field through
+  scrolling and layout changes.
+
+### Added
+
+- `tests/touch-keyboard.test.tsx` — 12 tests covering all three, with a
+  `matchMedia` stub for pointer type. Each guard was verified by reverting the
+  fix it protects and confirming the suite goes red. The flip test failed that
+  check on its first attempt: it shrank the viewport to a height that would not
+  have flipped anyway, so it passed with the fix deleted. Both viewport
+  constants now carry the arithmetic in a comment.
+
 ## 0.4.1 — 2026-08-12
 
 Documentation only. No runtime, type or stylesheet change; `0.4.0` and
