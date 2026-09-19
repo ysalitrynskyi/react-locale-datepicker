@@ -2,6 +2,8 @@
 
 For AI agents working in this repository. Read this before editing anything.
 
+Walk-up: `~/work/AGENTS.md`. **SSH:** host confirm. **Azure Foundry ON** (`azure_image`; `azure-enabled.md`).
+
 ## What this repository is
 
 A published npm package: `react-locale-datepicker` (MIT, 0.1.0 shipped
