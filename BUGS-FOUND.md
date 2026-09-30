@@ -2,7 +2,7 @@
 
 Identity: BUGHUNT-react-locale-datepicker-2026-09-30
 
-Hunt status: fourth pass added BH-050 through BH-056. BH-015 is the same defect as BH-014 and is not a second fix.
+Hunt status: fifth pass added BH-057 through BH-063. BH-015 is the same defect as BH-014 and is not a second fix.
 
 Reviewed BH-001 through BH-049. Combined BH-014 and BH-015 only: both are input `onBlur` running `commitTyped` while focus stays inside the picker. These pairs are related and stay separate:
 
@@ -616,3 +616,77 @@ Checked again on 2026-09-30 against BH-001 through BH-049. BH-015 was folded int
 - **How to reproduce:**
   1. Render a picker with no `aria-label`. Open.
   2. The dialog's `aria-label` and `aria-labelledby` are both null.
+
+## Fifth pass
+
+Checked again on 2026-09-30. Items already in BH-001 through BH-056 were not refiled. Contrast ratios and the RTL geometry below were measured in Chromium with the shipped `src/styles.css`. `high-contrast` meets the ratios the other themes miss, which is what that theme is for. The failures are the themes a form gets when it does not opt into it.
+
+### BH-057
+
+- **File:** `src/styles.css:45` (`--rldp-disabled-foreground-base`) and `src/styles.css:361` (placeholder)
+- **What is wrong:** The placeholder is painted with the disabled-foreground token. On an enabled empty field that hint is the only statement of the `dd.MM.yyyy` format. Measured contrast against the field background: default 2.54:1 light and 2.35:1 dark, minimal 1.73:1 light and 2.21:1 dark, soft 2.45:1 light and 2.36:1 dark. The text threshold is 4.5:1. `high-contrast` is 7:1 light and 8.63:1 dark.
+- **Why it matters:** The format is fixed and not derived from the locale, so the placeholder is how the visitor learns it. At these ratios it drops out of the field. The same token colors disabled day numbers (2.54:1 on the default light grid, 1.73:1 on minimal light). Those days are inactive. The placeholder is not.
+- **How to reproduce:**
+  1. Render with `placeholder="dd.mm.yyyy"` and no `themeName`.
+  2. Read the placeholder color and the field background.
+  3. The contrast is 2.54:1 in light and 2.35:1 in dark.
+
+### BH-058
+
+- **File:** `src/styles.css:44` (`--rldp-faint-foreground-base`) and `src/styles.css:542` (`.rldp-weekday`)
+- **What is wrong:** Weekday headers use the faint-foreground token at `0.75rem`. The token is the same color in both `light-dark()` stops for default, minimal, and soft. Light mode clears 4.5:1 (default 4.83, minimal 4.83, soft 4.55). Dark mode does not: default 3.67:1, minimal 3.96:1, soft 3.75:1. `high-contrast` replaces the token and passes. This is not BH-036. That one is `text-transform` rewriting Intl's casing. The weekday `uppercase` rule is that same family and is not a separate defect.
+- **Why it matters:** The column headers are the only cue for which day the first column is. In dark mode they sit under the text threshold. The calendar icon uses this token too and still clears the 3:1 non-text bar (3.67:1). The headers are text.
+- **How to reproduce:**
+  1. `prefers-color-scheme: dark`, default theme. Open the grid.
+  2. Compare a `.rldp-weekday` color to the popover background.
+  3. The contrast is 3.67:1.
+
+### BH-059
+
+- **File:** `src/styles.css:56` (`--rldp-error-base`) and `src/styles.css:340` (`.rldp-field[data-error]`)
+- **What is wrong:** The default error token is `oklch(0.7106 0.1661 22.22)` in both schemes. The field border is the only `hasError` paint. Against the default light background that border is 2.77:1, under the 3:1 non-text threshold. Dark mode is 6.41:1. Minimal light is 4.83:1, soft light is 4.49:1, and `high-contrast` light is 6.47:1. This is not BH-044, which is the focus, error, and disabled rules overriding each other. The color itself is already short of the bar before focus.
+- **Why it matters:** `hasError` is how a form shows that the date was rejected. On the default light theme the border is the entire signal, and it does not clear 3:1 on white.
+- **How to reproduce:**
+  1. Render `hasError` with no `themeName`, light scheme.
+  2. The field border color is `oklch(0.7106 0.1661 22.22)` on a white background.
+  3. The contrast is 2.77:1.
+
+### BH-060
+
+- **File:** `src/styles.css:81` and `src/styles.css:357`
+- **What is wrong:** At `min-width: 768px` the root sets `--rldp-font-size-base: 0.875rem`, and `.rldp-input` uses that token. Measured font size is 16px at a 320px viewport and 14px at 900px. Mobile Safari zooms the page when a focused input is under 16px.
+- **Why it matters:** The 36px cell size in that media query is documented on purpose. The font size is a different property in the same block. iPhone landscape widths and iPads are at least 768px, so the field that exists to be typed in is the size that triggers the zoom. The zoom was not focused on a device in this pass. The computed size was.
+- **How to reproduce:**
+  1. Render the field at a 900px viewport.
+  2. The input's computed `font-size` is 14px.
+  3. At 320px it is 16px.
+
+### BH-061
+
+- **File:** `src/LocaleDatePicker.tsx:1191` (in-tree `shift`) and `src/LocaleDatePicker.tsx:1638` (`left: pos.shift`)
+- **What is wrong:** The popover is placed with a physical `left`. In-tree, `left` is `pos.shift`, which is 0 when the field already fits. Portaled, `left` is the field's `getBoundingClientRect().left`. Neither side looks at direction. `isRTL` (`src/LocaleDatePicker.tsx:1372`) is only used for arrow keys. On a 640px root with `dir="rtl"`, a 312px popover whose `left` is 0 shares the field's left edge, and its right edge stops 328px short of the field's right edge.
+- **Why it matters:** The field is `width: 100%`. In RTL the start edge is the right. The calendar opens off the left end of that field. The chevron rule does match a real `dir="rtl"` and rotates. This is not BH-013. Copying `dir` onto a portaled popover would not change this `left`.
+- **How to reproduce:**
+  1. Put `dir="rtl"` on a 640px `.rldp-root` and give `.rldp-popover` `left: 0`, which is the shift the component writes when no viewport clamp applies.
+  2. The popover's left matches the root's left.
+  3. The root's right edge is 328px to the right of the popover's right edge. The nav icon's transform is a 180 degree rotation.
+
+### BH-062
+
+- **File:** `src/styles.css:477` and `src/LocaleDatePicker.tsx:1374`
+- **What is wrong:** Both the chevron flip and `isRTL` require the attribute value `rtl`. `[dir="rtl"]` does not match `dir="auto"`. `element.dir === "rtl"` is false when the property is `"auto"`. A root with `dir="auto"` whose first strong character is Arabic computes `direction: rtl`. The grid and flex axes follow that. The nav icon's transform stays `none`.
+- **Why it matters:** `docs/API.md` describes a `direction` value of `"auto"` (the prop itself is BH-007). An ancestor that already uses `dir="auto"` gets an RTL calendar whose previous and next arrows still point as in LTR, and whose arrow keys still move in physical left and right. This is not BH-013. There the portaled grid stays LTR while the keys follow a real `dir="rtl"`.
+- **How to reproduce:**
+  1. A `.rldp-root` with `dir="auto"` and the text `مرحبا`.
+  2. `getComputedStyle(root).direction` is `rtl`. `root.dir` is `auto`.
+  3. `.rldp-nav-icon` inside it has transform `none`. The same icon under `dir="rtl"` is rotated 180 degrees.
+
+### BH-063
+
+- **File:** `src/styles.css:370` (input `outline: none`), `src/styles.css:337` (focus border color), and `src/styles.css:652` (forced-colors rules)
+- **What is wrong:** Focus on the field is a border-color change. The input's own outline is removed. The forced-colors block restores a border for the selected day and for today only. With `forced-colors: active`, the field border is `rgb(0, 0, 0)` before focus and after focus, and the input's `outline-style` stays `none`. An enabled day and a disabled day compute the same color and the same background. The selected day gets a 2px border and today gets a dashed border, so those two states survive.
+- **Why it matters:** Windows high contrast keeps outlines and system colors, and drops author background colors. The field's focus cue is one of the colors it drops, and the stylesheet turned off the outline that would have remained. A disabled day is then drawn like an enabled one. This is not BH-022 and not BH-044.
+- **How to reproduce:**
+  1. Emulate `forced-colors: active` on the default theme.
+  2. Focus the input. The field border color does not change. The input outline style is `none`.
+  3. A day with `data-disabled` and a day without it resolve to the same color and the same background.
