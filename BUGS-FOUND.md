@@ -2,7 +2,23 @@
 
 Identity: BUGHUNT-react-locale-datepicker-2026-09-30
 
-Hunt status: third pass added BH-045 through BH-049. Earlier items are unchanged.
+Hunt status: fourth pass added BH-050 through BH-056. BH-015 is the same defect as BH-014 and is not a second fix.
+
+Reviewed BH-001 through BH-049. Combined BH-014 and BH-015 only: both are input `onBlur` running `commitTyped` while focus stays inside the picker. These pairs are related and stay separate:
+
+- BH-003 and BH-035 — extra group, versus an edit inside a complete date
+- BH-004 and BH-005 — unpadded year, versus the 0–99 `Date` mapping
+- BH-007 and BH-013 — no `direction` prop, versus a portaled grid dropping ancestor `dir`
+- BH-009 and BH-017 — pen, versus Safari reporting a finger as `pointerType` `"mouse"`
+- BH-010 and BH-039 — disabled trigger never receives `mousedown`, versus `disabled` set while already open
+- BH-012, BH-040, and BH-046 — stale day after a chevron, focus dropped when the trigger closes, year view has no keymap
+- BH-013, BH-019, BH-020, BH-021, and BH-049 — different holes in the portaled popover
+- BH-018 and BH-043 — outside press skips the commit, versus clear reports `missing` and then restores
+- BH-022 and BH-044 — selected-day ring, versus the field error border
+- BH-037 and BH-055 — open never leaves a month with no selectable day, versus a later predicate change inside that month
+- BH-047 and BH-051 — focus can leave a dialog that stays open, versus Tab from the field never entering a portaled dialog
+
+BH-011 and BH-024 through BH-034 are tests that stay green. They are not copies of the product bugs they fail to catch.
 
 Findings only. No fixes in this file's commits.
 
@@ -162,26 +178,17 @@ Findings only. No fixes in this file's commits.
 
 ### BH-014
 
-- **File:** `src/LocaleDatePicker.tsx:1979` (second-tap `blur`/`focus`) and `src/LocaleDatePicker.tsx:2021` (input `onBlur`)
-- **What is wrong:** The second tap raises the on-screen keyboard by blurring the input and focusing it again inside the click. That blur is not marked as internal. React runs the input `onBlur`, which always calls `commitTyped()` and then the parent `onBlur`. A partial draft is reported as `impossible-date` and wiped (`setDraft(null)`). A finished draft is committed via `onChange` before the visitor has typed anything else. With no draft, the parent `onBlur` still runs with the current value. Focus is back on the input when the handler returns, so the visitor never left the field.
-- **Why it matters:** `onBlur` is the signal parents use to validate. The parity note exists because validating at the wrong moment flashes a false "required" error. This fires that callback on the tap whose only job is to allow typing. An empty required field errors at the moment of the second tap. A hardware keyboard can already have put a partial draft in the field (`inputMode="none"` does not block it); the second tap then deletes it. `tests/touch-keyboard.test.tsx` only asserts `inputmode` and `activeElement` after the second click.
+- **File:** `src/LocaleDatePicker.tsx:2021` (input `onBlur`). The gestures that move focus while staying inside the picker are the second-tap `blur`/`focus` at `src/LocaleDatePicker.tsx:1979`, the second ArrowDown at `src/LocaleDatePicker.tsx:2011` (`focusGridDay` at `src/LocaleDatePicker.tsx:1384`), and Tab from the input into the dialog header.
+- **What is wrong:** `onBlur` always calls `commitTyped()` and then the parent `onBlur`. It does not look at where focus went. The popover's `onMouseDown` calls `preventDefault` so a pointer press inside the dialog does not blur the input (`src/LocaleDatePicker.tsx:1617`). Nothing equivalent ignores a focus move whose target is still inside this picker. Three gestures hit that hole. The second tap blurs and refocuses the input on purpose, to raise the on-screen keyboard, and the blur still commits. The second ArrowDown focuses the roving day. Tab from the input focuses the previous-month button, which is inside the dialog. A partial draft is reported as `impossible-date` and wiped. A finished draft is committed. With no draft, the parent `onBlur` still runs. BH-015 is this same defect, not a second one.
+- **Why it matters:** `onBlur` is the signal parents use to validate. The parity note exists because validating at the wrong moment flashes a false "required" error. All three gestures are "stay in the picker", and each one fires that callback. The second tap deletes a partial draft at the moment typing was supposed to become possible. ArrowDown and Tab commit or wipe the draft before a day is chosen, while the dialog stays open. `tests/touch-keyboard.test.tsx` only asserts `inputmode` and `activeElement` after the second click. `tests/keyboard-map.test.tsx` presses ArrowDown and does not spy on `onBlur`.
 - **How to reproduce:**
-  1. Render an empty picker with the default `manualEntryOnTouch` (`"second-tap"`) and a coarse pointer (or a click whose `pointerType` is `"touch"` or absent).
-  2. Focus the input, click it so the calendar opens, and type `1`. The input shows `1`.
-  3. Click the input again.
-  4. `inputmode` becomes `numeric` and focus stays on the input. `onBlur` has been called once, `onValidationError("impossible-date")` has fired, and the input is empty. `onChange` has not fired.
-  5. Repeat with no draft. `onBlur` still fires with the current value (`null` when the field is empty).
+  1. Second tap. Render an empty picker with the default `manualEntryOnTouch` (`"second-tap"`) and a click whose `pointerType` is `"touch"` or absent. Focus the input, click it so the calendar opens, and type `1`. Click the input again. `inputmode` becomes `numeric` and focus stays on the input. `onBlur` has been called once, `onValidationError("impossible-date")` has fired, and the input is empty.
+  2. ArrowDown. Render `value={new Date(2026, 7, 10)}` so the field shows `10.08.2026`. Focus the input, press ArrowDown once, type `1`, press ArrowDown again. Focus is on the roving day. `onValidationError("impossible-date")` fires and the input snaps back to `10.08.2026`. The dialog stays open.
+  3. Tab. Value 15 July 2026, calendar already open, replace the input with `25122027` so it shows `25.12.2027`. Press Tab. Focus is on a control inside the dialog, and `onChange` has fired for 25 December 2027.
 
 ### BH-015
 
-- **File:** `src/LocaleDatePicker.tsx:2011` (input ArrowDown), `src/LocaleDatePicker.tsx:1384` (`focusGridDay` focuses the day), and `src/LocaleDatePicker.tsx:2021` (input `onBlur`)
-- **What is wrong:** The second ArrowDown is documented as moving the keyboard into the grid. `focusGridDay` calls `btn.focus()` synchronously, which blurs the input. `onBlur` runs `commitTyped()` and the parent `onBlur` with no check that focus moved into this picker's own dialog. A partial draft is `impossible-date` and the text reverts. A complete draft is committed while the calendar stays open. An empty field still notifies the parent. The popover's `onMouseDown` calls `preventDefault` specifically so a pointer press inside the dialog does not do this (`src/LocaleDatePicker.tsx:1617`). There is no equivalent for a focus move whose `relatedTarget` is inside the dialog.
-- **Why it matters:** Entering the grid is not leaving the field. The false "required" flash the mousedown guard was added to prevent happens on the keyboard path that is supposed to enter the grid. The typed digits disappear before the visitor picks a day. `tests/keyboard-map.test.tsx` presses that ArrowDown and does not spy on `onBlur`. `tests/validation-error.test.tsx` expects Tab to validate, which is a different gesture; it never ArrowDowns with a draft.
-- **How to reproduce:**
-  1. Render `value={new Date(2026, 7, 10)}` so the field shows `10.08.2026`.
-  2. Focus the input, press ArrowDown once (calendar opens, focus stays in the input), type `1`.
-  3. Press ArrowDown again.
-  4. Focus is on the roving day button. `onValidationError("impossible-date")` fires, `onBlur` fires, and the input snaps back to `10.08.2026`. The dialog stays open.
+Same defect as BH-014. ArrowDown into the grid is one of the three gestures listed there. Do not fix it separately.
 
 ### BH-016
 
@@ -510,8 +517,8 @@ Checked again on 2026-09-30. Items already in BH-001 through BH-044 were not ref
 ### BH-047
 
 - **File:** `src/LocaleDatePicker.tsx:1092`
-- **What is wrong:** The dialog closes on an outside `mousedown` / `touchstart`, and on Escape. Nothing closes it when keyboard focus leaves the widget. Blur of the input commits a draft and leaves the dialog up.
-- **Why it matters:** There is no focus trap. After the last day button, Tab moves into the rest of the page and the calendar stays open over it. A pointer user who clicks outside dismisses it. A keyboard user who leaves does not.
+- **What is wrong:** The dialog closes on an outside `mousedown` / `touchstart`, and on Escape. Nothing closes it when keyboard focus leaves the widget. Blur of the input commits a draft and leaves the dialog up. The dialog element also has no `aria-modal`, so assistive tech is not told that the rest of the page is inert.
+- **Why it matters:** There is no focus trap. After the last day button, Tab moves into the rest of the page and the calendar stays open over it. A pointer user who clicks outside dismisses it. A keyboard user who leaves does not. A portaled dialog is worse still: Tab from the input never enters it (BH-051). `aria-modal` is absent either way.
 - **How to reproduce:**
   1. Open the picker.
   2. Move focus to a button that is not inside the dialog.
@@ -536,3 +543,76 @@ Checked again on 2026-09-30. Items already in BH-001 through BH-044 were not ref
   1. Render with `portal` and `className="my-picker"`. Open.
   2. The day node is under `document.body`. `.rldp-root.contains(day)` is false.
   3. Put `font-family: Georgia` on an ancestor of the field. The field inherits it. The dialog does not, because no popover rule sets `font-family`.
+
+## Fourth pass
+
+Checked again on 2026-09-30 against BH-001 through BH-049. BH-015 was folded into BH-014. Each item below was reproduced in jsdom.
+
+### BH-050
+
+- **File:** `src/LocaleDatePicker.tsx:1846` (month button) and `src/LocaleDatePicker.tsx:1877` (year button)
+- **What is wrong:** Choosing a month unmounts the month grid, and choosing a year unmounts the year grid. The button that was just activated is the focused element, and it is removed. Focus falls to `document.body`. The dialog stays open, and nothing moves focus to the view that just opened. The month path was executed. The year button does the same `setView` with no focus move.
+- **Why it matters:** A keyboard user who reaches January and presses Enter is dumped at the top of the page while the calendar is still open. The next key does not move a day. This is not BH-040, which is the trigger closing the dialog, and not BH-046, which is the missing arrow keymap on those buttons while they are still mounted.
+- **How to reproduce:**
+  1. Value 15 July 2026. Open with ArrowDown, then ArrowDown again so a day button is focused.
+  2. Activate the month pill, focus the January button, and click it.
+  3. The dialog is still present. `document.activeElement` is `body`.
+
+### BH-051
+
+- **File:** `src/LocaleDatePicker.tsx:1896` (`createPortal`)
+- **What is wrong:** With `portal`, the dialog is mounted under `document.body`, after the rest of the page. Tab order follows the DOM. From the input, Tab moves to the next control in the form and skips every control in the dialog.
+- **Why it matters:** The in-tree calendar is the next tab stop after the field, so Tab reaches the month header. The portaled calendar, which is the documented way out of `overflow: hidden`, is not in that sequence. The visitor never tabs into it. The dialog stays open over the control that received focus. This is not BH-047, which is leaving a dialog that was already in the tab order. An in-tree picker, given the same Tab, does land inside its dialog.
+- **How to reproduce:**
+  1. Render `portal` with a button after the picker. Value 15 July 2026. ArrowDown opens the dialog.
+  2. Tab from the input.
+  3. The button after the picker is focused. The dialog does not contain the focused element, and the dialog is still present.
+
+### BH-052
+
+- **File:** `src/LocaleDatePicker.tsx:1179` and `src/LocaleDatePicker.tsx:1183`
+- **What is wrong:** Horizontal placement is clamped into the viewport (`left` is forced between 8px and `innerWidth - width - 8`). Vertical placement is not. `top` is `r.top - popoverHeight - 4` when the popover flips above the field, and `r.bottom + 4` otherwise. A flip above a short viewport produces a negative `top`. The portaled popover is `position: fixed`, and the measure path does not call `scrollIntoView` for a portal, so the clipped part cannot be scrolled into view.
+- **Why it matters:** Phones and short windows are where the popover flips. The top of the calendar, including the month it opened to show, sits above the viewport. This is not BH-019, which is a position that goes stale after a later layout change. The first measurement is already off-screen.
+- **How to reproduce:**
+  1. Portal on. Field rect top 400, height 44. Popover `offsetHeight` 420. `window.innerHeight` 640.
+  2. Open.
+  3. The popover's inline `top` is `-24px`.
+
+### BH-053
+
+- **File:** `src/LocaleDatePicker.tsx:1053` (`openPopup` is the only place a new `value` selects the month) and `src/LocaleDatePicker.tsx:1547` (`inputText`)
+- **What is wrong:** While the dialog is open, a new `value` in another month updates the input and the echo and does not change `viewMonth`. No cell in the open grid is `aria-selected`. There is no effect on `value`. `openPopup` applies the value only on the next open.
+- **Why it matters:** A parent that snaps the committed date into a later month, or replaces it from stored state, leaves the visitor looking at the old month. Enter on the day that still holds the roving tabindex commits that old day and overwrites the update. This is not BH-038. There the draft is non-null and the input keeps the draft. Here `draft` is null, the input already shows the new date, and the grid does not.
+- **How to reproduce:**
+  1. Value 15 July 2026. Open. The dialog text contains `July`.
+  2. Rerender with `value` 25 December 2026, without a pointer event outside the dialog (an outside press would close it first).
+  3. The input shows `25.12.2026`. The dialog still contains `July`, does not contain `December`, and no element has `aria-selected="true"`.
+
+### BH-054
+
+- **File:** `src/LocaleDatePicker.tsx:944` (formatters) and `src/LocaleDatePicker.tsx:1701` (year pill)
+- **What is wrong:** Every `Intl.DateTimeFormat` pins `calendar: "gregory"` and does not pin `numberingSystem`. Locales whose default numbering system is not Latin therefore format years and days in that system. The year pill, the year buttons, the day numerals, and the masked field all use `getFullYear()` / `getDate()`, which are Latin. The echo, the polite month title, and the day accessible name use the formatter.
+- **Why it matters:** Under an Arabic, Persian, or Bengali locale the field shows `15.06.2026` and the year pill shows `2026`, while the live region announces `٢٠٢٦` / `۲۰۲۶` / `২০২৬`. The echo under the field disagrees with the field in the same way. The calendar is Gregorian on purpose (D11). The two numeral systems are not. `hi` happens to use Latin digits, which is why an English or Hindi screenshot stays consistent.
+- **How to reproduce:**
+  1. `new Intl.DateTimeFormat("ar", { calendar: "gregory", month: "long", year: "numeric" }).format(new Date(2026, 5, 15))` contains `٢٠٢٦`.
+  2. Render `locale="ar"` with that value and open.
+  3. The year pill text contains `2026`. The `live-region` text contains `٢٠٢٦` and does not contain `2026`.
+
+### BH-055
+
+- **File:** `src/LocaleDatePicker.tsx:1348` (`roveTarget`)
+- **What is wrong:** The memo depends on `focusDay`, `value`, `viewMonth`, and `daysGrid`. It reads `shouldDisableDate` and `today`, then omits both. The comment says the predicate is stable for an open session. It is not. After a change, the day buttons render from the new predicate, and the roving tabindex stays on the result of the old one. If the old result was "no day", every enabled day has `tabIndex` -1.
+- **Why it matters:** A calendar that opens while availability is still loading, then receives the real `shouldDisableDate`, shows enabled days that the second ArrowDown cannot enter. Nothing else in that update changes the month, so the memo never reruns. This is not BH-037. That one opens a month in which every day is disabled and never looks at a later month. Here the open month's days become enabled and still have no tab stop.
+- **How to reproduce:**
+  1. `value={null}`, `today` 30 September 2026, `shouldDisableDate` returns true. Open. No `[data-day]` button has `tabIndex` 0.
+  2. Rerender with `shouldDisableDate` returning false, same month, dialog still open.
+  3. Day buttons are no longer `aria-disabled`. None of them has `tabIndex` 0.
+
+### BH-056
+
+- **File:** `src/LocaleDatePicker.tsx:1616`
+- **What is wrong:** The dialog's only name is the optional `aria-label` prop, passed through as `aria-label={ariaLabel}`. When the prop is omitted the attribute is absent, and there is no `aria-labelledby` pointing at the visible month title. The month grid has its own `aria-label`. The dialog does not.
+- **Why it matters:** `role="dialog"` without a name is announced as an unnamed dialog. A wrapping `<label>` names the input, not this dialog, and a portaled dialog is not inside that label anyway. Consumers who never set `aria-label` still get a dialog.
+- **How to reproduce:**
+  1. Render a picker with no `aria-label`. Open.
+  2. The dialog's `aria-label` and `aria-labelledby` are both null.
