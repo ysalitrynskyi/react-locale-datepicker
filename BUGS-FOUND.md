@@ -2,7 +2,7 @@
 
 Identity: BUGHUNT-react-locale-datepicker-2026-09-30
 
-Hunt status: second pass added BH-035 through BH-044. BH-001 through BH-034 are unchanged.
+Hunt status: third pass added BH-045 through BH-049. Earlier items are unchanged.
 
 Findings only. No fixes in this file's commits.
 
@@ -482,3 +482,57 @@ Checked again on 2026-09-30 against the same tree, excluding BH-001 through BH-0
 - **How to reproduce:**
   1. Render with `hasError`. Focus the input. The border stays the error colour. The same field without `hasError` switches to the accent on focus.
   2. Render `themeName="minimal" disabled hasError` and focus the input. The border becomes transparent.
+
+## Third pass
+
+Checked again on 2026-09-30. Items already in BH-001 through BH-044 were not refiled. Each item below was reproduced in jsdom, except the font half of BH-049, which follows from the portal node sitting outside `.rldp-root` and from `font-family` existing only on that root rule.
+
+### BH-045
+
+- **File:** `src/LocaleDatePicker.tsx:1512`
+- **What is wrong:** Opening the year list calls `scrollIntoView({ block: "center" })` on the current year button. That scrolls every ancestor, including the page, until the button sits in the middle of the viewport. The year list already has `overflow-y: auto` and `max-height: 16rem` (`src/styles.css:600`).
+- **Why it matters:** The year list exists for birth dates, which means a long form. Opening it jumps the form so the field the visitor was typing in leaves the screen. Scrolling the list element itself would have kept the page still.
+- **How to reproduce:**
+  1. Open a picker whose value is in 2026 and activate the year pill.
+  2. The current year button receives `scrollIntoView` with `block: "center"`.
+  3. On a page taller than the viewport, the window scrolls to center that button.
+
+### BH-046
+
+- **File:** `src/LocaleDatePicker.tsx:1579` and `src/LocaleDatePicker.tsx:1863`
+- **What is wrong:** In the year view the header chevrons are `disabled`, and the year buttons have no `tabIndex` and no key handler. With no `minDate` the list runs 120 years back and 2 years forward, and every year is a native tab stop. The month view has the same gap at a smaller size: twelve month buttons, no arrow keymap.
+- **Why it matters:** The days grid uses a roving tabindex and arrow keys. The view that exists so a keyboard user can reach 1967 does not. Reaching a year sixty back is sixty Tab presses, and Shift+PageUp on the days grid is the only other way to move by year.
+- **How to reproduce:**
+  1. Today and value in June 2026. Open and activate the year pill.
+  2. More than 100 buttons have `data-part="year"`, and each has `tabIndex` 0.
+  3. Both `nav-previous` and `nav-next` are `disabled`.
+
+### BH-047
+
+- **File:** `src/LocaleDatePicker.tsx:1092`
+- **What is wrong:** The dialog closes on an outside `mousedown` / `touchstart`, and on Escape. Nothing closes it when keyboard focus leaves the widget. Blur of the input commits a draft and leaves the dialog up.
+- **Why it matters:** There is no focus trap. After the last day button, Tab moves into the rest of the page and the calendar stays open over it. A pointer user who clicks outside dismisses it. A keyboard user who leaves does not.
+- **How to reproduce:**
+  1. Open the picker.
+  2. Move focus to a button that is not inside the dialog.
+  3. The dialog is still present.
+
+### BH-048
+
+- **File:** `src/LocaleDatePicker.tsx:1112`
+- **What is wrong:** Each open picker registers its own capture-phase Escape listener on `document` and calls `stopPropagation`, not `stopImmediatePropagation`. Listeners on the same node still all run. Opening one picker does not close another. ArrowDown on a second field therefore leaves both dialogs open, and one Escape runs every listener.
+- **Why it matters:** Two date fields on one form can both be open. Dismissing the one the visitor is in also dismisses the other. A modal that listens for Escape on `document` in the capture phase has the same collision.
+- **How to reproduce:**
+  1. Render two pickers. ArrowDown on the first input, then ArrowDown on the second.
+  2. Both dialogs are open. A pointer on the second trigger does not do this, because that `mousedown` is outside the first picker and closes it first.
+  3. Keydown Escape on `document`. Both dialogs close.
+
+### BH-049
+
+- **File:** `src/LocaleDatePicker.tsx:1894`, `src/styles.css:74`, `docs/ANATOMY.md:89`
+- **What is wrong:** `portal` renders the dialog outside `.rldp-root`. `font-family` is declared only on `.rldp-root` (`var(--rldp-font, var(--rldp-font-base))`). The portal sync copies `--rldp*` custom properties and `color-scheme`. It never sets `font-family`, and `--rldp-font-base` is `inherit`, so copying that custom property does not choose a font. The same break hits the documented part selector: `.my-picker [data-part="day"]` does not match a day that is no longer inside `.my-picker`.
+- **Why it matters:** An in-tree calendar inherits the form's font. The portaled one, which is the documented fix for `overflow: hidden`, paints in the page's font instead. A consumer who styles days the way `docs/ANATOMY.md` shows gets no match once `portal` is on. Token copy does not fix either hole. This is not BH-020, which is those copied colour tokens going stale, and not BH-013, which is `dir`.
+- **How to reproduce:**
+  1. Render with `portal` and `className="my-picker"`. Open.
+  2. The day node is under `document.body`. `.rldp-root.contains(day)` is false.
+  3. Put `font-family: Georgia` on an ancestor of the field. The field inherits it. The dialog does not, because no popover rule sets `font-family`.
