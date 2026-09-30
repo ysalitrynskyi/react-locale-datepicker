@@ -2,9 +2,9 @@
 
 Identity: BUGHUNT-react-locale-datepicker-2026-09-30
 
-Hunt status: fifth pass added BH-057 through BH-063. BH-015 is the same defect as BH-014 and is not a second fix.
+Hunt status: sixth pass added BH-064 through BH-070. BH-015 is the same defect as BH-014 and is not a second fix.
 
-Reviewed BH-001 through BH-049. Combined BH-014 and BH-015 only: both are input `onBlur` running `commitTyped` while focus stays inside the picker. These pairs are related and stay separate:
+Reviewed BH-001 through BH-063. Combined BH-014 and BH-015 only: both are input `onBlur` running `commitTyped` while focus stays inside the picker. These pairs are related and stay separate:
 
 - BH-003 and BH-035 — extra group, versus an edit inside a complete date
 - BH-004 and BH-005 — unpadded year, versus the 0–99 `Date` mapping
@@ -17,6 +17,13 @@ Reviewed BH-001 through BH-049. Combined BH-014 and BH-015 only: both are input 
 - BH-022 and BH-044 — selected-day ring, versus the field error border
 - BH-037 and BH-055 — open never leaves a month with no selectable day, versus a later predicate change inside that month
 - BH-047 and BH-051 — focus can leave a dialog that stays open, versus Tab from the field never entering a portaled dialog
+- BH-003 and BH-064 — a fourth group appended to the year, versus day and month rolling as soon as they hold two digits
+- BH-004 and BH-064 — an unpadded year on display, versus a year-first paste that commits the wrong year. After `2012-03-15` commits year 315, the field paints `20.12.315` because of BH-004
+- BH-035, BH-043, BH-065, and BH-041 — a mid-string edit, a cleared field, a mask that drops a character and still sets a draft, and Enter during composition
+- BH-039 and BH-065 — `disabled` does not stop `commitTyped`, versus a draft created when the visible text did not change
+- BH-054 and BH-067 — locale digits versus Latin `getFullYear()`, versus an accessible name that drops Intl `literal` parts
+- BH-045, BH-046, and BH-068 — `scrollIntoView` moves the page, the year list has no arrow keymap, and the list omits a value year outside today−120..today+2
+- BH-007 and BH-069 — no `direction` prop, versus no `lang` from `locale`
 
 BH-011 and BH-024 through BH-034 are tests that stay green. They are not copies of the product bugs they fail to catch.
 
@@ -434,12 +441,13 @@ Checked again on 2026-09-30 against the same tree, excluding BH-001 through BH-0
 ### BH-039
 
 - **File:** `src/LocaleDatePicker.tsx:1810` (day `onClick`) and `src/LocaleDatePicker.tsx:1054` (`openPopup`)
-- **What is wrong:** `disabled` is checked when opening and when typing. A day click checks `shouldDisableDate` only. Turning `disabled` on while the dialog is already open does not close it, and choosing a day still commits and closes.
+- **What is wrong:** `disabled` is checked when opening and when typing. A day click checks `shouldDisableDate` only. `commitTyped` (`src/LocaleDatePicker.tsx:1273`) never reads `disabled` either, and Enter (`src/LocaleDatePicker.tsx:2007`) and blur (`src/LocaleDatePicker.tsx:2021`) both call it. Turning `disabled` on while a draft or the dialog is already open does not close the dialog, does not drop the draft, and choosing a day or pressing Enter still commits. The input is `readOnly` while disabled (`src/LocaleDatePicker.tsx:1941`), so a new keystroke does not start a draft. A draft that already exists still commits.
 - **Why it matters:** A form that disables this field because a prerequisite changed can still take a date from the calendar that is already on screen.
 - **How to reproduce:**
   1. Open on July 2026 with `disabled={false}`.
   2. Set `disabled` to true. The dialog is still present.
   3. Click the button whose `data-day` is `2026-6-20`. `onChange` fires with 20 July 2026 and the dialog closes.
+  4. Separate path: value 17 July 2026, change the input to `18.07.2026`, then rerender with `disabled` true without blurring. Keydown Enter. `onChange` fires with 18 July 2026.
 
 ### BH-040
 
@@ -690,3 +698,79 @@ Checked again on 2026-09-30. Items already in BH-001 through BH-056 were not ref
   1. Emulate `forced-colors: active` on the default theme.
   2. Focus the input. The field border color does not change. The input outline style is `none`.
   3. A day with `data-disabled` and a day without it resolve to the same color and the same background.
+
+## Sixth pass
+
+Checked again on 2026-09-30 against BH-001 through BH-063. Each item below was reproduced with a jsdom render. Korean was checked and is not BH-067: the month part is already `1월`, so the day name `31 토요일 1월 2026` still contains the unit. A pointer click on a disabled day does not fill the keyboard-help region. The popover's screen-reader text does not widen the page. Selected-day and active-pill text clear 4.5:1 in the shipped themes (default selected day 5.17:1). Those were not filed.
+
+### BH-064
+
+- **File:** `src/LocaleDatePicker.tsx:723` (roll into the next segment) and `src/LocaleDatePicker.tsx:734` (pad when a separator arrives)
+- **What is wrong:** Day and month roll into the next segment as soon as that group holds two digits, before any separator. A following separator then pads whatever spilled into the new group. `commitTyped` commits the result (`src/LocaleDatePicker.tsx:1294`). `123.2026` shows `12.03.2026` and blur commits 12 March 2026. `2012-03-15` shows `20.12.0315` and blur commits 20 December 315. `2026-07-17` shows `20.26.0717`, blur reports `impossible-date`, the field empties, and `onChange` does not fire. A slash is the same separator class as the hyphen.
+- **Why it matters:** The mask comment says showing a different date as if the user had typed it must not ship. A year-first paste is a real date and blur stores a different one. This is not BH-003. There a fourth group is appended to the year (`1.2.3.2026` becomes `01.02.3202`). Here the first digits are consumed as day and month, so the separators land in the wrong segment. After the 315 commit the field paints `20.12.315`. That unpadded year is BH-004. The wrong year is this bug. Stepping the same function, `2001-01-01` becomes `20.01.0101` (20 January 101) and `1912-06-30` becomes `19.12.0630` (19 December 630). Those two were not given their own render.
+- **How to reproduce:**
+  1. Empty field. Change the input to `123.2026`. The value is `12.03.2026`. Blur. `onChange` receives 12 March 2026.
+  2. Change the input to `2012-03-15`. The value is `20.12.0315`. Blur. `onChange` receives a local date whose year is 315, month December, day 20.
+  3. Change the input to `2026-07-17`. The value is `20.26.0717`. Blur. `onValidationError` is `impossible-date`, `onChange` is not called, and the field is empty.
+
+### BH-065
+
+- **File:** `src/LocaleDatePicker.tsx:1990` (`setDraft`) and `src/LocaleDatePicker.tsx:1274` (`commitTyped`)
+- **What is wrong:** Every input `onChange` calls `setDraft(masked)`, including when the mask drops the new character and the visible text is unchanged. `commitTyped` returns without committing only when `draft === null`. The comment that it returns undefined when nothing changed is that null check. A 17 July 2026 value stored at 23:30 displays `17.07.2026`. Appending `x` leaves the text `17.07.2026`, and blur calls `onChange` once with local midnight on that day. A trailing space on that same day, when `shouldDisableDate` rejects day 17, leaves the text unchanged, does not call `onChange`, and fires `not-selectable`. An empty field given `abc` masks to `""` and blur fires `missing`. Focus and blur with no edit does neither.
+- **Why it matters:** The visitor did not change the date they can see. Blur still rewrites the time, or reports an error for a string that was already on screen. This is not BH-043 (the field was cleared and the text really became empty). Not BH-035 (the edit is inside a complete date and the mask builds a different one). Not BH-038 (the parent replaced `value`). Enter during composition reporting `missing` is BH-041.
+- **How to reproduce:**
+  1. Value `new Date(2026, 6, 17, 23, 30, 0)`. The input shows `17.07.2026`.
+  2. Change it to `17.07.2026x`. The input still shows `17.07.2026`.
+  3. Blur. `onChange` is called once. The date is 17 July 2026 at local midnight (`getHours()` is 0). `onValidationError` is not called.
+  4. With `shouldDisableDate` true for day 17, change `17.07.2026` to `17.07.2026 ` and blur. The text stays `17.07.2026`, `onChange` is not called, and `onValidationError` is `not-selectable`.
+  5. On an empty field, change the input to `abc` and blur. The text stays empty and `onValidationError` is `missing`. A blur with no preceding change does not fire it.
+
+### BH-066
+
+- **File:** `src/LocaleDatePicker.tsx:1284` (`setDraft(null)`) and `src/LocaleDatePicker.tsx:1289` (`shouldDisableDate`)
+- **What is wrong:** `commitTyped` clears the draft before it calls `shouldDisableDate` and before `onChange`. The input's `onBlur` (`src/LocaleDatePicker.tsx:2022`) calls the parent only if `commitTyped` returns. Typing `18.07.2026` over 17 July 2026 and blurring while `shouldDisableDate` throws snaps the field back to `17.07.2026`, does not call the parent `onBlur`, and React logs the exception. The test `catch` around `fireEvent.blur` does not see the throw.
+- **Why it matters:** A predicate that fails leaves the form looking untouched and skips the blur the parent uses to validate. The draft the visitor typed is gone. `onChange` is called after the same `setDraft(null)`, so a throw from the parent would take the same path. That second throw was not given its own render.
+- **How to reproduce:**
+  1. Value 17 July 2026. `shouldDisableDate` throws `new Error("boom")`. `onBlur` is a spy.
+  2. Change the input to `18.07.2026`, then blur.
+  3. The input shows `17.07.2026`. The parent `onBlur` was not called. The console error contains `boom`.
+
+### BH-067
+
+- **File:** `src/LocaleDatePicker.tsx:1013` (`formatDayAccessibleName`)
+- **What is wrong:** The day name keeps the `weekday`, `month`, and `year` parts and drops every `literal`. For `ja` and `zh-CN` the combined pattern puts the month unit in a literal (`月`, `年`). The visible month pill uses `format()`, which keeps that unit. The day button does not. Japanese 31 January 2026: the month pill contains `1月`, the live region contains `1月`, and the day `data-day="2026-0-31"` has `aria-label` exactly `31 土曜日 1 2026`. `zh-CN`: the pill contains `一月` and the label is exactly `31 星期六 1 2026`.
+- **Why it matters:** Voice control and the accessible name lose the unit that tells a month digit from a day digit. This is not BH-054. That one is locale digits versus Latin `getFullYear()`. Korean does not take this path: its month part is already `1월`, and the label `31 토요일 1월 2026` still contains `월`.
+- **How to reproduce:**
+  1. `locale="ja"`, value 31 January 2026. Open with mousedown on the trigger named `/Change date/`.
+  2. The month pill text contains `1月`. The day button's `aria-label` is `31 土曜日 1 2026`.
+  3. Repeat for `zh-CN`. The pill contains `一月`. The label is `31 星期六 1 2026`.
+
+### BH-068
+
+- **File:** `src/LocaleDatePicker.tsx:1522` (`yearsRange`) and `src/LocaleDatePicker.tsx:1512` (scroll)
+- **What is wrong:** With no `minDate` or `maxDate` the year buttons run from today's year minus 120 through today's year plus 2. The open year's button is not added when the value sits outside that window. `data-current` and the scroll effect only match `viewMonth`'s year, so the list opens at the oldest year and nothing is marked current. Today 15 June 2026 and value 15 June 2029: the year pill contains `2029`, there are 123 buttons from `1906` through `2028`, `2029` is absent, and no `[data-part=year][data-current]` exists.
+- **Why it matters:** The year list is how a keyboard user jumps to the committed year. The year on the pill is not in the list, and the scroll that was supposed to bring the current year into view has no element to scroll. This is not BH-045 (that scroll moves the page when the element exists). Not BH-046 (the list has no arrow keymap even when the year is present). Days-grid chevrons are not capped by this window. Only the year list is.
+- **How to reproduce:**
+  1. `today` 15 June 2026, `value` 15 June 2029. Open via the `/Change date/` trigger, then click `[data-part=year-pill]`.
+  2. The pill text contains `2029`.
+  3. The year buttons' texts run from `1906` to `2028`. `2029` is not among them. No year button has `data-current`.
+
+### BH-069
+
+- **File:** `src/LocaleDatePicker.tsx:814` (`resolvedLocale`) and `src/LocaleDatePicker.tsx:1900` (root)
+- **What is wrong:** `locale` is passed to `Intl` and never written to a `lang` attribute. The root, the echo, and the dialog come out with `lang` null. `locale="uk"` still paints Ukrainian names into those nodes.
+- **Why it matters:** Assistive tech pronounces those strings in the page language. A Ukrainian date on an English document is read with English rules. This is not BH-007. That one is the documented `direction` prop, which does not exist, so `locale` does not set `dir` either. `lang` is a separate attribute and it is also unset.
+- **How to reproduce:**
+  1. Render `locale="uk"` with a committed value.
+  2. `[data-part=root]` has no `lang` attribute.
+  3. Nothing in the component writes `lang`, so the dialog and the echo do not have the attribute either. The month title still comes from `Intl` for `uk`.
+
+### BH-070
+
+- **File:** `src/LocaleDatePicker.tsx:1845` (month `data-current`) and `src/LocaleDatePicker.tsx:1876` (year `data-current`)
+- **What is wrong:** The month and year that match the open view get `data-current`, and `src/styles.css:623` paints that as the accent fill. The button has no `aria-current`, `aria-selected`, or `aria-pressed`. The text is the month or year name, the same name the other buttons have.
+- **Why it matters:** The fill is the only thing that marks which month or year is open. A screen reader tabbing the month grid (BH-046) hears twelve month names and is not told which one is current. The days grid does expose selection and today, on purpose. These two grids do not.
+- **How to reproduce:**
+  1. Value 17 July 2026. Open and activate the month pill.
+  2. The button with `data-part="month"` and `data-current` is July.
+  3. Its `aria-current`, `aria-selected`, and `aria-pressed` are all null. The same three are null on the current year button.
