@@ -2,7 +2,7 @@
 
 Identity: BUGHUNT-react-locale-datepicker-2026-09-30
 
-Hunt status: complete
+Hunt status: second pass added BH-035 through BH-044. BH-001 through BH-034 are unchanged.
 
 Findings only. No fixes in this file's commits.
 
@@ -378,3 +378,107 @@ Findings only. No fixes in this file's commits.
   1. Remove the `dir="rtl"` line and stop rendering `ChevronLeft` / `ChevronRight`.
   2. Run this test.
   3. It passes because the two pill carets remain.
+
+## Second pass
+
+Checked again on 2026-09-30 against the same tree, excluding BH-001 through BH-034. Each item below was reproduced with a jsdom render or by executing the cited rule. Icon substitutes that omit `data-part` are not listed: the `icons` prop says the consumer owns that node. The 36px cell size above 768px is not listed: `src/styles.css` documents that breakpoint on purpose.
+
+### BH-035
+
+- **File:** `src/LocaleDatePicker.tsx:705` (`maskTyped`) and `src/LocaleDatePicker.tsx:1273` (`commitTyped`)
+- **What is wrong:** A complete `dd.MM.yyyy` value is not edited in place. `onChange` runs the whole string through `maskTyped` again, which has no caret and rebuilds the three segments from the digit stream. One inserted or deleted character inside an existing date becomes a different real date, and blur commits it. Nothing in the handler reads or restores `selectionStart`.
+- **Why it matters:** The mask's own comment says a silent date change is the failure that must not ship. `docs/TESTING.md` still has an unchecked line for cursor position and mid-string editing. BH-003 is only the extra separator group `1.2.3.2026` → `01.02.3202`. Rejecting a fourth group does not stop these edits.
+- **How to reproduce:**
+  1. Value 15 March 2026, so the input shows `15.03.2026`.
+  2. Insert `1` at the start. The change event value is `115.03.2026`. The input becomes `11.05.0320`.
+  3. Blur. `onChange` receives 11 May 320.
+  4. Separate case: delete the `5` from `15.03.2026`, leaving `1.03.2026`. The input becomes `01.03.2026`. Blur commits 1 March 2026.
+
+### BH-036
+
+- **File:** `src/styles.css:402` (`.rldp-echo`), `src/styles.css:499` (`.rldp-pill`), `src/styles.css:617` (`.rldp-month`)
+- **What is wrong:** Those three rules set `text-transform: capitalize`. Intl's casing is what paints. The transform title-cases every word, including words the locale leaves lowercase.
+- **Why it matters:** The echo exists so the visitor can see the month name Intl produced. Spanish `miércoles, 17 de junio de 2026` paints as `Miércoles, 17 De Junio De 2026`. French `juin` on the month pill paints as `Juin`. English is unchanged, which is why the suite stays green.
+- **How to reproduce:**
+  1. `new Intl.DateTimeFormat("es-ES", { calendar: "gregory", weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(new Date(2026, 5, 17))` is `miércoles, 17 de junio de 2026`.
+  2. Render the picker in `es-ES` with that value and `showEcho`.
+  3. The echo node carries `.rldp-echo`, so the used value of `text-transform` is `capitalize`.
+
+### BH-037
+
+- **File:** `src/LocaleDatePicker.tsx:1053` (`openPopup`) and `src/LocaleDatePicker.tsx:1348` (`roveTarget`)
+- **What is wrong:** With no value, open uses `defaultCalendarMonth`, otherwise today, and clamps that month to `minDate` / `maxDate`. It never looks for a selectable day. `roveTarget` only searches the visible month. A month whose every day fails `shouldDisableDate` opens anyway, and no day button gets `tabindex="0"`. The second ArrowDown from the input then does nothing, because it requires `roveTarget`.
+- **Why it matters:** `docs/API.md` and `docs/EXTRACTION.md` say the empty open falls through to the first enabled month. A lead time that blanks the whole current month strands a keyboard user on a grid they cannot enter.
+- **How to reproduce:**
+  1. `value={null}`, `today={30 September 2026}`, `shouldDisableDate` true for every date before 1 November 2026, no `minDate`.
+  2. Open. The dialog text contains `September` and `2026`.
+  3. No `[data-day]` button has `tabindex="0"`. November is the first month with an enabled day.
+
+### BH-038
+
+- **File:** `src/LocaleDatePicker.tsx:877` (`draft`) and `src/LocaleDatePicker.tsx:1547` (`inputText`)
+- **What is wrong:** The input shows `value` only while `draft === null`. Nothing clears `draft` when `value` changes. A parent that resets or replaces `value` during typing leaves the old draft on screen. The next blur runs `commitTyped`, which calls `onChange` with the draft and writes that date back over the parent.
+- **Why it matters:** The field is documented as controlled. A reset button, or any other `setValue`, cannot correct it until blur, and blur then undoes the correction.
+- **How to reproduce:**
+  1. `value` is 1 June 2026. Change the input to `15122027`. It shows `15.12.2027`.
+  2. Rerender with `value={null}`. The input still shows `15.12.2027`.
+  3. Blur. `onChange` receives 15 December 2027.
+
+### BH-039
+
+- **File:** `src/LocaleDatePicker.tsx:1810` (day `onClick`) and `src/LocaleDatePicker.tsx:1054` (`openPopup`)
+- **What is wrong:** `disabled` is checked when opening and when typing. A day click checks `shouldDisableDate` only. Turning `disabled` on while the dialog is already open does not close it, and choosing a day still commits and closes.
+- **Why it matters:** A form that disables this field because a prerequisite changed can still take a date from the calendar that is already on screen.
+- **How to reproduce:**
+  1. Open on July 2026 with `disabled={false}`.
+  2. Set `disabled` to true. The dialog is still present.
+  3. Click the button whose `data-day` is `2026-6-20`. `onChange` fires with 20 July 2026 and the dialog closes.
+
+### BH-040
+
+- **File:** `src/LocaleDatePicker.tsx:1074` (`close`) and `src/LocaleDatePicker.tsx:2032` (trigger `onMouseDown`)
+- **What is wrong:** The trigger closes with `close()`, whose `refocus` argument defaults to false. That same `mousedown` calls `preventDefault`, so the trigger does not take focus. If a day button held focus, unmounting it leaves focus on `document.body`.
+- **Why it matters:** The parity contract says focus returns to the input on close. Escape and a mouse day-commit do that. This path does not. It is not BH-009, which is a pen click on a day.
+- **How to reproduce:**
+  1. Value 15 July 2026. Focus the input. Press ArrowDown twice so `document.activeElement` is a `[data-day]` button.
+  2. `mousedown` the trigger.
+  3. The dialog is gone and `document.activeElement` is `body`.
+
+### BH-041
+
+- **File:** `src/LocaleDatePicker.tsx:2007`
+- **What is wrong:** Enter on the input always calls `preventDefault`, then `commitTyped` and `close`. The preventDefault is not conditional on a draft or an open dialog.
+- **Why it matters:** A parent `<form>` never receives Enter from this field. A checkout whose submit is the Enter key does not submit when focus is here, including when the calendar is closed and the value is already committed.
+- **How to reproduce:**
+  1. Render the picker inside a `<form>` with a submit button. Value is already 15 July 2026. The dialog is closed.
+  2. Keydown Enter on the input.
+  3. The event's `defaultPrevented` is true. The form does not submit.
+
+### BH-042
+
+- **File:** `src/LocaleDatePicker.tsx:1905` (field) and `src/styles.css:327` (`.rldp-field`)
+- **What is wrong:** The bordered box is `.rldp-field`. It has horizontal padding and a `min-height` taller than the input, and the input is vertically centered with no click handler of its own on the field. A click on that padding hits the field div. Only the input's `onClick` and the trigger's `onMouseDown` open the calendar.
+- **Why it matters:** The visible control has a dead rim. Clicking inside the border, off the glyphs, does nothing.
+- **How to reproduce:**
+  1. Render a closed picker.
+  2. Click the element whose `data-part` is `field`, not the input and not the trigger.
+  3. No dialog opens.
+
+### BH-043
+
+- **File:** `src/LocaleDatePicker.tsx:1275` and `src/LocaleDatePicker.tsx:2021`
+- **What is wrong:** Clearing a field that already has a committed value takes the empty-draft branch: `onValidationError("missing")`, `setDraft(null)`, and `onBlur` is then called with the old `value`. The input paints the old date again. The source comment says typing must not commit null. The published meaning of `"missing"` is that the field was left empty.
+- **Why it matters:** After the handler, the field is not empty, `onBlur` reports the old date, and the consumer is also told the value is missing. A form that renders that reason shows an error beside a date that is still there.
+- **How to reproduce:**
+  1. Value 17 July 2026. Change the input to `""`. Blur.
+  2. `onValidationError` is called with `"missing"`.
+  3. The input value is `17.07.2026` and `onBlur` receives 17 July 2026.
+
+### BH-044
+
+- **File:** `src/styles.css:337`, `src/styles.css:340`, `src/styles.css:347`, `src/styles.css:370`
+- **What is wrong:** The input sets `outline: none` and the field border is the only focus cue. `.rldp-field[data-error]` is declared after `:focus-within` and always paints the error colour, focused or not. `.rldp-field[data-disabled]:focus-within` is declared after the error rule and paints `--rldp-border`. In `minimal` that token is `transparent` (`src/styles.css:153`). The disabled input stays focusable because it is `readOnly`, not `disabled`.
+- **Why it matters:** A focused invalid field looks the same as an unfocused one. Focusing a disabled invalid field in `minimal` removes the error border and leaves no outline.
+- **How to reproduce:**
+  1. Render with `hasError`. Focus the input. The border stays the error colour. The same field without `hasError` switches to the accent on focus.
+  2. Render `themeName="minimal" disabled hasError` and focus the input. The border becomes transparent.
