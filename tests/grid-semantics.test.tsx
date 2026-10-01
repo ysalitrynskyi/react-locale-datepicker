@@ -55,10 +55,12 @@ describe("day grid exposes role=grid semantics", () => {
     });
     await h.openViaClick();
     const grid = h.dialog().querySelector('[role="grid"]')!;
+    // The whole name, not a fragment: "2026" alone, or December 2026, would
+    // also contain the year while naming a grid that is not the one on screen.
     expect(
       grid.getAttribute("aria-label"),
-      "grid must be named with the month it shows — guards an unnamed grid",
-    ).toContain("2026");
+      "grid must be named with the month and year it shows — guards an unnamed or mis-named grid",
+    ).toBe("July 2026");
   });
 
   it("marks the selected day with aria-selected on its gridcell", async () => {

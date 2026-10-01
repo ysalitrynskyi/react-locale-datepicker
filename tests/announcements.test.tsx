@@ -132,8 +132,13 @@ describe("announcements: calendar trigger accessible name", () => {
       label,
       "the trigger must restate the committed date — guards an unnamed control",
     ).toContain("Change date");
-    expect(label).toContain("17");
-    expect(label).toContain("2026");
+    // Day, month and year together. Requiring the month is the point: the
+    // restatement exists so that a month transposition is audible, and a name
+    // for 17 October still contains "Change date", "17" and "2026".
+    expect(
+      label,
+      "the trigger name must carry the committed 17 November 2026 in full",
+    ).toMatch(/\b17\s+November\s+2026\b/);
   });
 
   it("names the trigger for the empty and open states", async () => {
