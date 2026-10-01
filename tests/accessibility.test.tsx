@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { axe } from "vitest-axe";
 import * as matchers from "vitest-axe/matchers";
 import { expect as vitestExpect } from "vitest";
-import { renderPicker, localDate } from "./helpers";
+import { renderPicker, localDate, isoLocal } from "./helpers";
 
 vitestExpect.extend(matchers);
 
@@ -39,7 +39,14 @@ describe("accessibility: keyboard path", () => {
     await h.user.keyboard("{ArrowDown}");
     // Move one day right and commit.
     await h.user.keyboard("{ArrowRight}{Enter}");
-    expect(onChange).toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    // The day AFTER the starting 15 July. Entering the grid already put the
+    // cursor on 15 July and Enter commits the cursor, so a dead ArrowRight
+    // would still fire onChange and close the dialog — for the wrong day.
+    expect(
+      isoLocal(onChange.mock.calls[0][0]),
+      "ArrowRight must move the cursor one day before Enter commits it",
+    ).toBe("2026-07-16");
     expect(h.queryDialog()).toBeNull();
 
     // Re-open and dismiss with Escape; focus returns to the input.

@@ -17,6 +17,29 @@ describe("grid keyboard map — Page/Home/End", () => {
     expect(document.activeElement).toBe(btn);
   }
 
+  /**
+   * Assert the key landed FOCUS on the destination cell, not just the roving
+   * tabindex. The two are separate mechanisms: tabindex="0" follows focusDay
+   * during render, while real DOM focus comes from an effect that runs after
+   * it. On PageUp/PageDown that effect is what focuses the new cell at all, and
+   * on Home/End it is what takes focus off the old one, so a check of tabindex
+   * alone stays green with the effect deleted — the keyboard user is then left
+   * on the wrong day, or on nothing.
+   */
+  function expectFocusOn(
+    h: ReturnType<typeof renderPicker>,
+    dayKey: string,
+    why: string,
+  ) {
+    const target = h.dialog().querySelector(`[data-day="${dayKey}"]`);
+    expect(target, why).toBeTruthy();
+    expect(target).toHaveAttribute("tabindex", "0");
+    expect(
+      document.activeElement,
+      `${why} — DOM focus must be on ${dayKey}, not only its tabindex`,
+    ).toBe(target);
+  }
+
   it("PageDown moves focus one month forward", async () => {
     const h = renderPicker({
       initialValue: localDate(2026, 5, 15), // 15 June
@@ -25,12 +48,11 @@ describe("grid keyboard map — Page/Home/End", () => {
     await focusGridOn(h, 15);
     await h.user.keyboard("{PageDown}");
     // July 15 should be the roving/focused day.
-    const july15 = h.dialog().querySelector('[data-day="2026-6-15"]');
-    expect(
-      july15,
+    expectFocusOn(
+      h,
+      "2026-6-15",
       "PageDown must advance one month — guards missing Page key map",
-    ).toBeTruthy();
-    expect(july15).toHaveAttribute("tabindex", "0");
+    );
   });
 
   it("PageUp moves focus one month backward", async () => {
@@ -40,12 +62,11 @@ describe("grid keyboard map — Page/Home/End", () => {
     });
     await focusGridOn(h, 15);
     await h.user.keyboard("{PageUp}");
-    const may15 = h.dialog().querySelector('[data-day="2026-4-15"]');
-    expect(
-      may15,
+    expectFocusOn(
+      h,
+      "2026-4-15",
       "PageUp must step one month back — guards missing Page key map",
-    ).toBeTruthy();
-    expect(may15).toHaveAttribute("tabindex", "0");
+    );
   });
 
   it("Shift+PageDown moves focus one year forward", async () => {
@@ -57,12 +78,11 @@ describe("grid keyboard map — Page/Home/End", () => {
     });
     await focusGridOn(h, 15);
     await h.user.keyboard("{Shift>}{PageDown}{/Shift}");
-    const nextYear = h.dialog().querySelector('[data-day="2027-5-15"]');
-    expect(
-      nextYear,
+    expectFocusOn(
+      h,
+      "2027-5-15",
       "Shift+PageDown must advance one year — guards missing year Page map",
-    ).toBeTruthy();
-    expect(nextYear).toHaveAttribute("tabindex", "0");
+    );
   });
 
   it("Shift+PageUp moves focus one year backward", async () => {
@@ -74,12 +94,11 @@ describe("grid keyboard map — Page/Home/End", () => {
     });
     await focusGridOn(h, 15);
     await h.user.keyboard("{Shift>}{PageUp}{/Shift}");
-    const prevYear = h.dialog().querySelector('[data-day="2025-5-15"]');
-    expect(
-      prevYear,
+    expectFocusOn(
+      h,
+      "2025-5-15",
       "Shift+PageUp must step one year back — guards missing year Page map",
-    ).toBeTruthy();
-    expect(prevYear).toHaveAttribute("tabindex", "0");
+    );
   });
 
   it("Home moves to the start of the locale week", async () => {
@@ -90,12 +109,11 @@ describe("grid keyboard map — Page/Home/End", () => {
     });
     await focusGridOn(h, 15);
     await h.user.keyboard("{Home}");
-    const weekStart = h.dialog().querySelector('[data-day="2026-5-14"]');
-    expect(
-      weekStart,
+    expectFocusOn(
+      h,
+      "2026-5-14",
       "Home must land on the locale week start — guards missing Home key",
-    ).toBeTruthy();
-    expect(weekStart).toHaveAttribute("tabindex", "0");
+    );
   });
 
   it("End moves to the end of the locale week", async () => {
@@ -106,11 +124,10 @@ describe("grid keyboard map — Page/Home/End", () => {
     });
     await focusGridOn(h, 15);
     await h.user.keyboard("{End}");
-    const weekEnd = h.dialog().querySelector('[data-day="2026-5-20"]');
-    expect(
-      weekEnd,
+    expectFocusOn(
+      h,
+      "2026-5-20",
       "End must land on the locale week end — guards missing End key",
-    ).toBeTruthy();
-    expect(weekEnd).toHaveAttribute("tabindex", "0");
+    );
   });
 });
