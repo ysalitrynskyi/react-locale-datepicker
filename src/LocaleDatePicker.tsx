@@ -240,8 +240,15 @@ export interface LocaleDatePickerProps {
    *  the user to the field they must fill first. */
   onDisabledOpenAttempt?: () => void;
   "aria-label"?: string;
+  /** Id(s) of the element(s) naming the field, forwarded to the input. With
+   *  `id` this is the way to label the field without wrapping it in a
+   *  <label>: a wrapping label takes its name from everything inside it,
+   *  including an in-tree calendar while it is open. */
+  "aria-labelledby"?: string;
   "aria-invalid"?: boolean;
   "aria-describedby"?: string;
+  /** Forwarded to the input, so `<label htmlFor>` can name it. */
+  id?: string;
   /** Appended to the root element's class list. */
   className?: string;
   /** Selects one of the shipped themes by stamping data-rldp-theme on the
@@ -1082,6 +1089,8 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   "aria-label": ariaLabel,
   "aria-invalid": ariaInvalid,
   "aria-describedby": ariaDescribedBy,
+  "aria-labelledby": ariaLabelledBy,
+  id,
   className,
   themeName,
   classNames,
@@ -1138,10 +1147,28 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     };
   };
 
-  const labelText = React.useMemo(
-    () => ({ ...DEFAULT_LABELS, ...labels }),
-    [labels],
-  );
+  // An empty string is treated as "not given" for every label that names a
+  // control: `previousMonth: ""` used to win over the Intl-derived name and
+  // leave the button with an empty accessible name. keyboardHelp is the
+  // exception — an empty string there is a legitimate "announce nothing".
+  const labelText = React.useMemo(() => {
+    const merged: Labels = { ...DEFAULT_LABELS };
+    for (const [key, text] of Object.entries(labels ?? {}) as [
+      keyof Labels,
+      string | undefined,
+    ][]) {
+      if (text === undefined) continue;
+      if (text === "" && key !== "keyboardHelp") continue;
+      merged[key] = text;
+    }
+    return merged;
+  }, [labels]);
+
+  // Ids tying the input and the trigger to the dialog they open, and the
+  // dialog to the heading that names it.
+  const baseId = React.useId();
+  const dialogId = `${baseId}-dialog`;
+  const titleId = `${baseId}-title`;
 
   const [open, setOpen] = React.useState(false);
   const [view, setView] = React.useState<"days" | "months" | "years">("days");
@@ -2482,11 +2509,16 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   // It was aria-hidden before, which made it unreachable and unnamed; it
   // stays out of the tab order (tabIndex -1), because the input is the tab
   // stop and the parity contract keeps focus there.
-  const triggerLabel = open
+  //
+  // It carries the field's aria-label too. Two date fields used to expose
+  // triggers that were both just "Open calendar", with nothing saying which
+  // field each one belonged to.
+  const triggerAction = open
     ? labelText.closeCalendar
     : value
       ? `${labelText.changeDate}, ${fullDateFmt.format(value)}`
       : labelText.openCalendar;
+  const triggerLabel = ariaLabel ? `${ariaLabel}, ${triggerAction}` : triggerAction;
 
   // Popover tree — built outside the return so createPortal is a plain
   // expression (not an IIFE), which keeps the react-hooks ref linter happy
@@ -2497,7 +2529,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
               dir={effectiveDir}
               lang={langTag}
               role="dialog"
+              id={dialogId}
+              // Named by the consumer's field label when there is one, and
+              // otherwise by the month and year it shows. Without an
+              // aria-label prop the dialog used to have no name at all.
               aria-label={ariaLabel}
+              aria-labelledby={ariaLabel ? undefined : titleId}
               // Keep focus in the input while clicking inside the popup: a
               // mousedown blur would run the parent's validation against a
               // still-empty field and flash a false error.
@@ -2580,6 +2617,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                   documented fix for the same fragment problem. */}
                   <span
                     {...slotProps("liveRegion", "rldp-sr-only")}
+                    id={titleId}
                     aria-live="polite"
                     aria-atomic="true"
                   >
@@ -2884,11 +2922,17 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           placeholder={placeholder}
           readOnly={disabled}
           aria-disabled={disabled || undefined}
+          id={id}
           aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           aria-invalid={ariaInvalid}
           aria-describedby={ariaDescribedBy}
+          // aria-expanded is not allowed on a textbox (axe:
+          // aria-allowed-attr), so the open state lives on the trigger,
+          // which is a button. aria-haspopup and aria-controls are allowed
+          // here and still tie the field to the dialog it opens.
           aria-haspopup="dialog"
-          aria-expanded={open}
+          aria-controls={open ? dialogId : undefined}
           onClick={(e) => {
             if (!open) {
               openPopup();
@@ -2998,6 +3042,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           type="button"
           tabIndex={-1}
           aria-label={triggerLabel}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={open ? dialogId : undefined}
           // aria-disabled, not disabled: a disabled <button> receives no
           // mouse events in Chromium, so a press on the calendar icon of a
           // disabled picker never reached openPopup and
@@ -3028,7 +3075,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           a day/month transposition while typing immediately visible, and
           doubles as confirmation that a typed edit was accepted. */}
       {showEcho && value && (
-        <p {...slotProps("echo", "rldp-echo")} lang={langTag}>
+        // aria-hidden: the echo is a visual check against day/month
+        // transposition, and for assistive tech it is redundant — the
+        // trigger's name already says "Change date, <the date in words>". As
+        // visible text it was also swallowed into the name of any <label>
+        // wrapping the picker ("Start date Wednesday 17 June 2026").
+        <p {...slotProps("echo", "rldp-echo")} lang={langTag} aria-hidden="true">
           {sentenceCase(fullDateFmt.format(value))}
         </p>
       )}
