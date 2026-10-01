@@ -402,6 +402,13 @@ const cx = (...parts: Array<string | false | null | undefined>): string =>
 // "en_US" raises a RangeError from every Intl constructor — falls back to
 // "en" instead of throwing. No caller-supplied locale string may reach Intl
 // unnormalized, including in any code added later.
+//
+// The alias is matched on the canonicalized LANGUAGE subtag, not on the raw
+// string. Language subtags are case-insensitive and usually carry a region,
+// so "UA" (the usual spelling of the same country code) and "ua-UA" are the
+// same mistake as "ua". Matching the exact string missed both, and because
+// Intl does not throw for a well-formed but unknown language, they did not
+// fall back either: they silently formatted in the host's default language.
 const LOCALE_ALIASES: Record<string, string> = { ua: "uk" };
 // Cache keyed by the raw input: validation constructs an Intl.DateTimeFormat,
 // which is far more expensive than the plain object lookup this replaced,
@@ -410,9 +417,14 @@ const resolveCache = new Map<string, string>();
 export const resolveLocale = (locale: string): string => {
   const cached = resolveCache.get(locale);
   if (cached !== undefined) return cached;
-  const candidate = LOCALE_ALIASES[locale] || locale || "en";
   let resolved: string;
   try {
+    // getCanonicalLocales throws the same RangeError Intl would for a
+    // malformed tag, so it doubles as the validity check for the raw input.
+    const [canonical] = Intl.getCanonicalLocales(locale || "en");
+    const [language, ...rest] = canonical.split("-");
+    const alias = LOCALE_ALIASES[language];
+    const candidate = alias ? [alias, ...rest].join("-") : canonical;
     new Intl.DateTimeFormat(candidate);
     resolved = candidate;
   } catch {
