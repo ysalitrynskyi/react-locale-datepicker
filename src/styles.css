@@ -754,8 +754,9 @@
    * The ring itself keeps the ring colour. Drawing the whole indicator in the
    * foreground colour instead depended on the fill being there, and a CSS
    * reset that strips button backgrounds (Tailwind's preflight, unlayered,
-   * beats this layer) left a white ring on a white popover. Ring against the popover and band against the fill each clear
-   * 3:1 on every shipped theme. */
+   * beats this layer) left a white ring on a white popover. Ring against the
+   * popover and band against the fill each clear 3:1 on every shipped
+   * theme. */
   :where(
       .rldp-day[data-selected],
       .rldp-month[data-current],

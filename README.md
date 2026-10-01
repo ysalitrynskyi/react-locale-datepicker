@@ -244,8 +244,9 @@ document the script can reach).
 
 A portaled popover follows the field through scrolling and layout changes,
 keeps to its side of the field (scrolling inside when there is not room for
-all of it), and keeps the field's theme, font and direction live. It is no longer inside your markup, though: style it with `classNames`
-or unscoped `[data-part]` selectors, not `.my-form [data-part="day"]`.
+all of it), and keeps the field's theme, font and direction live. It is no
+longer inside your markup, though: style it with `classNames` or unscoped
+`[data-part]` selectors, not `.my-form [data-part="day"]`.
 
 ### Constraints example
 

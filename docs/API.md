@@ -284,8 +284,9 @@ crashed hydration of the entire surrounding form.
 `resolveLocale` returns the canonical form of the tag (`"en-us"` becomes
 `"en-US"`, the deprecated `"iw"` becomes `"he"`), maps known aliases on its
 **language subtag** (so `UA`, `ua-UA` and `ua` all resolve; the region is
-kept), and falls back to `"en"` on anything `Intl` rejects. **Never pass a caller-supplied locale
-string directly into `Intl.DateTimeFormat` without it.**
+kept), and falls back to `"en"` on anything `Intl` rejects. **Never pass a
+caller-supplied locale string directly into `Intl.DateTimeFormat` without
+it.**
 
 ### Numerals
 
