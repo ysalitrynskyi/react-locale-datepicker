@@ -1,5 +1,7 @@
 import { describe, test, expect, beforeEach, afterEach, vi } from "vitest";
 import { screen, fireEvent, waitFor, act } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
+import { LocaleDatePicker } from "../src/LocaleDatePicker";
 import { renderPicker } from "./helpers";
 
 /**
@@ -86,13 +88,39 @@ describe("touch: the keyboard waits for a second tap", () => {
     // — the second tap does nothing at all, which is worse than the bug this
     // fixes. So the assertion is not "focus eventually lands" but "focus has
     // already landed by the time the click handler returns".
+    //
+    // And it must land with the right attribute. A browser reads inputmode when
+    // focus() is called, so inputmode="numeric" has to be committed to the DOM
+    // BEFORE that call, inside the same handler. Looking at the DOM after the
+    // click has returned cannot show that: fireEvent wraps the dispatch in
+    // act(), which flushes the pending re-render before returning, so a
+    // handler that sets the state without flushSync (focus() sees "none", the
+    // re-render fixes the attribute afterwards) ends in the identical DOM and
+    // the identical activeElement. The attribute is therefore recorded at the
+    // moment focus() runs.
     const p = renderPicker();
     fireEvent.click(p.input(), { detail: 1 });
     await waitFor(() => expect(p.queryDialog()).toBeTruthy());
 
+    const input = p.input();
+    const realFocus = input.focus.bind(input);
+    const modeAtFocus: Array<string | null> = [];
+    vi.spyOn(input, "focus").mockImplementation((options) => {
+      modeAtFocus.push(input.getAttribute("inputmode"));
+      realFocus(options);
+    });
+
     fireEvent.click(p.input(), { detail: 1 });
 
-    // Deliberately synchronous: no waitFor, no act, nothing awaited.
+    // Deliberately synchronous: no waitFor, nothing awaited.
+    expect(
+      modeAtFocus.length,
+      "the keyboard must be requested by a focus() inside the click handler",
+    ).toBeGreaterThan(0);
+    expect(
+      modeAtFocus.filter((mode) => mode !== "numeric"),
+      "inputmode must already be numeric when focus() is called, or iOS reads none",
+    ).toEqual([]);
     expect(inputMode()).toBe("numeric");
     expect(document.activeElement).toBe(p.input());
   });
@@ -136,8 +164,32 @@ describe("suppression does not depend on detecting the device", () => {
 
   test("the attribute is right in the very first render, before any event", () => {
     mockPointer(true);
+    // renderToString is one render and nothing else: no effects, no events,
+    // no second pass. That is the first render the browser gets from the
+    // server, and the one the first tap lands on — an attribute that starts at
+    // "numeric" and is corrected after mount is correct everywhere EXCEPT
+    // there. Testing Library's render() cannot show the difference, because it
+    // wraps the render in act(), which flushes passive effects before
+    // returning: a "numeric" corrected to "none" in useEffect reads as "none".
+    const render = (manualEntryOnTouch?: "second-tap" | "immediate") =>
+      renderToString(
+        <LocaleDatePicker
+          value={null}
+          onChange={() => undefined}
+          placeholder="dd.mm.yyyy"
+          manualEntryOnTouch={manualEntryOnTouch}
+        />,
+      );
+    expect(
+      render(),
+      'the default must render inputmode="none" before any effect has run',
+    ).toMatch(/inputmode="none"/i);
+    // The opt-out is the control: the server output does vary with the prop,
+    // so the match above is not satisfied by an attribute that is always none.
+    expect(render("immediate")).toMatch(/inputmode="numeric"/i);
+
+    // The mounted DOM agrees once React has finished.
     renderPicker();
-    // Synchronous: no waitFor, no interaction, no effect has had to run.
     expect(inputMode()).toBe("none");
   });
 });
