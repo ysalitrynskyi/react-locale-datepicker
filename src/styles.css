@@ -385,7 +385,7 @@
   :where(.rldp-trigger:hover) {
     color: var(--rldp-muted-foreground, var(--rldp-muted-foreground-base));
   }
-  :where(.rldp-trigger:disabled) {
+  :where(.rldp-trigger[aria-disabled="true"]) {
     cursor: not-allowed;
   }
   :where(.rldp-trigger-icon) {

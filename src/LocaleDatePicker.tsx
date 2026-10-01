@@ -365,12 +365,28 @@ function coarsePointerQuery(): MediaQueryList | null {
  * The media query is only a fallback, for synthetic events and any browser that
  * still delivers a plain MouseEvent here.
  */
-function activationOf(e: {
-  detail: number;
-  nativeEvent: Event;
-}): "keyboard" | "touch" | "mouse" {
+//
+// The pointerdown that started this click is preferred over the click itself.
+// Safari 18.2+ reports a touch-generated click as pointerType "mouse" (WebKit
+// bug 282988) while the pointerdown of the same tap correctly says "touch", so
+// trusting the click classified every finger on that Safari as a mouse: the
+// second tap never raised the keyboard and a picked day refocused the field.
+//
+// A pen is handled like a finger on purpose: on tablets a focused text input
+// raises the on-screen keyboard (or a handwriting panel) for a stylus too, and
+// keeping that off the screen is the whole point of the touch handling.
+type PointerNote = { type: string; at: number };
+function activationOf(
+  e: { detail: number; nativeEvent: Event; timeStamp: number },
+  lastPointer: PointerNote | null,
+): "keyboard" | "touch" | "mouse" {
   if (e.detail === 0) return "keyboard";
-  const pointerType = (e.nativeEvent as Partial<PointerEvent>)?.pointerType;
+  const pressed =
+    lastPointer && Math.abs(e.timeStamp - lastPointer.at) < 1000
+      ? lastPointer.type
+      : undefined;
+  const pointerType =
+    pressed ?? (e.nativeEvent as Partial<PointerEvent>)?.pointerType;
   if (pointerType === "touch" || pointerType === "pen") return "touch";
   if (pointerType === "mouse") return "mouse";
   return isCoarsePointer() ? "touch" : "mouse";
@@ -1134,6 +1150,11 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const refocusingRef = React.useRef(false);
   // A date an outside press committed, for the blur that follows it.
   const justCommittedRef = React.useRef<Date | undefined>(undefined);
+  // The most recent pointerdown inside the widget; see activationOf.
+  const lastPointerRef = React.useRef<PointerNote | null>(null);
+  // Disarms the pending post-pick click guard; see armClickGuard.
+  const disarmClickGuardRef = React.useRef<(() => void) | null>(null);
+  React.useEffect(() => () => disarmClickGuardRef.current?.(), []);
   // The latest render's handlers, for document listeners and deferred checks
   // that would otherwise run a stale closure.
   const latestRef = React.useRef({
@@ -1393,7 +1414,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     // for a second time.
     setTypingIntent(false);
     if (refocus) inputRef.current?.focus();
-  }, []);
+  }, [setTypingIntent]);
 
   // Is this node part of the widget: the field side (the root) or the
   // popover, which a portal moves outside the root's DOM subtree. Duck-typed
@@ -1597,6 +1618,43 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     };
   }, [open, view, viewMonth, usePortal, syncPortaledTheme]);
 
+  // Swallow the second click of an accidental double-click on a day: once the
+  // popup unmounts it would land on whatever control renders underneath and
+  // silently change it. Only that click is swallowed — one inside the
+  // popover's last footprint, within 350ms of a pointer pick. The guard used
+  // to cancel every click anywhere on the page (the next field, Submit, the
+  // trigger itself), kept doing so after the picker unmounted, and stacked a
+  // listener per pick.
+  const armClickGuard = () => {
+    disarmClickGuardRef.current?.();
+    const pop = popupRef.current;
+    const doc = pop?.ownerDocument;
+    const win = doc?.defaultView;
+    if (!pop || !doc || !win) return;
+    const r = pop.getBoundingClientRect();
+    const guard = (e: MouseEvent) => {
+      if (
+        e.clientX >= r.left &&
+        e.clientX <= r.right &&
+        e.clientY >= r.top &&
+        e.clientY <= r.bottom
+      ) {
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    };
+    const disarm = () => {
+      doc.removeEventListener("click", guard, true);
+      win.clearTimeout(timer);
+      if (disarmClickGuardRef.current === disarm) {
+        disarmClickGuardRef.current = null;
+      }
+    };
+    doc.addEventListener("click", guard, true);
+    const timer = win.setTimeout(disarm, 350);
+    disarmClickGuardRef.current = disarm;
+  };
+
   const commit = (date: Date, by: "keyboard" | "touch" | "mouse" = "keyboard") => {
     // `disabled` can arrive while the calendar is already on screen (a form
     // that disables the field when a prerequisite changes). The day click and
@@ -1604,23 +1662,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     if (disabled) return;
     onChange(startOfDay(date));
     setDraft(null);
-    // Swallow clicks for a beat after the popup unmounts: the second click
-    // of an accidental double-click on a day would otherwise land on
-    // whatever control renders underneath the closed popup and silently
-    // change it.
-    if (typeof document !== "undefined") {
-      const guard = (e: MouseEvent) => {
-        e.stopPropagation();
-        e.preventDefault();
-      };
-      document.addEventListener("click", guard, true);
-      window.setTimeout(() => {
-        // Guard: jsdom tests may tear down the document before this fires;
-        // browsers always have document here.
-        if (typeof document === "undefined") return;
-        document.removeEventListener("click", guard, true);
-      }, 350);
-    }
+    if (by !== "keyboard") armClickGuard();
     // Return focus to the input for anyone who arrived by keyboard — APG says
     // a dialog hands focus back to the control that opened it, and without it
     // a keyboard user is dropped onto <body> mid-form.
@@ -2457,7 +2499,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                                   isToday && !isSelected && "dayToday",
                                 )}
                                 onClick={(e) => {
-                                  if (!isDisabled) commit(d, activationOf(e));
+                                  if (!isDisabled) commit(d, activationOf(e, lastPointerRef.current));
                                 }}
                                 onFocus={() => setFocusDay(d)}
                               >
@@ -2563,6 +2605,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       data-rldp-theme={themeName}
       {...slotProps("root", cx("rldp-root", className))}
       onBlur={onWidgetBlur}
+      onPointerDown={(e) => {
+        lastPointerRef.current = { type: e.pointerType, at: e.timeStamp };
+      }}
     >
       <div
         {...slotProps("field", "rldp-field")}
@@ -2643,7 +2688,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
              * returns, or the browser re-reads `none` and shows nothing.
              */
             if (
-              activationOf(e) === "touch" &&
+              activationOf(e, lastPointerRef.current) === "touch" &&
               manualEntryOnTouch === "second-tap" &&
               !typingIntent
             ) {
@@ -2725,7 +2770,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           type="button"
           tabIndex={-1}
           aria-label={triggerLabel}
-          disabled={disabled}
+          // aria-disabled, not disabled: a disabled <button> receives no
+          // mouse events in Chromium, so a press on the calendar icon of a
+          // disabled picker never reached openPopup and
+          // onDisabledOpenAttempt was never called — the silent failure the
+          // callback exists to prevent. openPopup refuses on its own.
+          aria-disabled={disabled || undefined}
           {...slotProps("trigger", "rldp-trigger")}
           onMouseDown={(e) => {
             // Runs before the document mousedown-close listener would; toggle

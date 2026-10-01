@@ -49,22 +49,6 @@ if (hasDom) {
     },
   });
 
-  // commit() installs a 350ms capture-phase click guard so a double-click on a
-  // day cannot hit whatever sits under the closed popup. Under jsdom that
-  // guard blocks the next test's day-cell clicks. Skip only that guard; the
-  // mousedown outside-close listener must keep working.
-  const realAddEventListener = document.addEventListener.bind(document);
-  document.addEventListener = (
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: boolean | AddEventListenerOptions,
-  ) => {
-    if (type === "click" && options === true) {
-      return;
-    }
-    return realAddEventListener(type, listener, options);
-  };
-
   afterEach(() => {
     cleanup();
   });
