@@ -1,11 +1,10 @@
 /**
- * Published contract pins for consumers on a payment / checkout path.
+ * Published contract pins for the consumer product that adopted the package.
  *
- * These behaviours were true in 0.3.x but only incidentally guaranteed. A
- * travel-insurance checkout that adopted the package (34 locales, cross-
- * origin /embed, hardened browsers) needs each one to fail the suite if a
- * future release changes it. Prompt: adoption audit against that consumer's
- * in-product TravelDatePicker, 2026-08.
+ * These behaviours were true in 0.3.x but only incidentally guaranteed. The
+ * consumer product (34 locales, cross-origin embeds, hardened browsers) needs
+ * each one to fail the suite if a future release changes it. Prompt: adoption
+ * audit against the consumer product's own date picker, 2026-08.
  */
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
@@ -50,9 +49,9 @@ describe("consumer contract: resolveLocale", () => {
 describe("consumer contract: committed values are local midnight", () => {
   it("day-click, typed commit and controlled value all land on local midnight", async () => {
     // A UTC-midnight Date would shift the calendar day west of UTC and
-    // corrupt a traveller's insurance start date. CI re-runs this suite
-    // under TZ=UTC, America/Los_Angeles, Asia/Tokyo and Asia/Kathmandu
-    // (non-hour offset +05:45).
+    // corrupt a consumer's start date. CI re-runs this suite under TZ=UTC,
+    // America/Los_Angeles, Asia/Tokyo and Asia/Kathmandu (non-hour offset
+    // +05:45).
     const onChange = vi.fn();
     const h = renderPicker({
       initialValue: null,

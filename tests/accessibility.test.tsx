@@ -12,12 +12,12 @@ describe("accessibility: aria passthrough", () => {
     // regression tests assert.
     const h = renderPicker({
       initialValue: null,
-      "aria-label": "Departure date",
+      "aria-label": "Start date",
       "aria-invalid": true,
       "aria-describedby": "date-hint",
     });
     const input = h.input();
-    expect(input).toHaveAttribute("aria-label", "Departure date");
+    expect(input).toHaveAttribute("aria-label", "Start date");
     expect(input).toHaveAttribute("aria-invalid", "true");
     expect(input).toHaveAttribute("aria-describedby", "date-hint");
   });

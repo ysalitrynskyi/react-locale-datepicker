@@ -25,7 +25,7 @@ describe("consumer contract: SSR-safe", () => {
         onChange: () => undefined,
         locale: "ua",
         placeholder: "dd.mm.yyyy",
-        "aria-label": "Travel start",
+        "aria-label": "Start date",
       }),
     );
 

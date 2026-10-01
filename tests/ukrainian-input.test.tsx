@@ -7,7 +7,7 @@ import { LocaleDatePicker, resolveLocale, todayInTimeZone } from "../src/LocaleD
  * Ukrainian-locale input and calendar behaviour.
  *
  * The component's largest real audience types on a Cyrillic (ЙЦУКЕН) keyboard
- * against a Kyiv business calendar, and both of those have a way of producing a
+ * against a fixed business timezone, and both of those have a way of producing a
  * silently wrong date rather than an obvious failure.
  */
 
@@ -65,7 +65,7 @@ describe("typing a date on a Cyrillic keyboard", () => {
   });
 });
 
-describe("Ukrainian locale and the Kyiv business calendar", () => {
+describe("Ukrainian locale and a fixed business timezone", () => {
   it("resolves the non-standard 'ua' tag that Intl rejects", () => {
     // Passing "ua" straight to Intl throws a RangeError, which in the source
     // product crashed the hydration of an entire form.
