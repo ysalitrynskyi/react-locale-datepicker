@@ -182,9 +182,16 @@ try {
     }, PAD);
     // The long-form echo does not exist yet at measure time; once a value
     // commits it appears under the field and pushes the reopened popover
-    // down by roughly one small line. Reserve that room so later frames do
-    // not clip the popover shadow.
-    clip.height += 22;
+    // down by roughly one small line. July 2026 also needs only five week
+    // rows and August, shown later, needs six. Reserve room for both so no
+    // later frame cuts off the last row or the popover's edge and shadow.
+    const rowPitch = await page.evaluate(() => {
+      const rows = document.querySelectorAll('.rldp-popover [role="row"]');
+      return rows.length > 2
+        ? rows[2].getBoundingClientRect().top - rows[1].getBoundingClientRect().top
+        : 48;
+    });
+    clip.height += 22 + rowPitch;
     await page.keyboard.press("Escape"); // back to the starting state
 
     let n = 0;
@@ -217,6 +224,9 @@ try {
     await page.getByRole("button", { name: "July", exact: true }).click();
     await snap(); // month view
     await page.getByRole("button", { name: "August", exact: true }).click();
+    // The pointer is left where the August option was, over a day of the new
+    // grid, and its hover tint reads as a highlighted date. Park it outside.
+    await page.mouse.move(1, 1);
     await snap(); // days view on August
     await page.getByRole("button", { name: /^24 / }).click();
     await page
