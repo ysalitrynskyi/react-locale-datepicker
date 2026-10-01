@@ -7,9 +7,9 @@ Walk-up: `~/work/AGENTS.md`. **SSH:** host confirm. **Azure Foundry ON** (`azure
 ## What this repository is
 
 A published npm package, `react-locale-datepicker` (MIT). The latest release
-is **0.6.0** (2026-10-01, the bug-hunt release: npm, tag `v0.6.0` and its
-GitHub release), and `main` carries it until the next release is prepared
-([`docs/RELEASING.md`](docs/RELEASING.md)). The component was extracted from
+is **0.6.1** (2026-10-01: a patch to 0.6.0, the bug-hunt release, on npm with
+tags and GitHub releases for both), and `main` carries it until the next
+release is prepared ([`docs/RELEASING.md`](docs/RELEASING.md)). The component was extracted from
 a private commercial product. The extraction in
 [`docs/PLAN.md`](docs/PLAN.md) is finished (Phases 0–6; only announcing is
 open, and that needs per-venue approval); the project is in Phase 7, steady
