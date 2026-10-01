@@ -4,7 +4,7 @@
 
 | Version | Supported |
 |---|---|
-| 0.3.x (latest) | Yes |
+| The latest release on npm | Yes |
 | anything older | No — upgrade to the latest 0.x |
 
 **0.3.1 and earlier contain a crash** that unmounts the consuming application's

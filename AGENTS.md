@@ -6,12 +6,14 @@ Walk-up: `~/work/AGENTS.md`. **SSH:** host confirm. **Azure Foundry ON** (`azure
 
 ## What this repository is
 
-A published npm package: `react-locale-datepicker` (MIT, 0.1.0 shipped
-2026-07-26). The component was extracted from a private commercial product,
-lives in `src/`, and is covered by unit tests, a Playwright browser matrix and
-CI. The extraction phases in [`docs/PLAN.md`](docs/PLAN.md) are complete
-through Phase 5; what remains there is the demo (Phase 6) and steady state
-(Phase 7).
+A published npm package, `react-locale-datepicker` (MIT). Versions 0.1.0
+through 0.5.1 are on npm; `main` carries **0.6.0, prepared and not yet
+published** (see [`docs/RELEASING.md`](docs/RELEASING.md) § Publish for the
+remaining steps, which are the operator's). The component was extracted from
+a private commercial product. The extraction in
+[`docs/PLAN.md`](docs/PLAN.md) is finished (Phases 0–6; only announcing is
+open, and that needs per-venue approval); the project is in Phase 7, steady
+state.
 
 Your job, unless the operator says otherwise, is maintenance and the roadmap:
 triage against the parity contract, keep the suite green, and take new work
@@ -20,15 +22,71 @@ from [`docs/ROADMAP.md`](docs/ROADMAP.md) — respecting its decision gates
 
 ## Read first, in this order
 
-1. `docs/PLAN.md` — the phased plan and where it currently stands.
-2. `docs/DECISIONS.md` — every open decision, each with a recommendation. Some
-   are **blocking**; check before you write code that depends on one.
-3. `docs/API.md` — the intended public surface.
-4. `docs/EXTRACTION.md` — behaviour that must not regress during the port.
-5. `LOCAL-CONTEXT.md` — **gitignored, local only.** Where the source component
+1. `docs/PLAN.md` — where the project stands, every release so far, and the
+   two lessons at the end of Phase 7.
+2. `docs/API.md` — the public surface and § Contracts that must not be
+   broken.
+3. `docs/EXTRACTION.md` § Parity contract — behaviour that must not regress.
+4. `docs/DECISIONS.md` — every decision (D1–D22) with its reasoning. Read the
+   one covering any behaviour you are about to change; an open one marked
+   **blocking** is the operator's to decide.
+5. `docs/TESTING.md` — how to run the suite, its local caveats, and the rules
+   a new test must follow.
+6. `LOCAL-CONTEXT.md` — **gitignored, local only.** Where the source component
    lives on this machine, and provenance notes. If it is missing, ask the
    operator rather than guessing; do not reconstruct it from memory and do not
    commit it.
+
+Then as needed: `docs/ROADMAP.md` (planned work), `docs/RELEASING.md`
+(release gates and order), `docs/THEMING.md` and `docs/ANATOMY.md` (the
+styling surface), `CHANGELOG.md`, and `docs/bug-hunts/` (external reviews,
+each finding mapped to the commit and test that resolved it).
+
+## Map of the code
+
+| Path | What |
+|---|---|
+| `src/LocaleDatePicker.tsx` | The whole component and its helpers in one file: locale resolution, date maths, input masking, focus and keyboard, portal placement. Comments say why each behaviour exists, usually naming the bug it prevents. |
+| `src/styles.css` | Shipped as `react-locale-datepicker/styles.css`. Everything inside `@layer rldp` and `:where()`; public `--rldp-*` tokens; four named themes. |
+| `src/index.ts` | The public exports. |
+| `tests/` | Vitest and Testing Library in jsdom. `tests/bughunt-*` guard the 2026-09-30 findings by id. |
+| `e2e/` | Playwright specs and the harness page they drive (`e2e/harness/`). |
+| `examples/` | The demo on GitHub Pages. It installs the built package (`file:..`) and never imports `../src`. |
+
+## Gates
+
+```bash
+npm run check                  # typecheck (src, tests, e2e), lint, unit tests
+npm run test:tz                # unit tests under four timezones
+npm run test:e2e               # Playwright matrix; read TESTING.md first
+npm run build && npm pack --dry-run
+```
+
+CI runs the first three on every push, with Firefox and WebKit installed.
+Run all of them before a commit that touches `src/`; check that each command
+exited zero rather than reading the tail of piped output.
+
+## Things that bite
+
+- **The React Compiler lint rules are on** (`eslint-plugin-react-hooks`
+  recommended). Reading a ref during render, calling `setState` in an effect
+  and manual memoization the compiler cannot preserve are all errors. The
+  component derives state during render instead (see the `seenValueKey`
+  block) and syncs refs in a layout effect.
+- **jsdom has no layout, no `PointerEvent` and no computed `direction`.**
+  Geometry, cascade and contrast assertions belong in `e2e/`. TESTING.md says
+  how to fake a pointer type in a unit test.
+- **`npm run test:e2e` reuses any server already on port 5173**, which may be
+  another checkout's harness. TESTING.md has the workaround.
+- **The field and its calendar are one widget** (D21): `onBlur` fires when
+  focus leaves both, Tab closes the calendar, ArrowDown enters it. Code that
+  listens for the input's own blur is almost always wrong here.
+- **A test proves nothing until it has failed.** Eleven tests passed with
+  their behaviour deleted before the 2026-09-30 review; break the guarded
+  code and watch the test go red before trusting it.
+- **Vocabulary leaks.** Grep every diff's added lines for the domain terms in
+  `LOCAL-CONTEXT.md` § Naming to strip before committing. Ordinary English can
+  collide with them; reword rather than ignore a hit.
 
 ## Hard rules
 
@@ -58,8 +116,8 @@ from [`docs/ROADMAP.md`](docs/ROADMAP.md) — respecting its decision gates
 
 - TypeScript, strict. The public API is fully typed and types ship with the
   package.
-- Comments explain *why*, not *what*. The source component's comments are
-  unusually dense for exactly this reason — preserve that when porting.
+- Comments explain *why*, not *what*. The component's comments are unusually
+  dense for exactly this reason; keep new code to the same standard.
 - Commit messages: imperative subject under ~70 chars, body explaining the
   reasoning. Plain correct English in all repository artifacts.
 - No emoji in code, commits, or documentation.
@@ -69,10 +127,12 @@ from [`docs/ROADMAP.md`](docs/ROADMAP.md) — respecting its decision gates
 
 1. `git status --short --branch` and review the diff.
 2. Confirm nothing from the private source repository leaked — names, paths,
-   business logic. Grep your diff for the product's domain terms if unsure.
-3. Run whatever gates exist at that point in the plan (`npm run check` once it
-   exists).
+   business logic. Grep the diff's added lines for the domain terms in
+   `LOCAL-CONTEXT.md`.
+3. Run the gates (§ Gates); `npm run check` at minimum.
 4. Commit only intentional files. Never commit `LOCAL-CONTEXT.md`.
+5. A behaviour change needs a `CHANGELOG.md` entry under *Changed*: the
+   source product pins an exact version and upgrades by reading it (D7).
 
 ## Working with the operator
 

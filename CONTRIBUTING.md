@@ -36,8 +36,11 @@ manual poking.
 1. Open an issue first for anything beyond a small fix. It avoids wasted work.
 2. Read `docs/EXTRACTION.md` § Parity contract. Every item there guards a real
    bug. A change that violates one will not be merged without a strong argument.
-3. Add a test. See `docs/TESTING.md` for what the suite must cover.
+3. Add a test, and watch it fail with your change reverted before trusting
+   it. See `docs/TESTING.md` for what the suite must cover and the rules a
+   test follows.
 4. Run `npm run check` and make sure it is green.
+5. If behaviour changes, add a `CHANGELOG.md` entry under *Changed*.
 
 ## Standards
 
@@ -51,8 +54,9 @@ manual poking.
 
 ## What will not be accepted
 
-- Changes that break a documented contract in `docs/API.md` without a major
-  version and a clear migration note.
+- Changes that break a documented contract in `docs/API.md` without a
+  breaking version bump (the next minor while below 1.0; see
+  `docs/RELEASING.md`) and a clear migration note.
 - Reformatting or restructuring mixed into a functional change.
 - New dependencies for functionality that a few lines of code would cover.
 - Deleting a parity-contract behaviour because it appears redundant. It is

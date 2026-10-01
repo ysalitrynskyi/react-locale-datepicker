@@ -8,7 +8,9 @@
 
 ## Checklist
 
-- [ ] Tests added or updated, and the suite is green.
+- [ ] Tests added or updated, each seen to fail without the change, and the
+      suite is green.
+- [ ] A behaviour change has a `CHANGELOG.md` entry under *Changed*.
 - [ ] No new runtime dependency (or the reason is explained above).
 - [ ] No documented contract in `docs/API.md` is broken, or the change is flagged
       as breaking and the migration is described.
