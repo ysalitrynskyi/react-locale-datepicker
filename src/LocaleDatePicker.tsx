@@ -334,18 +334,6 @@ export interface LocaleDatePickerProps {
 }
 
 /**
- * Whether a value is a DOM element, without `instanceof`.
- *
- * `instanceof HTMLElement` answers "was this built by THIS realm's constructor",
- * which is not the question. An element from an iframe, a popup window, or a
- * consumer's jsdom container is a valid portal host and fails that check, so the
- * component would fall back to rendering in-tree — the exact clipping the caller
- * used `portal` to escape, with nothing logged to explain it.
- *
- * nodeType 1 is ELEMENT_NODE. Checking `appendChild` too keeps out plain objects
- * that merely carry a `nodeType` field.
- */
-/**
  * Whether the pointer being used right now is a finger rather than a mouse.
  *
  * Read at interaction time, never cached into state: a hybrid device answers
@@ -372,6 +360,9 @@ function coarsePointerQuery(): MediaQueryList | null {
   }
 }
 
+// The pointer type and time of the last pointerdown inside the widget.
+type PointerNote = { type: string; at: number };
+
 /**
  * What actually produced this click: a finger, a mouse, or a keyboard.
  *
@@ -387,18 +378,17 @@ function coarsePointerQuery(): MediaQueryList | null {
  *
  * The media query is only a fallback, for synthetic events and any browser that
  * still delivers a plain MouseEvent here.
+ *
+ * The pointerdown that started this click is preferred over the click itself.
+ * Safari 18.2+ reports a touch-generated click as pointerType "mouse" (WebKit
+ * bug 282988) while the pointerdown of the same tap correctly says "touch", so
+ * trusting the click classified every finger on that Safari as a mouse: the
+ * second tap never raised the keyboard and a picked day refocused the field.
+ *
+ * A pen is handled like a finger on purpose: on tablets a focused text input
+ * raises the on-screen keyboard (or a handwriting panel) for a stylus too, and
+ * keeping that off the screen is the whole point of the touch handling.
  */
-//
-// The pointerdown that started this click is preferred over the click itself.
-// Safari 18.2+ reports a touch-generated click as pointerType "mouse" (WebKit
-// bug 282988) while the pointerdown of the same tap correctly says "touch", so
-// trusting the click classified every finger on that Safari as a mouse: the
-// second tap never raised the keyboard and a picked day refocused the field.
-//
-// A pen is handled like a finger on purpose: on tablets a focused text input
-// raises the on-screen keyboard (or a handwriting panel) for a stylus too, and
-// keeping that off the screen is the whole point of the touch handling.
-type PointerNote = { type: string; at: number };
 function activationOf(
   e: { detail: number; nativeEvent: Event; timeStamp: number },
   lastPointer: PointerNote | null,
@@ -415,6 +405,18 @@ function activationOf(
   return isCoarsePointer() ? "touch" : "mouse";
 }
 
+/**
+ * Whether a value is a DOM element, without `instanceof`.
+ *
+ * `instanceof HTMLElement` answers "was this built by THIS realm's constructor",
+ * which is not the question. An element from an iframe, a popup window, or a
+ * consumer's jsdom container is a valid portal host and fails that check, so the
+ * component would fall back to rendering in-tree — the exact clipping the caller
+ * used `portal` to escape, with nothing logged to explain it.
+ *
+ * nodeType 1 is ELEMENT_NODE. Checking `appendChild` too keeps out plain objects
+ * that merely carry a `nodeType` field.
+ */
 function isElement(value: unknown): value is HTMLElement {
   return (
     typeof value === "object" &&
@@ -2478,7 +2480,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     }
     e.preventDefault();
     // Months outside minDate/maxDate are disabled and cannot take focus;
-    // keep travelling in the same direction past them.
+    // keep moving in the same direction past them.
     while (next >= 0 && next < buttons.length && buttons[next].disabled) {
       next += step;
     }

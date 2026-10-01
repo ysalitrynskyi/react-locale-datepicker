@@ -743,7 +743,7 @@
    * fill, ring and fill read as a band. In the ring colour it matched the
    * fill exactly in minimal and high-contrast and sat near 1.4:1 on it in
    * the default and soft themes: keyboard focus on the selection, which is
-   * where entering the grid puts it, was invisible. */
+   * where moving into the grid puts it, was invisible. */
   :where(
       .rldp-day[data-selected],
       .rldp-month[data-current],

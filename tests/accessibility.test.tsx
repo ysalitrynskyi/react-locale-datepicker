@@ -40,7 +40,7 @@ describe("accessibility: keyboard path", () => {
     // Move one day right and commit.
     await h.user.keyboard("{ArrowRight}{Enter}");
     expect(onChange).toHaveBeenCalledTimes(1);
-    // The day AFTER the starting 15 July. Entering the grid already put the
+    // The day AFTER the starting 15 July. Moving into the grid already put the
     // cursor on 15 July and Enter commits the cursor, so a dead ArrowRight
     // would still fire onChange and close the dialog — for the wrong day.
     expect(
