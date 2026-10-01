@@ -153,9 +153,20 @@ describe("each trigger says which field it belongs to (BH-076)", () => {
       document.querySelectorAll('[data-part="trigger"]'),
     );
     expect(start).toHaveAttribute("aria-label", "Start date, Open calendar");
-    expect(end.getAttribute("aria-label")).toBe(
-      "End date, Change date, Thursday 2 July 2026",
-    );
+    // The date part is Intl's, and its en-GB pattern differs between ICU
+    // releases: "Thursday 2 July 2026" in Node 20, "Thursday, 2 July 2026" in
+    // Node 22. Built here the way the component builds it, rather than
+    // pinning one CLDR release, so the whole name is still asserted.
+    const date = new Intl.DateTimeFormat("en-GB", {
+      calendar: "gregory",
+      numberingSystem: "latn",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(localDate(2026, 6, 2));
+    expect(date).toMatch(/Thursday.*2 July 2026/);
+    expect(end.getAttribute("aria-label")).toBe(`End date, Change date, ${date}`);
   });
 });
 

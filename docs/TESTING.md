@@ -19,6 +19,9 @@ suite blocks a release.**
 
 Local notes:
 
+- CI runs Node 22. If your default `node` is older, run the unit suite once
+  with a Node 22 binary before pushing (`<node22> node_modules/vitest/vitest.mjs
+  run`), since `Intl` output differs between their ICU versions.
 - `npm run test:e2e` starts the harness (`e2e/harness/`) on port 5173 and
   reuses a server already listening there. If another checkout or worktree is
   serving its own harness on 5173, your run silently tests *that* code. Stop
@@ -65,6 +68,10 @@ define `pointerType` on it (see `tests/bughunt-pointer.test.tsx`).
 4. **Values are built with local getters** (`localDate(y, m0, d)` in
    `tests/helpers.tsx`), never parsed from ISO strings, and the suite is
    expected to pass in every `TZ` above.
+5. **Text that `Intl` writes is built with `Intl` in the test**, not typed
+   out. Its patterns change between ICU releases (en-GB gained a comma after
+   the weekday between Node 20 and Node 22), and CI runs Node 22 while a
+   local default may be older. Pin the shape with a loose match beside it.
 
 ## Coverage the contract requires
 
