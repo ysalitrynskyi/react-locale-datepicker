@@ -1239,8 +1239,13 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   // True for the length of the second tap's own blur/focus pair, which
   // raises the on-screen keyboard and is not the visitor leaving the field.
   const refocusingRef = React.useRef(false);
-  // A date an outside press committed, for the blur that follows it.
+  // The latest date committed from the widget's own UI, for an onBlur that
+  // runs before the parent has re-rendered with it. Cleared once the value
+  // changes, so it can never outlive the commit it stands for.
   const justCommittedRef = React.useRef<Date | undefined>(undefined);
+  // True from the moment leaving the widget has been reported until focus
+  // comes back into it, so leaving is never reported twice.
+  const leftRef = React.useRef(false);
   // The most recent pointerdown inside the widget; see activationOf.
   const lastPointerRef = React.useRef<PointerNote | null>(null);
   // Disarms the pending post-pick click guard; see armClickGuard.
@@ -1495,6 +1500,10 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     }
   }
 
+  React.useEffect(() => {
+    justCommittedRef.current = undefined;
+  }, [valueKey]);
+
   // A field disabled while it holds an uncommitted draft drops it: a disabled
   // field shows its committed value, and the draft could otherwise still be
   // committed by the next Enter or blur.
@@ -1598,6 +1607,14 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     );
   }, []);
 
+  // Focus is on a control inside the popover. Closing then unmounts the
+  // focused control, and an unmounted control fires no blur: leaving has to
+  // be reported by whatever closes it.
+  const focusInPopover = React.useCallback((): boolean => {
+    const pop = popupRef.current;
+    return !!pop && pop.contains(pop.ownerDocument.activeElement);
+  }, []);
+
   // The documents the widget lives in. Usually one; two when the popover is
   // portaled into an iframe's document, where the visitor's presses and keys
   // then land — document-level listeners on the rendering document alone
@@ -1619,13 +1636,20 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     if (!open) return;
     const onDocDown = (e: MouseEvent | TouchEvent) => {
       if (insideWidget(e.target)) return;
+      // With focus inside the calendar, this press is the visitor leaving:
+      // the calendar closes under the focused control, which then fires no
+      // blur, so the parent used to hear no onBlur at all after ArrowDown
+      // into the grid and a click elsewhere.
+      if (focusInPopover()) {
+        latestRef.current.leaveWidget();
+        return;
+      }
       // A press that only dismissed the calendar left a finished draft
       // uncommitted whenever the target did not take focus (empty page
       // chrome, a heading; any tap on iOS that does not blur the field): the
       // field showed one date and the value was another. Commit it here; the
       // blur that usually follows finds nothing left to commit.
-      const committed = latestRef.current.commitTyped();
-      if (committed) justCommittedRef.current = committed;
+      latestRef.current.commitTyped();
       close();
     };
     const docs = widgetDocuments();
@@ -1639,7 +1663,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         doc.removeEventListener("touchstart", onDocDown);
       }
     };
-  }, [open, close, insideWidget, widgetDocuments]);
+  }, [open, close, insideWidget, focusInPopover, widgetDocuments]);
 
   // Escape must close no matter where focus sits. Safari does not focus
   // buttons on click, so after tapping a calendar control the keydown fires
@@ -1913,7 +1937,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     // that disables the field when a prerequisite changes). The day click and
     // the grid's Enter/Space all land here, so one check covers them.
     if (disabled) return;
-    onChange(startOfDay(date));
+    const d = startOfDay(date);
+    justCommittedRef.current = d;
+    onChange(d);
     setDraft(null);
     if (by !== "keyboard") armClickGuard();
     // Return focus to the input for anyone who arrived by keyboard — APG says
@@ -1926,6 +1952,14 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     // would not have to type got the keyboard anyway, over the form they were
     // trying to see. Reported from a live checkout. A mouse is unaffected:
     // there is no virtual keyboard to raise, and the focus return is free.
+    //
+    // A finger that focused the day it tapped (Android does; iOS leaves focus
+    // in the field) is left on nothing once the calendar closes, which is
+    // leaving the widget, so the parent hears onBlur with the picked date.
+    if (by === "touch" && focusInPopover()) {
+      latestRef.current.leaveWidget();
+      return;
+    }
     close(by !== "touch");
   };
 
@@ -2000,6 +2034,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       return undefined;
     }
     const d = startOfDay(parsed);
+    justCommittedRef.current = d;
     onChange(d);
     return d;
   };
@@ -2023,6 +2058,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       if (open) close();
       const pending = justCommittedRef.current;
       justCommittedRef.current = undefined;
+      leftRef.current = true;
       onBlur?.(committed ?? pending ?? value);
     }
   };
@@ -2035,6 +2071,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   // popover (synthetic events follow the React tree, not the DOM tree).
   const onWidgetBlur = (e: React.FocusEvent) => {
     if (refocusingRef.current) return;
+    if (leftRef.current) return;
     if (insideWidget(e.relatedTarget)) return;
     const target = e.target as HTMLElement;
     if (e.relatedTarget || target === inputRef.current) {
@@ -2048,6 +2085,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     const doc = target.ownerDocument;
     queueMicrotask(() => {
       if (!target.isConnected) return;
+      if (leftRef.current) return;
       if (insideWidget(doc.activeElement)) return;
       latestRef.current.leaveWidget();
     });
@@ -2880,6 +2918,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       dir={explicitDir}
       data-rldp-theme={themeName}
       {...slotProps("root", cx("rldp-root", className))}
+      onFocus={() => {
+        leftRef.current = false;
+      }}
       onBlur={onWidgetBlur}
       onPointerDown={(e) => {
         lastPointerRef.current = { type: e.pointerType, at: e.timeStamp };
