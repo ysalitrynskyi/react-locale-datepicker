@@ -181,6 +181,25 @@ test("focus on an errored field shows (BH-044)", async ({ page }) => {
   await page.getByRole("textbox").focus();
   const field = page.locator('[data-part="field"]');
   expect(await css(field, "outline-style")).toBe("solid");
+  // Flush against the border, so the field reads as one heavier red border.
+  // Set off by a gap, the ring and the border read as two separate lines.
+  expect(await css(field, "outline-offset"), "one border, not two lines").toBe("0px");
+});
+
+test("focus on a disabled field shows as a darker border, not a second line (BH-044)", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  // The minimal theme's resting border is transparent: the hardest case.
+  await page.goto("/?locale=en&themeName=minimal&disabled=1");
+  const field = page.locator('[data-part="field"]');
+  const bg = await paintedColor(page.locator("body"));
+  const resting = await paintedColor(field, "borderTopColor");
+  await page.getByRole("textbox").focus();
+  const focused = await paintedColor(field, "borderTopColor");
+  expect(contrast(focused, bg), "focus must show on a disabled field").toBeGreaterThanOrEqual(3);
+  expect(focused).not.toEqual(resting);
+  expect(await css(field, "outline-style")).toBe("none");
 });
 
 test("a focused, disabled, errored minimal field keeps its error border (BH-044)", async ({

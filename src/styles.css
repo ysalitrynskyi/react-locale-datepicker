@@ -396,12 +396,14 @@
    * selected and read), so focus must show. It used to reset the border to
    * the plain token — transparent in the minimal theme — which left no cue
    * at all and, coming after the error rule, also erased the error border.
-   * A neutral ring marks focus without making the field look editable. */
+   * Focus recolours the border, as it does on an enabled field, in the
+   * neutral faint grey rather than the accent, so the field does not look
+   * editable. A ring set off from the border read as a second line. */
   :where(.rldp-field[data-disabled]:focus-within) {
-    border-color: var(--rldp-border, var(--rldp-border-base));
-    outline: var(--rldp-focus-width, var(--rldp-focus-width-base)) solid
-      var(--rldp-faint-foreground, var(--rldp-faint-foreground-base));
-    outline-offset: 2px;
+    border-color: var(
+      --rldp-faint-foreground,
+      var(--rldp-faint-foreground-base)
+    );
   }
   /* After the disabled rule, so an error border survives focus and
    * disabling alike. */
@@ -409,12 +411,13 @@
     border-color: var(--rldp-error, var(--rldp-error-base));
   }
   /* The error colour owns the border, so focus on an errored field used to
-   * change nothing at all. A ring in the error colour outside the border
-   * marks it. */
+   * change nothing at all. Focus thickens it instead: an outline in the same
+   * colour, flush against the border, reads as one heavier border. With a
+   * gap between them it read as two separate red lines. */
   :where(.rldp-field[data-error]:focus-within) {
     outline: var(--rldp-focus-width, var(--rldp-focus-width-base)) solid
       var(--rldp-error, var(--rldp-error-base));
-    outline-offset: 2px;
+    outline-offset: 0;
   }
 
   :where(.rldp-input) {

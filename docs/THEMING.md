@@ -30,7 +30,7 @@ ordinary inherited custom properties.
 | `--rldp-background` | Field and popover background |
 | `--rldp-foreground` | Primary text |
 | `--rldp-muted-foreground` | Echo, nav glyphs |
-| `--rldp-faint-foreground` | Weekday headers, placeholder, carets, the disabled field's focus ring |
+| `--rldp-faint-foreground` | Weekday headers, placeholder, carets, the disabled field's border while focused |
 | `--rldp-disabled-foreground` | Disabled days and months |
 | `--rldp-border` | Field and popover border |
 | `--rldp-border-strong` | Month and year pills |
@@ -42,7 +42,7 @@ ordinary inherited custom properties.
 | `--rldp-accent-soft` | Day hover, active pill |
 | `--rldp-accent-soft-foreground` | Text on the soft accent |
 | `--rldp-today-ring` | Today's ring |
-| `--rldp-error` | `hasError` border, and its focus ring |
+| `--rldp-error` | `hasError` border, and the outline that thickens it while focused |
 | `--rldp-ring` | Focus outline colour on unfilled controls |
 | `--rldp-radius` | Corner radius |
 | `--rldp-radius-popover` | Popover corner radius |
