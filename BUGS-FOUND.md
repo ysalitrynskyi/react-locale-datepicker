@@ -2,9 +2,9 @@
 
 Identity: BUGHUNT-react-locale-datepicker-2026-09-30
 
-Hunt status: seventh pass added BH-071 through BH-080. BH-015 is the same defect as BH-014 and is not a second fix. BH-039 and BH-068 each gained a repro and were not given a new id.
+Hunt status: eighth pass added BH-081 through BH-087. BH-015 is the same defect as BH-014 and is not a second fix. BH-039, BH-064, and BH-068 each gained a repro and were not given a new id.
 
-Reviewed BH-001 through BH-070. Combined BH-014 and BH-015 only: both are input `onBlur` running `commitTyped` while focus stays inside the picker. These pairs are related and stay separate:
+Reviewed BH-001 through BH-080. Combined BH-014 and BH-015 only: both are input `onBlur` running `commitTyped` while focus stays inside the picker. These pairs are related and stay separate:
 
 - BH-003 and BH-035 — extra group, versus an edit inside a complete date
 - BH-004 and BH-005 — unpadded year, versus the 0–99 `Date` mapping
@@ -14,7 +14,7 @@ Reviewed BH-001 through BH-070. Combined BH-014 and BH-015 only: both are input 
 - BH-012, BH-040, and BH-046 — stale day after a chevron, focus dropped when the trigger closes, year view has no keymap
 - BH-013, BH-019, BH-020, BH-021, BH-049, and BH-080 — different holes in the portaled popover. BH-080 is a listener on the rendering document, so Escape and an outside press in the portal's document do nothing
 - BH-018 and BH-043 — outside press skips the commit, versus clear reports `missing` and then restores
-- BH-022, BH-044, and BH-078 — the ring matches the fill in minimal and high-contrast, versus the field error border, versus a different ring colour that is still under 3:1 against the selected fill in default and soft
+- BH-022, BH-044, BH-078, and BH-082 — the focus ring matches the selected fill in minimal and high-contrast, versus the field error border, versus a different ring still under 3:1 on that fill, versus the today ring under 3:1 on the default light popover
 - BH-037 and BH-055 — open never leaves a month with no selectable day, versus a later predicate change inside that month
 - BH-047 and BH-051 — focus can leave a dialog that stays open, versus Tab from the field never entering a portaled dialog
 - BH-003 and BH-064 — a fourth group appended to the year, versus day and month rolling as soon as they hold two digits
@@ -27,6 +27,12 @@ Reviewed BH-001 through BH-070. Combined BH-014 and BH-015 only: both are input 
 - BH-007 and BH-069 — no `direction` prop, versus no `lang` from `locale`
 - BH-021 and BH-079 — a portaled popover misses the border-box reset and overflows at 320px, versus a 200% root font size pushing the in-tree header past a 320px viewport
 - BH-056, BH-074, BH-075, and BH-076 — the dialog has no name, the textbox carries an illegal `aria-expanded`, a wrapping label absorbs the calendar, and the trigger name ignores the field's `aria-label`
+- BH-020 and BH-081 — copied portal tokens go stale, versus a `.light` rule that beats a nearer `.dark` because both selectors are `:where()` and `.light` is later
+- BH-057 and BH-084 — the placeholder uses the disabled-foreground token, versus the selected day losing its fill and falling to that same token
+- BH-063 and BH-083 — forced-colors drops the field's focus cue, versus print dropping the selected day's background and leaving the numeral at 2.30:1
+- BH-006 and BH-085 — a cross-realm Date is treated as empty, versus a finite Date at either time-value edge that throws during render
+- BH-050 and BH-086 — activating a month or year option unmounts that button, versus a pill click unmounting the focused day
+- BH-046 and BH-087 — the month and year options have no arrow keymap, versus ArrowDown on the input being swallowed while those views are open
 
 BH-011 and BH-024 through BH-034 are tests that stay green. They are not copies of the product bugs they fail to catch.
 
@@ -717,6 +723,7 @@ Checked again on 2026-09-30 against BH-001 through BH-063. Each item below was r
   1. Empty field. Change the input to `123.2026`. The value is `12.03.2026`. Blur. `onChange` receives 12 March 2026.
   2. Change the input to `2012-03-15`. The value is `20.12.0315`. Blur. `onChange` receives a local date whose year is 315, month December, day 20.
   3. Change the input to `2026-07-17`. The value is `20.26.0717`. Blur. `onValidationError` is `impossible-date`, `onChange` is not called, and the field is empty.
+  4. Eighth-pass render, same roll: `2012-06-15T00:00:00.000Z` shows `20.12.0615` and blur commits 20 December 615. `2026-07-15T14:30:00.000Z` shows `20.26.0715`, blur reports `impossible-date`, and `onChange` is not called. The `T` and the time are not separators the mask keeps; the digits still fill day, month, and year.
 
 ### BH-065
 
@@ -900,3 +907,80 @@ The default light selected day at 5.17:1, named in the sixth pass, is the light 
   3. Inside `act`, dispatch Escape on the iframe document. The dialog stays.
   4. Inside `act`, dispatch `mousedown` on a button in the iframe outside the host. The dialog stays.
   5. Inside `act`, dispatch Escape on the parent `document.body`. The dialog is gone.
+
+## Eighth pass
+
+Checked again on 2026-09-30 against BH-001 through BH-080. BH-081 through BH-084 were measured in Chromium. BH-085 through BH-087 were reproduced in jsdom, and an ISO datetime was added to BH-064. The same run's default dark selected text was 3.68:1 and its default light selected text was 5.17:1, which matches BH-077 and the sixth pass, so the sampler agrees with the numbers already filed. Ratios below were checked against the WCAG formula for the sampled bytes. Reduced motion does set `transition: none` on a day. The default dark error border is 6.41:1, which BH-059 already recorded as the passing scheme. High-contrast dark selected text is 11.65:1. A 280px ancestor on a 1280px viewport does not scroll the page. Field text at a 32px root size does not overflow. Those were not filed.
+
+### BH-081
+
+- **File:** `src/styles.css:92` (`.dark`) and `src/styles.css:96` (`.light`)
+- **What is wrong:** The comment at `src/styles.css:88` says the nearest `.dark` or `.light` ancestor wins. Both rules are inside `:where()`, so specificity is 0, and the `.light` rule is later. Whenever both match, `.light` wins no matter which ancestor is closer. `body.light` outside a `.dark` wrapper leaves the root `color-scheme: light` and the field background `rgb(255, 255, 255)`. `.dark` on `.rldp-root` itself, with `.light` on `html`, stays the same white field. `html.dark` with no `.light` anywhere does flip the field to `rgb(17, 24, 39)`.
+- **Why it matters:** A dark card on a light page is the usual way to theme one control. The comment says that card wins. The field stays light, so every `light-dark()` token stays on its light stop. This is not BH-020. That one is portaled tokens copied once and then frozen. Not BH-023. That one is named-theme tokens in a browser without `light-dark()`. This is current Chromium and the default theme.
+- **How to reproduce:**
+  1. `body` has class `light`. A wrapper between `body` and the picker has class `dark`. No `themeName`.
+  2. The root's computed `color-scheme` is `light`. The field background is `rgb(255, 255, 255)`.
+  3. The same page with only `html.dark`, and no `.light`, gives `color-scheme: dark` and field background `rgb(17, 24, 39)`.
+
+### BH-082
+
+- **File:** `src/styles.css:55` (`--rldp-today-ring-base`) and `src/styles.css:572` (1px inset shadow on `[data-today]`)
+- **What is wrong:** The default light today ring paints `rgb(96, 165, 250)`. The day background is transparent, so the ring sits on the popover, `rgb(255, 255, 255)`. The contrast is 2.54:1, under the 3:1 non-text bar. The light token is `oklch(0.7137 0.1434 254.62)`. Default dark is `rgb(59, 130, 246)` on `rgb(17, 24, 39)`, 4.82:1, which clears 3:1.
+- **Why it matters:** The ring is the only mark that a day is today, unless that day is also selected (selected clears the shadow, `src/styles.css:580`). In the default light theme the mark is under 3:1. This is not BH-022 or BH-078. Those are the focus outline on the selected fill. This is the today shadow on the popover.
+- **How to reproduce:**
+  1. Default theme, light scheme, a day with `data-today` that is not selected.
+  2. The ring colour is `rgb(96, 165, 250)` and the popover behind it is white.
+  3. The contrast ratio is 2.54:1.
+
+### BH-083
+
+- **File:** `src/styles.css:576` (selected day is background and white text only)
+- **What is wrong:** Selection is a background and white text, the day's border is 0, and the selected rule clears the today shadow. There is no `@media print` rule and no `print-color-adjust`. Computed `print-color-adjust` is `economy`. Chromium's default print (background graphics off) drops the selected fill: a cell that contains 1357 pixels near `rgb(37, 99, 235)` with backgrounds on contains none with them off. The darkest pixel left in that cell is `rgb(171, 171, 171)`, 2.30:1 on the white page. The neighbouring day's text stays `rgb(17, 24, 39)` at 17.74:1. The today ring and a focused nav outline still print. `@media print` computed style still reports the blue background and white text, so the drop is the print raster, not a print stylesheet.
+- **Why it matters:** The selected day is the one a printed form has to show. With the browser's default it becomes the faint cell, and the cells around it stay dark. This is not BH-063. That one is forced-colors on screen. Not BH-077. That one is the on-screen dark text ratio while the fill is still painted.
+- **How to reproduce:**
+  1. Default light theme, value 15 September 2026, dialog open.
+  2. Print to PDF with background graphics off, and again with them on.
+  3. The selected blue is present only in the backgrounds-on PDF. In the other, the numeral in that cell is `rgb(171, 171, 171)` at 2.30:1.
+
+### BH-084
+
+- **File:** `src/styles.css:576` (selected) and `src/styles.css:585` (disabled, later)
+- **What is wrong:** Both rules are `:where()`, so specificity is 0. The disabled rule is later and sets `background: transparent` and the disabled-foreground colour. A day that has `data-selected` and `data-disabled` loses the accent fill. Default light text is `rgb(156, 163, 175)` on the white popover, 2.54:1, at 14px and weight 600 (the selected weight is not cleared). A disabled day that is not selected is the same grey at weight 400. A selected enabled day is white on `rgb(37, 99, 235)` at 5.17:1.
+- **Why it matters:** The current value can be a day `shouldDisableDate` rejects, for example a weekend rule added after the date was stored. The grid then shows that day like any other disabled day, and the text is under 4.5:1. BH-057 already records this token on the placeholder and on inactive day numbers, and treats those inactive days as not the failure. Here the day is the committed value, and the accent fill is gone. Not BH-063, where a disabled day matches an enabled day under forced-colors.
+- **How to reproduce:**
+  1. Default light theme. Value 18 July 2026. `shouldDisableDate` rejects Saturdays and Sundays. 18 July 2026 is a Saturday.
+  2. Open the grid. The button for the 18th has `data-selected` and `data-disabled`.
+  3. Its background is transparent and its text is `rgb(156, 163, 175)`, 2.54:1 on white.
+
+The same pass executed two further holes and did not file them. `Object.create(Date.prototype)` passes `instanceof Date` and then `getTime()` throws `TypeError: this is not a Date object` at `src/LocaleDatePicker.tsx:781`. That object is not a date a form receives. A cross-realm Date stays BH-006 and does not throw. There is no `id` prop, so `<label htmlFor>` does not name the input. Native `id` / `name` is deferred in `docs/ROADMAP.md` and was not filed. An input with no label and no `aria-label` is unnamed; that is the consumer's label, not a second dialog bug.
+
+### BH-085
+
+- **File:** `src/LocaleDatePicker.tsx:780` (`usableDate`), throw at `src/LocaleDatePicker.tsx:1591` and `src/LocaleDatePicker.tsx:1596`
+- **What is wrong:** `usableDate` keeps any Date whose `getTime()` is finite. That is not enough for the header. The minimum instant `new Date(-8640000000000000)` is finite, and in this timezone its local day is before the midnight `startOfDay` can represent, so the previous-month label's `format` throws `RangeError: Invalid time value` during render. The maximum instant `new Date(8640000000000000)` gets through `startOfDay`, and the next-month label's `new Date` for the following month is Invalid, so `format` throws at `:1596`. Header labels run on every render, including a closed field. `new Date("nope")`, year 100000, and 15 January 275760 still mount.
+- **Why it matters:** `usableDate` exists so one bad date cannot unmount the consumer's tree. These two instants are finite Dates, and render throws anyway. This is not BH-006. A cross-realm Date fails `instanceof Date`, `usableDate` returns null, and the input stays empty. Not BH-004 or BH-005, which are display and parsing of years the field can show.
+- **How to reproduce:**
+  1. Render `value={new Date(-8640000000000000)}`. Render throws `RangeError: Invalid time value` at the previous-month label.
+  2. Render `value={new Date(8640000000000000)}`. Render throws the same error at the next-month label.
+  3. `new Date("nope")` renders an empty field and does not throw.
+
+### BH-086
+
+- **File:** `src/LocaleDatePicker.tsx:1620` (popover `mousedown` keeps focus) and `src/LocaleDatePicker.tsx:1685` (month pill `setView`)
+- **What is wrong:** A focused day stays focused because the popover `mousedown` calls `preventDefault`. The click then sets the view to `"months"` or `"years"` and unmounts the days grid, so the focused button is removed. Focus falls to `document.body`. The pill stays mounted and the dialog stays open. The month pill was the run: after the click its text still contains `July`, `[data-part=grid]` is gone, and `document.activeElement` is `body`. The year pill (`src/LocaleDatePicker.tsx:1699`) does the same `setView` and was the same failure in the pass that pressed it. Enter on the month pill, after Tab lands on it, keeps focus on that button. The pointer path is the one that loses it.
+- **Why it matters:** The calendar is still open and the keyboard is on `body`. The next key does not move a day. This is not BH-050. There the button that was activated is the one removed. Here the pill that was clicked is still in the tree. Not BH-040, which closes the dialog. Not BH-012, which keeps a day button and shows the wrong date.
+- **How to reproduce:**
+  1. Value 15 July 2026. Focus the input. Press ArrowDown twice so the active element is the day `2026-6-15`.
+  2. `mousedown` then `click` `[data-part=month-pill]`.
+  3. The dialog is still present. The pill text contains `July`. The days grid is gone. `document.activeElement` is `body`.
+
+### BH-087
+
+- **File:** `src/LocaleDatePicker.tsx:2011` (input ArrowDown) and `src/LocaleDatePicker.tsx:1499` (focus effect returns unless the view is days)
+- **What is wrong:** ArrowDown on the input always calls `preventDefault`. When the dialog is open it calls `focusGridDay`, which looks for a day button. In the months or years view that grid is not mounted, the lookup no-ops, and the focus effect returns because `view !== "days"`. The key is already swallowed. Focus stays on the input. The live region stays on the open month.
+- **Why it matters:** The handler's comment says the second ArrowDown moves the keyboard into the grid. From the month or year view that key does nothing, and it does not reach the page either. This is not BH-046. That one is the option buttons having no arrow keymap of their own. This key is handled on the input, and the handler claims to enter the grid.
+- **How to reproduce:**
+  1. Value 15 July 2026. Open, then click `[data-part=month-pill]` so the months view is showing.
+  2. Focus the input and press ArrowDown.
+  3. The active element is still the input. `[data-part=grid]` is absent. The months view is still showing.
+
