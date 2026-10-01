@@ -138,3 +138,24 @@ test.describe("portaled popover", () => {
     expect(box!.y + box!.height).toBeLessThanOrEqual(420);
   });
 });
+
+test.describe("typing", () => {
+  // Real keystrokes with a real caret. The unit suite sets the value with
+  // fireEvent.change, which cannot show whether Backspace actually works.
+  test("Backspace erases a trailing separator, then the digits before it", async ({
+    page,
+  }) => {
+    await page.goto("/?locale=en");
+    const input = page.getByRole("textbox");
+    await input.click();
+    await page.keyboard.type("1.");
+    await expect(input).toHaveValue("01.");
+    await page.keyboard.press("Backspace");
+    await expect(input, "Backspace over the separator must remove it").toHaveValue("01");
+    await page.keyboard.press("Backspace");
+    await page.keyboard.press("Backspace");
+    await expect(input).toHaveValue("");
+    await page.keyboard.type("15.03.2026");
+    await expect(input).toHaveValue("15.03.2026");
+  });
+});

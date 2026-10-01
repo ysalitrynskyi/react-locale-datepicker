@@ -970,7 +970,14 @@ const nextTypedText = (prev: string, raw: string): string => {
   const prevTokens = tokenize(prev);
   // Only separators or junk changed — a deleted dot, a stray letter. The
   // date's digits are untouched, so the date is too: keep what was shown.
-  if (digitsOf(tokens) === digitsOf(prevTokens)) return prev;
+  // Except at the end of the text: Backspace over a trailing separator is how
+  // a typist backs out of a group, and keeping it there made Backspace dead —
+  // "1." pads to "01." and then could not be erased without selecting it.
+  // What remains is a prefix of text this function produced, so it is shown
+  // as is.
+  if (digitsOf(tokens) === digitsOf(prevTokens)) {
+    return prev.startsWith(raw) ? raw : prev;
+  }
   // A replacement with no separators at all (select-all and type, or paste a
   // bare digit string) is new input from scratch: mask it.
   if (!tokens.some((t) => t.kind === "sep")) return maskTokens(tokens);

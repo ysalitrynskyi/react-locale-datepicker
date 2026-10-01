@@ -99,6 +99,29 @@ describe("the mask never manufactures a different date", () => {
     fireEvent.change(h.input(), { target: { value: "1503.2026" } });
     expect(valueOf(h.input())).toBe("15.03.2026");
   });
+
+  it("Backspace over a trailing separator removes it", () => {
+    // The no-op above is for a separator inside the date. At the end of the
+    // text, deleting the separator is how a typist backs out of a group, and
+    // keeping it made Backspace dead: "1." pads to "01." and could then never
+    // be erased without selecting the text.
+    const h = renderPicker({ locale: "en" });
+    fireEvent.change(h.input(), { target: { value: "1." } });
+    expect(valueOf(h.input())).toBe("01.");
+    fireEvent.change(h.input(), { target: { value: "01" } });
+    expect(valueOf(h.input()), "Backspace must remove the separator").toBe("01");
+    fireEvent.change(h.input(), { target: { value: "0" } });
+    expect(valueOf(h.input())).toBe("0");
+
+    fireEvent.change(h.input(), { target: { value: "" } });
+    fireEvent.change(h.input(), { target: { value: "15.03." } });
+    expect(valueOf(h.input())).toBe("15.03.");
+    fireEvent.change(h.input(), { target: { value: "15.03" } });
+    expect(valueOf(h.input()), "Backspace must remove the separator").toBe("15.03");
+    // Typing on from there continues the mask as usual.
+    fireEvent.change(h.input(), { target: { value: "15.032" } });
+    expect(valueOf(h.input())).toBe("15.03.2");
+  });
 });
 
 describe("an edit the mask discards creates no draft (BH-065)", () => {
