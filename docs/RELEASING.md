@@ -105,6 +105,8 @@ and render it. Do not rely on the local build having worked.
 
 - `main` keeps the released version until the next release is prepared; there
   is no development pre-release version.
+- Update the release state in `AGENTS.md` § What this repository is, so the
+  next agent does not start from a stale picture.
 - Release notes state what changed and, for a breaking change, what a consumer
   has to do.
 - If a release is broken, prefer publishing a fix over unpublishing. Unpublishing

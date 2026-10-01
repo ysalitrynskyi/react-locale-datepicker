@@ -192,7 +192,7 @@ users actually use.
   override, (c) a parse/format function pair as the full escape hatch
   (Duet's `dateAdapter` seam). Every option must re-derive the mask, which
   the parity contract protects, so this work is gated on the Phase 3 masking
-  test coverage and on D17. The `placeholder` prop stays caller-supplied
+  test coverage and on D22. The `placeholder` prop stays caller-supplied
   regardless — it must always match whatever format is active.
 - **Opt-outs for the existing built-ins.** The optional-settings principle
   has to run backwards too: audit each current built-in and expose it as an
@@ -204,8 +204,8 @@ users actually use.
   **Partly shipped 0.2.0:** `showEcho`, `showWeekdayHeader` and
   `showTodayMarker`. The **masking opt-out is NOT shipped** — masking is a
   parity-contract behaviour, so switching it off needs the format contract
-  (D17) to define what unmasked typing parses against. Deferred to 0.6 with
-  that work.
+  (D22) to define what unmasked typing parses against. Deferred to the
+  display-format tranche (planning label 0.6 below) with that work.
 - **[x] Shipped 0.2.0.** **`classNames` and `styles` maps** typed against the
   published anatomy (Phase 2 / D3 already plans `classNames`; `styles`
   completes it).
@@ -229,7 +229,8 @@ users actually use.
 - **`clearable`** input affordance (the component never self-clears today;
   this stays opt-in, and the typed-clear behaviour — typing never commits
   null, recorded in the source comments at `commitTyped` — is untouched).
-- **Native input surface**: forward or model `id`, `autoFocus`, `required`
+- **Native input surface**: forward or model `id` (**in 0.6.0**, with
+  `aria-labelledby`), `autoFocus`, `required`
   (wired to the hidden form input below), `inputMode`, and an
   `inputReadOnly` mode meaning "calendar-only entry, no typed input,
   suppress the mobile keyboard" — distinct from `disabled`, and it must not
@@ -319,9 +320,11 @@ users actually use.
 Doubling down on the reason this package exists. Research findings that make
 this concrete:
 
-- **Localized digit rendering.** Accept the Unicode `-u-nu-` locale extension
-  and/or a `numerals` prop. Initial default stays `latn` (today's behaviour);
-  deriving the default from the locale's own
+- **Localized digit rendering.** **Partly done in 0.6.0 (D20):** a `-u-nu-`
+  extension in `locale` renders every number in that system, and the
+  default is Latin everywhere (the formatters used to drift to the locale's
+  digits). Still open: a `numerals` prop. Initial default stays `latn`
+  (today's behaviour); deriving the default from the locale's own
   `resolvedOptions().numberingSystem` — so an `ar-EG` user gets Arabic-Indic
   digits without configuration, which none of the surveyed libraries does —
   is the 1.0 consideration, flagged as a default change in release notes.
@@ -355,10 +358,13 @@ this concrete:
   behaviour (letters accepted in the month segment, or matched on
   paste/blur parse only). Not cheap; gated on the Phase 3 masking coverage
   existing first.
-- **RTL hardening**: logical properties throughout the Phase 2 stylesheet,
-  `:dir()`-based chevron flipping, and the `direction` prop from
-  [`API.md`](API.md) (`"auto"` resolving from the locale). Arrow keys already
-  follow visual direction; keep that under test.
+- **[x] RTL hardening, in 0.6.0 (D19).** The `direction` prop exists
+  (default inherit; `"auto"` derives it from the locale), the resolved
+  direction is stamped on the popover so a portal keeps it, an ancestor
+  `dir="auto"` is honoured through computed style, the chevron flip keys on
+  the popover's own `dir`, and an RTL popover opens from the field's start
+  edge. Arrow keys follow visual direction; all of it is under test in
+  `e2e/bughunt.spec.ts`.
 - **Temporal readiness.** Temporal reached Stage 4 in March 2026 and ships in
   Firefox and Chrome; Safari was in preview at survey time. Plain `Date`
   stays our contract, with optional `Temporal.PlainDate` accept/emit adapters
@@ -438,19 +444,25 @@ light/dark, basic forced-colors and reduced-motion rules, `classNames` and
 names and the Gregorian echo pinning (D11). The rows below carry only what
 remains.
 
-**Both the 0.2 and 0.3 rows were built together and are staged in one
-release, `0.2.0`** (prepared 2026-07-26, unpublished pending operator
-approval). The version boundaries in this table mark dependency and decision
-gates, not shipping units, and nothing in the 0.3 row turned out to depend on
-a separate release of the 0.2 row.
+**Version labels in this table are planning labels from 2026-07-26 and no
+longer line up with release numbers.** Releases 0.3.x–0.5.x shipped D16–D18
+(injectable today, the portal escape, touch keyboard handling) and 0.6.0 is
+the 2026-09-30 bug-hunt release (D19–D21, see
+[`bug-hunts/2026-09-30.md`](bug-hunts/2026-09-30.md)). Read the rows below as
+ordered tranches; the next feature release takes the next free minor.
+
+**Both the 0.2 and 0.3 rows were built together and shipped in one release,
+`0.2.0`** (2026-07-26). The version boundaries in this table mark
+dependency and decision gates, not shipping units, and nothing in the 0.3
+row turned out to depend on a separate release of the 0.2 row.
 
 | Version | Contents | Depends on |
 |---|---|---|
-| ~~0.2~~ **staged in 0.2.0** | Track 1 remainder: published data-part anatomy, named themes + `themeName`, `styles` map, `labels`, opt-outs for existing built-ins, oklch palette pass, documented Tailwind bridge. **Complete except the masking opt-out**, which is gated on the format contract (D17) and moves to 0.6 | D10 |
-| ~~0.3~~ **staged in 0.2.0** | Track 5 remainder: aria-atomic month heading, grid-entry keyboard-help announcement, trigger accessible-name echo, `role="grid"` migration; digit-map generalization; `onValidationError`. **Complete.** The manual screen-reader matrix has not been run — automated regressions and axe only | 0.2 |
-| 0.4 | `disabledDates` matchers, modifiers, presets, week numbers, fixed weeks, month/year modes + `openTo`, standalone Calendar, controlled/uncontrolled state, slots + `renderDay`/`getDayProps`, footer utilities, `clearable`, ref API, `onMonthChange`/`month`, native input surface, placement + Popover-API/portal escape | D12 |
+| ~~0.2~~ **shipped in 0.2.0** | Track 1 remainder: published data-part anatomy, named themes + `themeName`, `styles` map, `labels`, opt-outs for existing built-ins, oklch palette pass, documented Tailwind bridge. **Complete except the masking opt-out**, which is gated on the format contract (D22) and moves to 0.6 | D10 |
+| ~~0.3~~ **shipped in 0.2.0** | Track 5 remainder: aria-atomic month heading, grid-entry keyboard-help announcement, trigger accessible-name echo, `role="grid"` migration; digit-map generalization; `onValidationError`. **Complete.** The manual screen-reader matrix has not been run — automated regressions and axe only | 0.2 |
+| 0.4 | `disabledDates` matchers, modifiers, presets, week numbers, fixed weeks, month/year modes + `openTo`, standalone Calendar, controlled/uncontrolled state, slots + `renderDay`/`getDayProps`, footer utilities, `clearable`, ref API, `onMonthChange`/`month`, native input surface (`id` in 0.6.0), placement (portal escape shipped 0.4.0, D17) | D12 |
 | 0.5 | Range and multiple selection; `numberOfMonths` | D13 |
-| 0.6 | Display format contract; localized digit rendering; `-u-ca-` display calendars; typed month names; Temporal adapters | D11, D14, D17 |
+| 0.6 (planning label) | Display format contract; localized digit rendering (the `-u-nu-` half in 0.6.0); `-u-ca-` display calendars; typed month names; Temporal adapters | D11, D14, D22 |
 | 1.0 | Stability declaration: API freeze, semver guarantee, documented deprecation policy; decide locale-derived numeral default | everything above green |
 | Backlog, unscheduled | Opt-in mobile dialog / bottom-sheet presentation for coarse pointers (until then, typed-input-first is the mobile story); `weekStartsOn` override; per-day tooltips | — |
 
@@ -488,9 +500,10 @@ here so the shape of each is not lost:
 - **D16 — Injectable today / timezone.** DECIDED and shipped 2026-07-26
   (0.3.0): `today` + `timeZone` props and the `todayInTimeZone` export. See
   DECISIONS.md.
-- **D17 — Display format contract.** Locale-derived default versus fixed,
-  the `format` override shape, and the parse/format escape-hatch pair; must
-  define how the mask re-derives per format.
+- **D22 — Display format contract** (planned as D17 before the portal
+  escape took that number in the register). Locale-derived default versus
+  fixed, the `format` override shape, and the parse/format escape-hatch
+  pair; must define how the mask re-derives per format.
 
 ---
 

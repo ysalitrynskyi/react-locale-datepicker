@@ -160,12 +160,9 @@ operator approval and has not happened.
       stylesheet path. Verified end to end against the built package: renders,
       opens, commits, RTL flips, `ua` normalizes, themes repaint, no console
       errors.
-2. [ ] Deploy to GitHub Pages. The workflow is written
-      (`.github/workflows/pages.yml`) and is `workflow_dispatch` only.
-      **Enabling Pages is a repository-settings action and belongs to the
-      operator** — see the instructions at the top of that file. Linking it
-      from the README and the repository description follows the first
-      successful deployment.
+2. [x] Deploy to GitHub Pages. Enabled by the operator on 2026-07-26;
+      `.github/workflows/pages.yml` deploys on every push to `main` that
+      touches `examples/` or `src/`, and on manual dispatch.
 3. [ ] Announcing. Outward-facing; **needs explicit operator approval per
       venue.** Not done, not started.
 
@@ -178,16 +175,25 @@ now arrives as bugs, locale reports and `ROADMAP.md` items rather than phases.
 
 - Triage issues per the D8 posture.
 - Keep the parity contract green; it is the reason the component is trustworthy.
-- If the source product ever adopts the package (D7), pin an exact version.
+- The source product consumes the package at an exact version pin (D7), so
+  every behaviour change is called out per item in the changelog.
 
-### Releases so far
+### Releases
 
 | Version | What it was |
 |---|---|
 | 0.1.0 | First publish — the extracted component |
 | 0.2.0 | Theming, anatomy, opt-outs |
 | 0.3.0 / 0.3.1 | Injectable `today` and business `timeZone` (D16) |
-| **0.3.2** | Bug fixes from an external review: the Invalid-Date crash, the missing `box-sizing`, and the `light-dark()` fallback |
+| 0.3.2 | Bug fixes from an external review: the Invalid-Date crash, the missing `box-sizing`, and the `light-dark()` fallback |
+| 0.3.3 | Cyrillic-layout separators (`ю`/`б`) and whitespace in the mask |
+| 0.4.0 / 0.4.1 | Opt-in `portal` escape from clipped containers (D17) and consumer contract pins |
+| 0.5.0 / 0.5.1 | Touch: the keyboard waits for a second tap (D18), raised inside the gesture for iOS |
+| **0.6.0** | The 2026-09-30 bug hunt: 86 findings, all resolved — see [`bug-hunts/2026-09-30.md`](bug-hunts/2026-09-30.md). Adds `direction` (D19), `id`, `aria-labelledby`; Latin numerals (D20); the one-widget focus and keyboard model (D21); WCAG AA contrast for text and rings on every shipped theme |
+
+A row here means the release was prepared on `main`; whether it is on npm yet
+is what `npm view react-locale-datepicker versions` says, and `AGENTS.md`
+records the state at its last edit.
 
 **A lesson worth keeping from 0.3.2.** The first fix for the Invalid-Date crash
 guarded only `value`, and looked complete — the reproduction passed. It was not:
@@ -197,6 +203,14 @@ format on every render whether the popup is open or not, and invalid
 whole class of bad input reads exactly like a finished one. When a fix is about
 a *kind* of value rather than one call site, enumerate every entry point for
 that kind before calling it done.
+
+**A lesson from the 0.6.0 bug hunt.** An external review filed 86 findings
+against a suite of 185 green tests. Twelve of the findings were tests that
+passed with the behaviour they named deleted — they asserted something that was already true
+before the action (the year "2026" in a dialog already showing 2026, an
+`onChange` that a dead arrow key would still produce). A test is only
+evidence once it has been seen to fail: break the code it guards, watch it go
+red, restore it. [`TESTING.md`](TESTING.md) now makes that a rule.
 
 ---
 
