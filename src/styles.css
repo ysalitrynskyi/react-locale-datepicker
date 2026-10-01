@@ -743,24 +743,26 @@
     );
   }
 
-  /* On a filled cell (the selected day, the open month or year) the ring is
-   * drawn in the fill's own foreground colour, one ring-width further in, so
-   * fill, ring and fill read as a band. In the ring colour it matched the
-   * fill exactly in minimal and high-contrast and sat near 1.4:1 on it in
-   * the default and soft themes: keyboard focus on the selection, which is
-   * where moving into the grid puts it, was invisible. */
+  /* On a filled cell (the selected day, the open month or year) the ring
+   * alone matched the fill exactly in minimal and high-contrast and sat near
+   * 1.4:1 on it in the default and soft themes: keyboard focus on the
+   * selection, which is where moving into the grid puts it, was invisible.
+   * A band in the fill's own foreground colour is drawn just inside the
+   * ring, so ring, band and fill always read as an indicator.
+   *
+   * The ring itself keeps the ring colour. Drawing the whole indicator in the
+   * foreground colour instead depended on the fill being there, and a CSS
+   * reset that strips button backgrounds (Tailwind's preflight, unlayered,
+   * beats this layer) left a white ring on a white popover. Ring against the popover and band against the fill each clear
+   * 3:1 on every shipped theme. */
   :where(
       .rldp-day[data-selected],
       .rldp-month[data-current],
       .rldp-year[data-current]
     ):where(:focus-visible) {
-    outline-color: var(
-      --rldp-accent-foreground,
-      var(--rldp-accent-foreground-base)
-    );
-    outline-offset: calc(
-      -2 * var(--rldp-focus-width, var(--rldp-focus-width-base))
-    );
+    box-shadow: inset 0 0 0
+      calc(2 * var(--rldp-focus-width, var(--rldp-focus-width-base)))
+      var(--rldp-accent-foreground, var(--rldp-accent-foreground-base));
   }
 
   @media (forced-colors: active) {

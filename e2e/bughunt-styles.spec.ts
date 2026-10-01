@@ -39,6 +39,10 @@ const css = (loc: Locator, prop: string, pseudo?: string) =>
     [prop, pseudo] as const,
   );
 
+// The colour of a computed box-shadow ("oklch(1 0 0) 0px 0px 0px 4px inset").
+const shadowColor = (shadow: string) =>
+  shadow.match(/^(\S+\([^)]*\)|#\w+)/)?.[1] ?? shadow;
+
 async function openPicker(page: Page, query: string) {
   await page.goto(`/?${query}`);
   await page.getByRole("textbox").click();
@@ -111,9 +115,16 @@ for (const scheme of ["light", "dark"] as const) {
       const day = page.locator(".rldp-day[data-selected]");
       await expect(day).toBeFocused();
       await page.waitForTimeout(200);
-      const ring = await paint(page, await css(day, "outline-color"));
+      // The indicator is a ring in the ring colour with a band in the fill's
+      // foreground just inside it: the band has to stand off the fill, and
+      // the ring off the popover, which is all a reset that strips the fill
+      // leaves around it.
+      const band = await paint(page, shadowColor(await css(day, "box-shadow")));
       const fill = await paintedColor(day);
-      expect(contrast(ring, fill)).toBeGreaterThanOrEqual(3);
+      expect(contrast(band, fill), "band against the fill").toBeGreaterThanOrEqual(3);
+      const ring = await paint(page, await css(day, "outline-color"));
+      const surface = await paintedColor(page.getByRole("dialog"));
+      expect(contrast(ring, surface), "ring against the popover").toBeGreaterThanOrEqual(3);
     });
 
     test(`the error border clears 3:1 — ${name} (BH-059)`, async ({ page }) => {
@@ -130,14 +141,30 @@ for (const scheme of ["light", "dark"] as const) {
       await page.clock.setFixedTime(new Date(2026, 6, 10, 12));
       await openPicker(page, `locale=en&defaultMonth=2026-07-01${t}`);
       const today = page.locator(".rldp-day[data-today]");
-      const shadow = await css(today, "box-shadow");
-      const color = shadow.match(/^(\S+\([^)]*\)|#\w+)/)?.[1] ?? shadow;
-      const ring = await paint(page, color);
+      const ring = await paint(page, shadowColor(await css(today, "box-shadow")));
       const bg = await paintedColor(page.getByRole("dialog"));
       expect(contrast(ring, bg)).toBeGreaterThanOrEqual(3);
     });
   }
 }
+
+test("focus on the selected day survives a reset that strips its fill (RV-02)", async ({
+  page,
+}) => {
+  await page.goto(`/?locale=en&${JULY}`);
+  // Tailwind v3 preflight, unlayered, so it beats the package's layer.
+  await page.addStyleTag({ content: "button { background-color: transparent; }" });
+  const input = page.getByRole("textbox");
+  await input.focus();
+  await input.press("ArrowDown");
+  await input.press("ArrowDown");
+  const day = page.locator(".rldp-day[data-selected]");
+  await expect(day).toBeFocused();
+  expect(await css(day, "background-color")).toBe("rgba(0, 0, 0, 0)");
+  const ring = await paint(page, await css(day, "outline-color"));
+  const surface = await paintedColor(page.getByRole("dialog"));
+  expect(contrast(ring, surface), "the ring is all that is left to see").toBeGreaterThanOrEqual(3);
+});
 
 test("a nearer .dark wins over an outer .light (BH-081)", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
