@@ -1,5 +1,136 @@
 # Changelog
 
+## 0.6.0 — 2026-10-01
+
+Fixes for an external review that filed 86 findings in one day; every one was
+reproduced or checked against the code before it was fixed. The ledger, with
+the commit for each finding, is
+[`docs/bug-hunts/2026-09-30.md`](docs/bug-hunts/2026-09-30.md).
+
+**This release changes behaviour you can see.** No prop is removed and every
+existing prop keeps its meaning, but the keyboard and focus model, some
+colours and some accessibility attributes are different. Below 1.0 the minor
+number is the breaking slot (`^0.5.1` does not accept 0.6.0), so nobody gets
+this without choosing to. Read *Changed* before upgrading.
+
+### Changed
+
+- **Enter submits the form** when the calendar is closed and nothing has
+  been typed. It used to be swallowed in every state, so a form with the
+  picker in it could not be submitted from that field.
+- **Tab closes the calendar and moves on; ArrowDown enters it** (D21). The
+  field and its calendar are one widget, like a combobox and its popup. Tab
+  used to walk into an in-tree calendar and skip a portaled one, leaving it
+  open. Tab out of a portaled calendar's last control returns to the page
+  order after the field, and Shift+Tab out of its first returns to the
+  field.
+- **`onBlur` fires once, when focus leaves the widget**, and the typed draft
+  commits at that moment. It used to fire on every input blur: moving into
+  the calendar, the second tap's refocus and Tab into the header each ran
+  the parent's validation in the middle of an interaction. Leaving the
+  widget also closes the calendar.
+- **Escape is marked handled** (`preventDefault`), so a surrounding native
+  `<dialog>`, or a modal library that checks `defaultPrevented`, closes the
+  calendar only.
+- **The post-pick click guard is scoped to the calendar's footprint.** For
+  350 ms after a day was picked it used to cancel every click on the page,
+  including Submit and the next field, and it outlived the component. It now
+  swallows only a click inside where the calendar was, only after a pointer
+  pick.
+- **The calendar icon uses `aria-disabled`, not `disabled`**, when the field
+  is disabled, so a press on it reaches `onDisabledOpenAttempt`. CSS that
+  targets `.rldp-trigger:disabled` should target `[aria-disabled="true"]`.
+- **One numbering system per widget** (D20). Under `ar` or `fa` the echo and
+  the month title used the locale's digits beside a year pill and day cells
+  in Latin digits. Every formatter now writes Latin digits unless the tag
+  asks for a system (`ar-u-nu-arab`), and then all of them use it.
+- **Only the first letter is upper-cased** in the echo, the month pill and
+  the months view, using the locale's rules. `text-transform: capitalize`
+  is gone; it upper-cased every word ("Miércoles, 17 De Junio De 2026").
+- **Accessibility attributes moved.** `aria-expanded` is on the trigger
+  (with `aria-haspopup` and `aria-controls`), not on the textbox, which does
+  not support it. The trigger's name leads with the field's `aria-label`
+  ("Start date, Open calendar"). The dialog is labelled by the visible
+  month and year when there is no `aria-label`. The echo is `aria-hidden`.
+  Tests that query these by role and name may need updating.
+- **Text and rings meet WCAG AA on every shipped theme.** Changed: the placeholder
+  (now the faint token), faint text in dark mode, the default theme's light
+  error border and today ring, its dark selected-day pair and hover, the
+  today ring in the minimal and soft themes, the soft theme's dark hover,
+  and the focus ring on a filled cell. The values
+  are in [`docs/THEMING.md`](docs/THEMING.md). Overridden tokens are
+  untouched.
+- **`.dark` and `.light` resolve to the nearest ancestor.** A dark card on a
+  `.light` page used to stay light, because the later of two descendant
+  rules always won.
+- **The compact 36px field applies only with a fine pointer**, so a touch
+  tablet keeps the 16px text (mobile Safari zooms on focus below that) and
+  44px targets.
+- **Typed input never commits a date nobody typed.** An edit inside a
+  complete date keeps its separators as boundaries (inserting a digit used
+  to re-flow "15.03.2026" into "11.05.0320"); a fourth group is rejected
+  instead of joining the year; a year-first paste such as `2026-07-17` is
+  reordered; the Arabic, CJK fullwidth and ideographic separators separate.
+- **The draft follows the value.** A new `value` from the parent,
+  `form.reset()` and `disabled` each drop the typed draft instead of letting
+  the next blur write it back. A disabled field closes its calendar.
+
+### Added
+
+- `direction?: "ltr" | "rtl" | "auto"` (D19). Omitted, the picker inherits
+  the page's direction as before; `"auto"` takes it from the locale. The
+  calendar carries the resolved direction, so a portaled calendar matches
+  its field, and an ancestor `dir="auto"` that resolves right-to-left now
+  flips the arrows and chevrons too.
+- `id` and `aria-labelledby`, forwarded to the input: the way to label the
+  field without wrapping it in a `<label>`.
+- Month and year options have one tab stop and an arrow-key map (Home/End,
+  PageUp/PageDown), and the open month and year carry `aria-current`.
+
+### Fixed
+
+- Years 0 to 99 were read as 1900 to 1999; years below 1000 displayed in a
+  form the field could not read back; a `Date` from another realm (an
+  iframe) was ignored; a `Date` near the edge of the representable range
+  crashed the header; the year list could omit the open year.
+- `resolveLocale("UA")` and `"ua-UA"` formatted in the host's language
+  instead of Ukrainian.
+- Japanese, Chinese and Korean day names lost their unit characters
+  ("31 土曜日 1 2026"); the echo and calendar now carry `lang`.
+- A chevron left the keyboard cursor on the previous month's date; opening
+  with nothing chosen could land on a month with no selectable day; a
+  predicate that changed while open left the grid without a tab stop.
+- Switching to the month or year view dropped focus on `<body>`.
+- Opening the year list scrolled the page.
+- A press outside committed a finished draft only when its target took
+  focus. Closing from the icon left focus in the calendar. A press on the
+  field's padding did nothing.
+- A portaled calendar fell behind its field after a layout change above it,
+  kept a stale theme, missed the field's font and the border-box reset, and
+  could open with its top off-screen.
+- In right-to-left layouts the calendar now opens from the field's start
+  edge.
+- Safari 18.2+ reports a touch click as a mouse (WebKit bug 282988); the
+  pointer type is read from the `pointerdown` of the same tap.
+- Clearing a field that still had a value reported it missing; a throwing
+  `shouldDisableDate` wiped the typed text and skipped `onBlur`; IME
+  composition was masked mid-composition.
+- An empty string in `labels` left a control unnamed.
+- Forced-colours mode lost the field's focus cue and drew disabled days as
+  enabled; selected and current cells printed without their fill; a
+  selected day the predicate rejects keeps its fill; named themes kept
+  invalid tokens where `light-dark()` is unsupported; 200% text at 320px
+  scrolled the page sideways.
+
+### Tests
+
+- 298 unit tests (185 before) and new real-browser guards in
+  `e2e/bughunt.spec.ts` and `e2e/bughunt-styles.spec.ts`.
+- Twelve findings were existing tests that passed with the behaviour they
+  named deleted. Each was rewritten and seen to fail against the broken
+  code.
+- `npm run typecheck` now covers the tests and e2e (`tsconfig.test.json`).
+
 ## 0.5.1 — 2026-08-12
 
 ### Fixed
