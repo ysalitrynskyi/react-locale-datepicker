@@ -1226,12 +1226,14 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const [focusDay, setFocusDay] = React.useState<Date | null>(null);
   // Measured after render: whether the popup flips above the field, the
   // horizontal offset (px) that keeps an in-tree popup inside the viewport,
-  // and (when portaled) the fixed top/left in viewport coordinates.
+  // and (when portaled) the fixed top/left in viewport coordinates plus the
+  // height cap that keeps it between the field and the viewport edge.
   const [pos, setPos] = React.useState<{
     up: boolean;
     shift: number;
     top: number;
     left: number;
+    maxHeight?: number;
   }>({
     up: false,
     shift: 0,
@@ -1816,7 +1818,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
 
     const measure = () => {
       const r = root.getBoundingClientRect();
-      const ph = pop.offsetHeight;
+      // The popover's natural height, even while a height cap below is
+      // shortening it: content height plus its borders.
+      const ph = pop.scrollHeight + (pop.offsetHeight - pop.clientHeight);
       const pw = pop.offsetWidth;
       const spaceBelow = window.innerHeight - r.bottom;
       // When neither side fits fully, open toward the roomier side; the page
@@ -1850,17 +1854,28 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         let left = rtl ? r.right - pw : r.left;
         if (left > maxLeft) left = maxLeft;
         if (left < 8) left = 8;
-        // Clamped vertically too. A flip above a field low on a short screen
-        // put the top of the calendar — the month it opened to show — above
-        // the viewport, and a fixed box cannot be scrolled to. When it is
-        // taller than the viewport, CSS caps its height and it scrolls inside.
-        let top = up ? r.top - ph - 4 : r.bottom + 4;
-        if (top > window.innerHeight - 8 - ph) top = window.innerHeight - 8 - ph;
-        if (top < 8) top = 8;
+        // Anchored to the field edge on its side, and never over the field:
+        // when the space between that edge and the viewport is shorter than
+        // the calendar, its height is capped and it scrolls inside. A fixed
+        // box cannot be scrolled to, so a calendar that overflowed the
+        // viewport (a flip above a field low on a short screen) lost the
+        // month it opened to show; shifting it back inside instead slid it
+        // over the field, which the on-screen keyboard causes whenever it
+        // shrinks the page — the visitor then typed into a hidden field.
+        const room = Math.max(
+          0,
+          Math.floor(up ? r.top - 4 - 8 : window.innerHeight - 8 - (r.bottom + 4)),
+        );
+        const maxHeight = ph > room ? room : undefined;
+        const top = up ? r.top - 4 - Math.min(ph, room) : r.bottom + 4;
         setPos((p) =>
-          p.up === up && p.top === top && p.left === left && p.shift === 0
+          p.up === up &&
+          p.top === top &&
+          p.left === left &&
+          p.shift === 0 &&
+          p.maxHeight === maxHeight
             ? p
-            : { up, shift: 0, top, left },
+            : { up, shift: 0, top, left, maxHeight },
         );
         syncPortaledTheme();
       } else {
@@ -2637,6 +2652,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                       position: "fixed" as const,
                       top: pos.top,
                       left: pos.left,
+                      maxHeight: pos.maxHeight,
                     }
                   : { left: pos.shift }),
                 ...styles?.popover,

@@ -136,6 +136,47 @@ test.describe("portaled popover", () => {
     const box = await page.getByRole("dialog").boundingBox();
     expect(box!.y).toBeGreaterThanOrEqual(0);
     expect(box!.y + box!.height).toBeLessThanOrEqual(420);
+    const field = await page.locator('[data-part="field"]').boundingBox();
+    expect(box!.y + box!.height, "never over the field (RV-01)").toBeLessThanOrEqual(field!.y);
+  });
+
+  test("keeps to its side of the field when the viewport shrinks under it (RV-01)", async ({
+    page,
+  }) => {
+    // An on-screen keyboard that resizes the page does exactly this.
+    await page.setViewportSize({ width: 412, height: 915 });
+    await open(page, "locale=en&portal=1&value=2026-07-15");
+    const dialog = page.getByRole("dialog");
+    const field = (await page.locator('[data-part="field"]').boundingBox())!;
+    const opened = (await dialog.boundingBox())!;
+    expect(opened.y).toBeGreaterThanOrEqual(field.y + field.height);
+
+    // Short enough that the calendar no longer fits below the field.
+    const height = Math.round(opened.y + opened.height * 0.6);
+    await page.setViewportSize({ width: 412, height });
+    await nextFrames(page);
+    await nextFrames(page);
+    const box = (await dialog.boundingBox())!;
+    expect(box.y, "the calendar must not slide over the field being typed in").toBeGreaterThanOrEqual(
+      field.y + field.height,
+    );
+    expect(box.y + box.height).toBeLessThanOrEqual(height);
+    const scrolls = await dialog.evaluate((el) => el.scrollHeight > el.clientHeight);
+    expect(scrolls, "what no longer fits scrolls inside").toBe(true);
+  });
+
+  test("opens beside the field, not over it, on a phone in landscape (RV-01)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 740, height: 360 });
+    await open(page, "locale=en&portal=1&value=2026-07-15");
+    const box = (await page.getByRole("dialog").boundingBox())!;
+    const field = (await page.locator('[data-part="field"]').boundingBox())!;
+    const above = box.y + box.height <= field.y + 0.5;
+    const below = box.y >= field.y + field.height - 0.5;
+    expect(above || below, `dialog ${box.y}-${box.y + box.height}, field ${field.y}-${field.y + field.height}`).toBe(true);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(360);
   });
 });
 
