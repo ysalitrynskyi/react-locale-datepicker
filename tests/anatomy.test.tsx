@@ -19,6 +19,22 @@ function partsIn(el: Element): string[] {
   return own ? [own, ...found] : found;
 }
 
+/**
+ * The element carrying a part, found ONLY through its data-part (plus, for a
+ * state, the data attribute that state sets).
+ *
+ * The published contract is that the part, the built-in class, the classNames
+ * and styles entries and the state attributes all sit on ONE element. A test
+ * that finds the element by role or text and then checks its class proves the
+ * class is somewhere, not that it is on the part: `data-part="day"` can move to
+ * a wrapper around the day button and every such check stays green, while
+ * `[data-part="day"][data-selected]` — the selector a consumer actually writes —
+ * matches nothing.
+ */
+function byPart(scope: ParentNode, part: string, state = ""): Element | null {
+  return scope.querySelector(`[data-part="${part}"]${state}`);
+}
+
 describe("published anatomy", () => {
   it("stamps a data-part on every element the component renders", async () => {
     const h = renderPicker({
@@ -81,22 +97,37 @@ describe("published anatomy", () => {
         dayDisabled: "x-day-disabled",
       },
     });
-    expect(h.input()).toHaveClass("rldp-input", "x-input");
-    expect(h.container.querySelector('[data-part="echo"]')).toHaveClass(
-      "x-echo",
-    );
+    // Each part is reached through its data-part and then compared with the
+    // element a user works with: the input part must BE the textbox, the
+    // popover part must BE the dialog, a day part must BE a day button.
+    const input = byPart(h.container, "input");
+    expect(input, "the input part must be the textbox itself").toBe(h.input());
+    expect(input).toHaveClass("rldp-input", "x-input");
+    expect(byPart(h.container, "echo")).toHaveClass("x-echo");
     await h.openViaClick();
-    expect(h.dialog()).toHaveClass("rldp-popover", "x-popover");
-    expect(h.dialog().querySelector('[data-part="header"]')).toHaveClass(
-      "x-header",
+    const popover = byPart(document, "popover");
+    expect(popover, "the popover part must be the dialog itself").toBe(
+      h.dialog(),
     );
-    expect(h.dialog().querySelector('[data-part="grid"]')).toHaveClass(
-      "x-grid",
-    );
-    expect(h.dayButton(15)).toHaveClass("rldp-day", "x-day", "x-day-selected");
-    expect(h.dayButton(16)).toHaveClass("x-day-disabled");
+    expect(popover).toHaveClass("rldp-popover", "x-popover");
+    expect(byPart(h.dialog(), "header")).toHaveClass("x-header");
+    expect(byPart(h.dialog(), "grid")).toHaveClass("x-grid");
+    const selectedDay = byPart(h.dialog(), "day", "[data-selected]");
     expect(
-      h.dayButton(17).className,
+      selectedDay,
+      "the selected day must be a day part carrying data-selected",
+    ).toBe(h.dayButton(15));
+    expect(selectedDay).toHaveClass("rldp-day", "x-day", "x-day-selected");
+    const disabledDay = byPart(h.dialog(), "day", "[data-disabled]");
+    expect(
+      disabledDay,
+      "the disabled day must be a day part carrying data-disabled",
+    ).toBe(h.dayButton(16));
+    expect(disabledDay).toHaveClass("x-day-disabled");
+    const plainDay = byPart(h.dialog(), "day", '[data-day="2026-6-17"]');
+    expect(plainDay, "every day button is a day part").toBe(h.dayButton(17));
+    expect(
+      plainDay!.className,
       "unselected, enabled days must not pick up state classes",
     ).not.toContain("x-day-selected");
   });
@@ -152,8 +183,13 @@ describe("published anatomy", () => {
       classNames: { dayToday: "x-today" },
     });
     await h.openViaClick();
+    const todayDay = byPart(h.dialog(), "day", "[data-today]");
     expect(
-      h.dayButton(today.getDate()),
+      todayDay,
+      "today must be a day part carrying data-today",
+    ).toBe(h.dayButton(today.getDate()));
+    expect(
+      todayDay,
       "the today marker class must follow the data-today attribute",
     ).toHaveClass("x-today");
     h.unmount(); // the helper's queries are document-wide
@@ -164,10 +200,16 @@ describe("published anatomy", () => {
       classNames: { dayToday: "x-today" },
     });
     await selected.openViaClick();
+    const selectedToday = byPart(selected.dialog(), "day", "[data-selected]");
     expect(
-      selected.dayButton(today.getDate()).className,
+      selectedToday,
+      "today, once selected, is the selected day part",
+    ).toBe(selected.dayButton(today.getDate()));
+    expect(
+      selectedToday!.className,
       "a selected today is styled as selected, not as today — matches data-today",
     ).not.toContain("x-today");
+    expect(selectedToday).not.toHaveAttribute("data-today");
   });
 
   it("exposes the state attributes an unstyled consumer needs", async () => {
@@ -179,12 +221,16 @@ describe("published anatomy", () => {
       hasError: true,
       shouldDisableDate: (d) => d.getDate() === 16,
     });
-    expect(
-      h.container.querySelector('[data-part="field"]'),
-    ).toHaveAttribute("data-error");
+    expect(byPart(h.container, "field")).toHaveAttribute("data-error");
     await h.openViaClick();
-    expect(h.dayButton(15)).toHaveAttribute("data-selected");
-    expect(h.dayButton(16)).toHaveAttribute("data-disabled");
-    expect(h.dialog()).toHaveAttribute("data-placement");
+    // The state attributes are read off the part, not off whichever element
+    // happens to be the button.
+    expect(byPart(h.dialog(), "day", "[data-selected]")).toBe(h.dayButton(15));
+    expect(byPart(h.dialog(), "day", "[data-disabled]")).toBe(h.dayButton(16));
+    const popover = byPart(document, "popover");
+    expect(popover, "the popover part must be the dialog itself").toBe(
+      h.dialog(),
+    );
+    expect(popover).toHaveAttribute("data-placement");
   });
 });
