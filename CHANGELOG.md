@@ -149,7 +149,7 @@ this without choosing to. Read *Changed* before upgrading.
 
 ### Tests
 
-- 305 unit tests (185 before) and new real-browser guards in
+- 308 unit tests (185 before) and new real-browser guards in
   `e2e/bughunt.spec.ts` and `e2e/bughunt-styles.spec.ts`.
 - Twelve findings were existing tests that passed with the behaviour they
   named deleted. Each was rewritten and seen to fail against the broken
