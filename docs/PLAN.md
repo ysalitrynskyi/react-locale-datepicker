@@ -212,6 +212,14 @@ before the action (the year "2026" in a dialog already showing 2026, an
 evidence once it has been seen to fail: break the code it guards, watch it go
 red, restore it. [`TESTING.md`](TESTING.md) now makes that a rule.
 
+**And one from the review after it.** A pre-release review of 0.6.0 against
+0.5.1 found five regressions, and every one had been introduced by a fix in
+the same release ([`bug-hunts/2026-10-01.md`](bug-hunts/2026-10-01.md)). Each
+fix was right about the bug it closed and wrong about a case next to it. Before
+tagging a release that fixes many things, compare it with the last published
+version the way a consumer meets it: their CSS reset, their keyboard, their
+locale.
+
 ---
 
 ## Estimated effort
