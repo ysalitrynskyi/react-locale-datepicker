@@ -70,11 +70,10 @@ describe("dates before the Unix epoch", () => {
     await h.openViaClick();
     const yearPill = within(h.dialog()).getByRole("button", {
       name: "1967",
-      exact: true,
     });
     fireEvent.click(yearPill);
     expect(
-      within(h.dialog()).getByRole("button", { name: "1900", exact: true }),
+      within(h.dialog()).getByRole("button", { name: "1900" }),
     ).toBeTruthy();
   });
 
@@ -83,14 +82,13 @@ describe("dates before the Unix epoch", () => {
     await h.openViaClick();
     const yearPill = within(h.dialog()).getByRole("button", {
       name: "2026",
-      exact: true,
     });
     fireEvent.click(yearPill);
     expect(
-      within(h.dialog()).getByRole("button", { name: "1967", exact: true }),
+      within(h.dialog()).getByRole("button", { name: "1967" }),
     ).toBeTruthy();
     expect(
-      within(h.dialog()).getByRole("button", { name: "1906", exact: true }),
+      within(h.dialog()).getByRole("button", { name: "1906" }),
     ).toBeTruthy();
   });
 });

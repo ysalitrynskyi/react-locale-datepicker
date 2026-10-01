@@ -1,6 +1,5 @@
 // Regression guards for the 2026-09-30 bug hunt: accessible names and ARIA.
 // Each test names the ledger entry (docs/bug-hunts/2026-09-30.md) it closes.
-import React from "react";
 import { describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { axe } from "vitest-axe";

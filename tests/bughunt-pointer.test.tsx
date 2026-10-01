@@ -1,6 +1,5 @@
 // Regression guards for the 2026-09-30 bug hunt: pointer handling.
 // Each test names the ledger entry (docs/bug-hunts/2026-09-30.md) it closes.
-import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { LocaleDatePicker } from "../src/LocaleDatePicker";

@@ -61,9 +61,9 @@ describe("an unusable Date never crashes the host tree", () => {
     fireEvent.click(screen.getByLabelText("Date"));
     // With the guard, invalid bounds behave exactly like absent bounds:
     // the default 120-year grid, not a zero-row one.
-    fireEvent.click(screen.getByRole("button", { name: "2026", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "2026" }));
     expect(
-      screen.getByRole("button", { name: "1967", exact: true }),
+      screen.getByRole("button", { name: "1967" }),
     ).toBeTruthy();
   });
 

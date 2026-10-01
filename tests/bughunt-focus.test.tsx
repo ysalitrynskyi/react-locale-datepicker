@@ -1,6 +1,5 @@
 // Regression guards for the 2026-09-30 bug hunt: focus, blur and keyboard.
 // Each test names the ledger entry (docs/bug-hunts/2026-09-30.md) it closes.
-import React from "react";
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { LocaleDatePicker } from "../src/LocaleDatePicker";

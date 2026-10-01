@@ -125,7 +125,7 @@ describe("consumer contract: display format is fixed dd.MM.yyyy", () => {
     for (const locale of ["en", "en-US", "de", "uk", "ua", "ja", "ar"]) {
       const h = renderPicker({ initialValue: value, locale });
       expect(
-        h.input().value,
+        (h.input() as HTMLInputElement).value,
         `locale=${locale} must display dd.MM.yyyy, not a locale-derived order`,
       ).toBe("12.08.2026");
       h.unmount();
