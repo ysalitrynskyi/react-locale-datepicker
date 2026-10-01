@@ -25,10 +25,10 @@ them. The list only ever grows.
 | `root` | `root` | Outer wrapper. Also takes the `className` prop. |
 | `field` | `field` | The bordered input row. Carries `data-error` / `data-disabled`. |
 | `input` | `input` | The text input. |
-| `trigger` | `trigger` | Calendar toggle button beside the input. |
+| `trigger` | `trigger` | Calendar toggle button beside the input. Carries `aria-expanded`, and `aria-disabled` (never `disabled`) on a disabled picker. |
 | `trigger-icon` | `triggerIcon` | Built-in calendar glyph. |
-| `echo` | `echo` | Long-form committed date under the field. |
-| `popover` | `popover` | The calendar dialog. Carries `data-placement`. |
+| `echo` | `echo` | Long-form committed date under the field. `aria-hidden`; carries `lang`. |
+| `popover` | `popover` | The calendar dialog. Carries `data-placement`, `dir`, `lang`, and `data-portaled` when portaled. |
 | `header` | `header` | Header row of the popover. |
 | `nav-previous` | `navPrevious` | Previous month (or year) button. |
 | `nav-next` | `navNext` | Next month (or year) button. |
@@ -48,9 +48,9 @@ them. The list only ever grows.
 | `day` | `day` | The day button itself. |
 | `day-blank` | `dayBlank` | Padding cell before the first or after the last day. |
 | `months` | `months` | Months view grid. |
-| `month` | `month` | One month button. Carries `data-current`. |
+| `month` | `month` | One month button. Carries `data-current` and `aria-current`. |
 | `years` | `years` | Years view grid. |
-| `year` | `year` | One year button. Carries `data-current`. |
+| `year` | `year` | One year button. Carries `data-current` and `aria-current`. |
 
 ## State-only slots
 
@@ -79,12 +79,18 @@ Present only when true, so `[data-selected]` is a sufficient selector.
 | `data-selected` | `day` | The day matches `value`. |
 | `data-today` | `day` | The day is today **and** is not selected. |
 | `data-placement` | `popover` | `top` or `bottom`, after the flip measurement. |
+| `data-portaled` | `popover` | The popover is rendered through `portal`. |
+| `dir` | `popover`, and `root` when `direction` is set | The direction the component resolved; the RTL chevron flip keys on the popover's own `dir`. |
 | `data-active` | `month-pill`, `year-pill` | That pill's view is open. |
 | `data-current` | `month`, `year` | The month or year currently shown. |
 | `data-day` | `day` | `YYYY-M-D` with a **0-based** month, matching `Date#getMonth`. |
 | `data-rldp-theme` | `root` | Present when `themeName` is set. See [THEMING.md](THEMING.md). |
 
 ## Styling without the stylesheet
+
+A selector scoped under your own ancestor (`.my-picker …` below) reaches the
+popover only while it is in-tree. With `portal` it lives elsewhere in the
+document: use `classNames`/`styles`, or drop the ancestor from the selector.
 
 ```css
 .my-picker [data-part="day"][data-selected] {

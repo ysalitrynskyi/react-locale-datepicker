@@ -30,25 +30,25 @@ ordinary inherited custom properties.
 | `--rldp-background` | Field and popover background |
 | `--rldp-foreground` | Primary text |
 | `--rldp-muted-foreground` | Echo, nav glyphs |
-| `--rldp-faint-foreground` | Weekday headers, carets |
-| `--rldp-disabled-foreground` | Disabled days, placeholder |
+| `--rldp-faint-foreground` | Weekday headers, placeholder, carets, the disabled field's focus ring |
+| `--rldp-disabled-foreground` | Disabled days and months |
 | `--rldp-border` | Field and popover border |
 | `--rldp-border-strong` | Month and year pills |
 | `--rldp-surface` | Pill background, disabled field |
 | `--rldp-hover` | Nav and pill hover |
 | `--rldp-accent` | Selected day, focused field border |
 | `--rldp-accent-hover` | Selected day hover |
-| `--rldp-accent-foreground` | Text on the accent |
+| `--rldp-accent-foreground` | Text on the accent, and the focus ring drawn on an accent-filled cell |
 | `--rldp-accent-soft` | Day hover, active pill |
 | `--rldp-accent-soft-foreground` | Text on the soft accent |
 | `--rldp-today-ring` | Today's ring |
-| `--rldp-error` | `hasError` border |
-| `--rldp-ring` | Focus outline colour |
+| `--rldp-error` | `hasError` border, and its focus ring |
+| `--rldp-ring` | Focus outline colour on unfilled controls |
 | `--rldp-radius` | Corner radius |
 | `--rldp-radius-popover` | Popover corner radius |
 | `--rldp-font` | Font family |
 | `--rldp-font-size` | Base font size |
-| `--rldp-cell-size` | Day cell size (44px, 36px on fine pointers) |
+| `--rldp-cell-size` | Day cell size (44px; 36px with a fine primary pointer from 768px up) |
 | `--rldp-popover-width` | Popover width |
 | `--rldp-z-index` | Popover stacking |
 | `--rldp-focus-width` | Focus outline thickness |
@@ -56,6 +56,31 @@ ordinary inherited custom properties.
 
 The palette is authored in `oklch()` so hover and dark shades derive
 predictably. Any valid CSS colour works as an override — hex is fine.
+
+### Contrast the shipped themes meet
+
+Measured in Chromium against the shipped stylesheet and pinned by
+`e2e/bughunt-styles.spec.ts` for all four themes, in light and dark:
+
+| Pair | Minimum |
+| --- | --- |
+| Placeholder and weekday headers on their background | 4.5:1 (7:1 in `high-contrast`) |
+| Selected day and open month text on the accent | 4.5:1 (7:1 in `high-contrast`) |
+| Focus ring on an accent-filled cell | 3:1 |
+| `hasError` border and the today ring on their background | 3:1 |
+
+The open year uses the same accent pair as the open month.
+
+The resting field and popover borders are not in this table: in `default`
+and `soft` they are a hairline (about 1.2:1 in light, 1.7:1 in dark) and in
+`minimal` they are transparent, by design. If your form relies on the border alone to show
+where the field is, set `--rldp-border` to a colour with 3:1 against the
+page, or use `high-contrast`.
+
+If you override tokens, these are the pairs to re-check. Disabled days and
+months are inactive controls and are exempt (WCAG 1.4.3); the placeholder is
+not, because on an empty field it is the only statement of the `dd.MM.yyyy`
+format.
 
 ## Named themes
 
@@ -99,7 +124,11 @@ No JavaScript, no flash of the wrong theme, correct during SSR.
 
 - Follows the OS by default, via `color-scheme` and `light-dark()`.
 - Override with a `.dark` / `.light` class or `[data-theme="dark"|"light"]`
-  on any ancestor — compatible with next-themes and similar.
+  on any ancestor — compatible with next-themes and similar. The **nearest**
+  one wins, so a `.dark` card on a `.light` page is dark. (Before 0.6.0 the
+  later rule won whichever was nearer.)
+- Or set `--rldp-color-scheme: dark` (or `light`) on any element yourself;
+  the classes above only set that property.
 
 The package deliberately ships no theme-detection script. Apps own the
 toggle. The consensus pre-paint snippet, if you need one:
@@ -168,5 +197,19 @@ Utility classes still work per slot when you want them:
   for the full table and the two ways out.
 - Tokens are defined on the component root, never `:root`, so two
   differently themed pickers coexist on one page.
-- Forced-colors mode and `prefers-reduced-motion` are handled in the shipped
-  stylesheet.
+- Forced-colors mode (outline focus cues, `GrayText` disabled days),
+  `prefers-reduced-motion` and printing (selected and current cells keep
+  their fill) are handled in the shipped stylesheet.
+- On browsers without `light-dark()` (Safari < 17.5, Chrome < 123, Firefox
+  < 120) the plain theme is restored from hex fallbacks, and the named themes
+  degrade to it; fine detail such as hover tints is not reproduced there.
+
+## A portaled popover
+
+With `portal`, the popover is no longer a DOM descendant of the picker root.
+The component copies the root's `--rldp-*` tokens, `color-scheme`, font
+family, line height, letter spacing and direction onto it and keeps them
+live, so ancestor theming still applies. What cannot follow it is a selector
+**scoped under your own ancestor**: `.my-form [data-part="day"]` no longer
+matches a portaled day. Style the popover through `classNames` / `styles`, or
+with unscoped `[data-part]` selectors.
