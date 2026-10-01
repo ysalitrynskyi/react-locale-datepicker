@@ -92,8 +92,10 @@ this without choosing to. Read *Changed* before upgrading.
   disabled.
 - **A portaled calendar keeps to its side of the field.** When the space
   between the field and the viewport edge is shorter than the calendar, its
-  height is capped and it scrolls inside; it never covers the field. 0.5.1
-  let it run off the viewport.
+  height is capped and it scrolls inside; it never covers the field. The cap
+  stops at 120px: scrolled closer to the viewport edge than that, the
+  calendar keeps that height and runs past the edge. 0.5.1 let it run off
+  the viewport at any size.
 - **`resolveLocale` returns the canonical tag**: `"en-us"` → `"en-US"`,
   `"iw"` → `"he"`, `"sh"` → `"sr-Latn"`, and `ua` is matched in any case
   and with a region (`"UA"` → `"uk"`, `"ua-UA"` → `"uk-UA"`; those used to

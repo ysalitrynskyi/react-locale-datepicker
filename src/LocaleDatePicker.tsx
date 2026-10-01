@@ -724,6 +724,9 @@ const monthKey = (d: Date): number => d.getFullYear() * 12 + d.getMonth();
 // walk the grid into a month whose labels throw.
 // Upper bound on rendered year options; see yearsRange.
 const MAX_YEAR_OPTIONS = 600;
+// The shortest a portaled calendar is capped to, in px: about the header and
+// one week. See the portaled branch of the measure effect.
+const MIN_CAPPED_HEIGHT = 120;
 const SAFE_MIN_KEY = monthKey(new Date(-SAFE_TIME)) + 1;
 const SAFE_MAX_KEY = monthKey(new Date(SAFE_TIME)) - 1;
 const monthFromKey = (k: number): Date => {
@@ -1862,12 +1865,19 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         // month it opened to show; shifting it back inside instead slid it
         // over the field, which the on-screen keyboard causes whenever it
         // shrinks the page — the visitor then typed into a hidden field.
-        const room = Math.max(
-          0,
-          Math.floor(up ? r.top - 4 - 8 : window.innerHeight - 8 - (r.bottom + 4)),
+        //
+        // The cap stops at MIN_CAPPED_HEIGHT. With the side frozen, scrolling
+        // the field to the viewport edge takes the room to zero; a box cannot
+        // be shorter than its own padding and border, so capped that far it
+        // was an empty strip that sat on the field it was meant to clear.
+        // Below the minimum the calendar keeps its height and runs past the
+        // viewport edge with the field, as an in-flow popup does.
+        const room = Math.floor(
+          up ? r.top - 4 - 8 : window.innerHeight - 8 - (r.bottom + 4),
         );
-        const maxHeight = ph > room ? room : undefined;
-        const top = up ? r.top - 4 - Math.min(ph, room) : r.bottom + 4;
+        const cap = Math.max(room, MIN_CAPPED_HEIGHT);
+        const maxHeight = ph > cap ? cap : undefined;
+        const top = up ? r.top - 4 - Math.min(ph, cap) : r.bottom + 4;
         setPos((p) =>
           p.up === up &&
           p.top === top &&

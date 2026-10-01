@@ -193,8 +193,9 @@ Two related behaviours are **not** configurable, because both were defects:
 A portaled popover follows the field through scrolling, resizing and any
 layout change that moves it; keeps to its side of the field, so it never
 covers it (when the space between the field and the viewport edge is shorter
-than the calendar, its height is capped and it scrolls inside); keeps the
-field's theme tokens, colour scheme, font and
+than the calendar, its height is capped and it scrolls inside; the cap stops
+at 120px, below which the calendar runs past the viewport edge instead of
+shrinking further); keeps the field's theme tokens, colour scheme, font and
 direction live; and is still part of the widget for outside-press, Escape and
 focus handling, including in an iframe's document. Because it is no longer a
 DOM descendant of the root, a selector scoped under one of your ancestors

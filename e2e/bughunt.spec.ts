@@ -178,6 +178,38 @@ test.describe("portaled popover", () => {
     expect(box.y).toBeGreaterThanOrEqual(0);
     expect(box.y + box.height).toBeLessThanOrEqual(360);
   });
+
+  test("runs past the viewport edge instead of shrinking to nothing (RV-07)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 412, height: 800 });
+    await page.goto("/?locale=en&portal=1&value=2026-07-15");
+    await page.evaluate(() => {
+      const spacer = document.createElement("div");
+      spacer.style.height = "560px";
+      document.querySelector('[data-part="root"]')!.before(spacer);
+      const tail = document.createElement("div");
+      tail.style.height = "1500px";
+      document.body.append(tail);
+    });
+    await page.getByRole("textbox").click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toHaveAttribute("data-placement", "top");
+
+    // Scroll the field to the top of the viewport: the side the calendar
+    // opened toward has no room left at all.
+    const opened = (await page.locator('[data-part="field"]').boundingBox())!;
+    await page.evaluate((dy) => window.scrollBy(0, dy), opened.y - 14);
+    await nextFrames(page);
+    await nextFrames(page);
+    const field = (await page.locator('[data-part="field"]').boundingBox())!;
+    expect(field.y).toBeLessThan(20);
+    const box = (await dialog.boundingBox())!;
+    // Capped to that room it was an empty strip of padding and border, and
+    // because a box cannot be shorter than those, the strip sat on the field.
+    expect(box.y + box.height, "never over the field").toBeLessThanOrEqual(field.y + 0.5);
+    expect(box.height, "not squeezed to a strip").toBeGreaterThanOrEqual(100);
+  });
 });
 
 test.describe("typing", () => {

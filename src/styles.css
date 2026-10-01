@@ -505,8 +505,8 @@
     margin-bottom: 0;
     /* A fixed box cannot be scrolled into view, so when the space beside
      * the field is shorter than the calendar it scrolls inside instead (the
-     * component sets a tighter inline cap from the field's position). dvh
-     * where supported: mobile toolbars. */
+     * component sets a tighter inline cap from the field's position, never
+     * below a minimum height). dvh where supported: mobile toolbars. */
     max-height: calc(100vh - 1rem);
     max-height: calc(100dvh - 1rem);
     overflow-y: auto;
