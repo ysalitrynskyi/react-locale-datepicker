@@ -222,8 +222,13 @@ test("a selected day the predicate rejects keeps its fill (BH-084)", async ({ pa
 });
 
 test("the selected day prints with its colours (BH-083)", async ({ page }) => {
+  // Read under screen media. The declaration is not inside a print query, so
+  // its computed value is the same either way, and an open calendar cannot
+  // be held under emulated print in Firefox: switching the media type blurs
+  // the field, which closes the calendar, and with print already on neither
+  // a click nor a key opens it. This test used to switch after opening and
+  // failed in Firefox for that reason, not because of the stylesheet.
   await openPicker(page, `locale=en&${JULY}`);
-  await page.emulateMedia({ media: "print" });
   expect(await css(page.locator(".rldp-day[data-selected]"), "print-color-adjust")).toBe(
     "exact",
   );
