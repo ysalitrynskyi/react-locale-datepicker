@@ -116,7 +116,8 @@ prop is deferred until D3 settles the styling API shape, alongside
 
 **Status:** DECIDED 2026-07-26 — the recommendation as written. 0.1.0 shipped
 with `peerDependencies: { "react": ">=18", "react-dom": ">=18" }` and the
-suite runs on React 19; nothing tests or promises 17.
+suite runs on React 19; nothing tests or promises 17. Since 0.6.0 the
+component also uses `React.useId`, which React 17 does not have.
 
 **Recommendation:** `peerDependencies: { "react": ">=18" }`. React 18 introduced
 the behaviour around `useId` and concurrent rendering the component should rely
@@ -144,7 +145,13 @@ verifiable tarball without waiting on D3.
 
 ## D7 — Does the source product consume the package?
 
-**Status:** OPEN. Consider this deferred rather than undecided.
+**Status:** SETTLED in practice, 2026-08 — the source product depends on the
+package at an **exact** version pin (never a range), as this entry recommended
+for whenever adoption happened.
+The conditions below were met first: a version history and a suite that
+covers the parity contract end to end. Every release since is therefore also
+a release the source product will take on its next pin bump, which is why
+behaviour changes are called out per item in the changelog.
 
 Once published, the source product could import the package instead of keeping
 its own copy.
@@ -382,8 +389,8 @@ Default remains the in-tree `position: absolute` popover (0.3.x behaviour).
 Its form card is `overflow: hidden` (rounded shadow shell). An absolute
 popover inside that shell is clipped — observed in the e2e harness, not
 reasoned about: dialog height ≈ 282px, only ≈ 90px visible through a 72px
-card (clip ratio ~0.32). Eight partner sites also frame `/embed` cross-origin,
-so any escape must work inside an iframe's own document.
+card (clip ratio ~0.32). The same form is also framed cross-origin by other
+sites, so any escape must work inside an iframe's own document.
 
 **Options:**
 
@@ -456,8 +463,10 @@ component until the visitor interacted with it.
 **Activation is read from the event, not from the device.** `(pointer: coarse)`
 describes the *primary* pointer, so a touchscreen laptop on its trackpad and
 the same laptop under a finger are indistinguishable to it — and those two want
-opposite handling of the focus return. `PointerEvent.pointerType` on the click
-is the interaction itself and is exact; `detail === 0` identifies synthesized
+opposite handling of the focus return. `PointerEvent.pointerType` is the
+interaction itself — read from the `pointerdown` that started the click since
+0.6.0, because Safari 18.2+ reports a finger's click as `"mouse"` (WebKit bug
+282988); `detail === 0` identifies synthesized
 clicks (assistive tech, Enter/Space on a button) first, since those are keyboard
 users whatever hardware is attached. The media query survives only as a fallback
 for synthetic events.
@@ -471,7 +480,101 @@ below the field, and the side was being re-decided on every resize frame.
 
 ---
 
-## D12–D15 — Roadmap decisions (not yet opened)
+## D19 — Layout direction (`direction` prop)
+
+**Status:** DECIDED 2026-10-01 — `direction?: "ltr" | "rtl" | "auto"`,
+default *inherit*. In 0.6.0.
+
+**Prompt:** `docs/API.md` had documented `direction` with default `"auto"`
+("resolves from the locale") since 0.1.0, and the prop never existed (bug hunt
+BH-007). Without it, an ancestor `dir` was the only way to get RTL, and a
+portal dropped that ancestor (BH-013).
+
+**Options:**
+
+| Option | Upside | Downside |
+|---|---|---|
+| **A. Default `"auto"` (from locale), as the old doc said** | An Arabic picker is RTL anywhere | Flips the field and calendar of every existing consumer whose locale is RTL but whose page is not — a form laid out LTR suddenly has an RTL field in it |
+| **B. Default inherit; `"auto"` opt-in** | No existing caller changes; the page owns its layout | A page that sets no `dir` but shows an Arabic picker must opt in |
+| **C. Remove the prop from the docs** | No code | Leaves portaled RTL broken and no way to set direction per picker |
+
+**Outcome: B.** Omitted means inherit the nearest ancestor's direction, read
+from computed style (so an ancestor `dir="auto"` counts) with the nearest
+`dir` attribute as the fallback where there is no layout engine (jsdom).
+`"auto"` derives it from the locale through `Intl.Locale` text info, with a
+list of right-to-left languages for engines without it. The resolved
+direction is always stamped on the popover, so a portaled calendar keeps it,
+and the chevron flip keys on that attribute. In RTL the popover opens from
+the field's right edge.
+
+---
+
+## D20 — Numerals
+
+**Status:** DECIDED 2026-10-01 — Latin digits everywhere unless the locale
+tag carries a `-u-nu-` extension. In 0.6.0.
+
+**Prompt:** bug hunt BH-054. The typed field, day numerals and year pill were
+Latin (`getDate()`, `getFullYear()`), while every `Intl` formatter followed
+the locale's default numbering system, so under `ar` or `fa` the echo and the
+month title announced `٢٠٢٦` next to a pill that said `2026`.
+
+**Options:**
+
+| Option | Upside | Downside |
+|---|---|---|
+| **A. Pin Latin on every formatter** | One system, matching the typed field; the ROADMAP already said the default stays Latin | Changes the echo's digits for Arabic and Persian locales that used to get Arabic-Indic ones |
+| **B. Render day numerals and years in the locale's system** | Native digits by default | The typed field is ASCII by contract, so the widget would still mix two systems |
+| **C. Leave it** | No change | Two numbering systems in one widget, read aloud differently |
+
+**Outcome: A, with an opt-in.** Formatters pin `numberingSystem: "latn"`; a
+locale tag that names a system explicitly (`"ar-u-nu-arab"`) switches the
+formatters, the day numerals and the year pill and list to it, and only the
+typed field stays ASCII. Deriving the default from the locale remains the
+roadmap's 1.0 consideration.
+
+---
+
+## D21 — Focus and keyboard model: one widget, combobox-style
+
+**Status:** DECIDED 2026-10-01. In 0.6.0.
+
+**Prompt:** the bug hunt found the field and its calendar acting as two
+unrelated things: the input's own blur committed a half-typed date and fired
+the parent's validation when focus merely moved into the calendar (BH-014);
+the calendar stayed open after keyboard focus left (BH-047); Tab from the field
+walked into an in-tree calendar but skipped a portaled one, leaving it open
+over the next field (BH-051); view switches dropped focus on `<body>` (BH-050,
+BH-086).
+
+**Outcome:** the field and the calendar — wherever a portal put it — are one
+widget, with the keyboard model of a combobox and its popup (APG):
+
+- ArrowDown opens the calendar and, pressed again, moves focus into the open
+  view; Escape closes it and returns focus to the field.
+- Tab and Shift+Tab from the field close the calendar and move on, as in any
+  form. Inside the calendar Tab moves among its controls; a portaled
+  calendar is routed back into field order at both ends.
+- The draft is committed, the calendar closed and `onBlur` fired once, when
+  focus leaves the widget — not when it moves between the field and the
+  calendar.
+- The calendar stays non-modal: no `aria-modal`, no focus trap, because the
+  field remains operable while it is open.
+- A view switch first parks focus on a control that survives it, then moves
+  it into the new view. A month change that unmounts the focused day (a
+  shorter month dropping a row) is not treated as leaving: the blur waits a
+  microtask, sees the control is gone, and focus is re-placed on the new
+  month's day after render.
+
+**Rejected:** a modal dialog with a focus trap (APG's date picker dialog). It
+fits a picker opened from a button, not one whose text field must stay
+typeable while the calendar is shown, which is this component's premise.
+
+---
+
+## D12–D15, D22 — Roadmap decisions (not yet opened)
 
 See `docs/ROADMAP.md` § "Decisions this roadmap creates". Opened only when the
-relevant work starts so this register stays the single source of truth.
+relevant work starts so this register stays the single source of truth. The
+display format contract was planned there as D17; the portal escape took that
+number here first, so it is D22.

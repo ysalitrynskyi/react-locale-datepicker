@@ -113,7 +113,8 @@ export type IconName =
 // only and commitTyped still consults nothing but shouldDisableDate, so the
 // never-decides-validity contract in docs/API.md is intact.
 export type ValidationErrorReason =
-  /** The field was left empty. */
+  /** The visitor emptied the field while no date is committed. An
+   *  untouched empty field reports nothing. */
   | "missing"
   /** Text was typed but does not name a real calendar day — incomplete
    *  entry, or a day that does not exist such as 31.02. */
