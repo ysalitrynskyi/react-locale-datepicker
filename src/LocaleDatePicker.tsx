@@ -554,8 +554,32 @@ function firstDayOfWeek(locale: string): number {
   return 1;
 }
 
+// Local-midnight Date for a calendar day. Every calendar construction in this
+// file goes through here rather than `new Date(y, m, d)`, because that
+// constructor reads years 0-99 as 1900-1999 (a legacy two-digit-year rule):
+// year 99 silently became 1999, so a real date in that range could neither be
+// parsed nor round-tripped through startOfDay. setFullYear has no such rule.
+// Overflowing months and days still roll over exactly as the constructor's do,
+// which the grid and keyboard arithmetic rely on.
+const ymd = (y: number, m: number, d: number): Date => {
+  const date = new Date(2000, 0, 1);
+  date.setFullYear(y, m, d);
+  return date;
+};
+
+// The largest time value the component accepts, in either direction: the
+// ECMAScript limit (8.64e15 ms) minus 400 days. The header always formats the
+// previous and next month, Shift+PageUp/PageDown step a year, and a local
+// timezone shifts the day by up to 14 hours, so a Date right at the limit is
+// finite and still throws `Invalid time value` from those neighbours during
+// render. The margin keeps every Date the grid can derive from an accepted one
+// inside the representable range.
+const SAFE_TIME = 8.64e15 - 400 * 864e5;
+const isSafeTime = (t: number): boolean =>
+  Number.isFinite(t) && Math.abs(t) <= SAFE_TIME;
+
 const startOfDay = (d: Date): Date =>
-  new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  ymd(d.getFullYear(), d.getMonth(), d.getDate());
 
 // "Today" for the today ring, the default keyboard target, and the default
 // year range — derived in the visitor's local time by default, matching the
@@ -591,7 +615,7 @@ export const todayInTimeZone = (timeZone: string): Date => {
     if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
       return localToday();
     }
-    return new Date(y, m - 1, d);
+    return ymd(y, m - 1, d);
   } catch {
     return localToday();
   }
@@ -603,6 +627,17 @@ const sameDay = (a: Date | null, b: Date | null): boolean =>
   a.getMonth() === b.getMonth() &&
   a.getDate() === b.getDate();
 const monthKey = (d: Date): number => d.getFullYear() * 12 + d.getMonth();
+// The first and last months whose every day is inside SAFE_TIME. Navigation is
+// bounded by these as well as by minDate/maxDate, so no amount of paging can
+// walk the grid into a month whose labels throw.
+// Upper bound on rendered year options; see yearsRange.
+const MAX_YEAR_OPTIONS = 600;
+const SAFE_MIN_KEY = monthKey(new Date(-SAFE_TIME)) + 1;
+const SAFE_MAX_KEY = monthKey(new Date(SAFE_TIME)) - 1;
+const monthFromKey = (k: number): Date => {
+  const y = Math.floor(k / 12);
+  return ymd(y, k - y * 12, 1);
+};
 const dayKey = (d: Date): string =>
   `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 
@@ -610,11 +645,17 @@ const dayKey = (d: Date): string =>
 // stable across renders.
 const noDayDisabled = (): boolean => false;
 
+// The year is padded to four digits like the day and month are to two. The
+// display format is dd.MM.yyyy and parseTyped requires exactly four year
+// digits, so an unpadded year below 1000 ("01.01.999") was a string the field
+// could show but never read back: the next blur reported it impossible.
 const formatDisplay = (date: Date | null): string => {
   if (!date) return "";
   const dd = String(date.getDate()).padStart(2, "0");
   const mm = String(date.getMonth() + 1).padStart(2, "0");
-  return `${dd}.${mm}.${date.getFullYear()}`;
+  const y = date.getFullYear();
+  const yyyy = y < 0 ? `-${String(-y).padStart(4, "0")}` : String(y).padStart(4, "0");
+  return `${dd}.${mm}.${yyyy}`;
 };
 
 // Typed digits are normalized to ASCII before parsing. This used to handle
@@ -767,7 +808,7 @@ const parseTyped = (raw: string): Date | null => {
   const day = parseInt(m[1], 10);
   const month = parseInt(m[2], 10);
   const year = parseInt(m[3], 10);
-  const date = new Date(year, month - 1, day);
+  const date = ymd(year, month - 1, day);
   if (
     date.getFullYear() !== year ||
     date.getMonth() !== month - 1 ||
@@ -788,9 +829,25 @@ const parseTyped = (raw: string): Date | null => {
  * the same as null — which degrades to an empty field instead of a blank page.
  *
  * This also catches the realistic source: `new Date(apiResponse.someDate)`
- * where the field arrived null, undefined or malformed. */
-const usableDate = (d: Date | null | undefined): Date | null =>
-  d instanceof Date && !Number.isNaN(d.getTime()) ? d : null;
+ * where the field arrived null, undefined or malformed.
+ *
+ * Recognized by its internal slot rather than `instanceof Date`, which only
+ * answers "was this built by THIS realm's constructor": a Date from an iframe
+ * or a test VM context is a real date and used to be treated as empty. A
+ * foreign Date is copied into this realm so every later check sees an
+ * ordinary one. `Object.create(Date.prototype)` passes `instanceof` but has no
+ * time value and throws from getTime; it is rejected here instead. */
+const usableDate = (d: unknown): Date | null => {
+  if (Object.prototype.toString.call(d) !== "[object Date]") return null;
+  let t: number;
+  try {
+    t = Date.prototype.getTime.call(d);
+  } catch {
+    return null;
+  }
+  if (!isSafeTime(t)) return null;
+  return d instanceof Date ? d : new Date(t);
+};
 
 export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   value: rawValue,
@@ -1035,18 +1092,20 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     [dayNamePartsFmt],
   );
 
-  const minMonth = minDate ? monthKey(minDate) : null;
-  const maxMonth = maxDate ? monthKey(maxDate) : null;
+  // Navigation bounds as month keys (year * 12 + month): minDate/maxDate when
+  // given, and always the representable-date margin, so the clamp below and
+  // every comparison against these can work on plain integers.
+  const minMonth = Math.max(minDate ? monthKey(minDate) : -Infinity, SAFE_MIN_KEY);
+  const maxMonth = Math.min(maxDate ? monthKey(maxDate) : Infinity, SAFE_MAX_KEY);
   const clampMonth = React.useCallback(
     (d: Date): Date => {
       const k = monthKey(d);
-      if (minMonth !== null && k < minMonth)
-        return new Date(minDate!.getFullYear(), minDate!.getMonth(), 1);
-      if (maxMonth !== null && k > maxMonth)
-        return new Date(maxDate!.getFullYear(), maxDate!.getMonth(), 1);
-      return new Date(d.getFullYear(), d.getMonth(), 1);
+      // NaN only if a caller derived an unrepresentable month; land on the
+      // nearest real bound rather than propagating an Invalid Date.
+      const c = Number.isNaN(k) ? minMonth : Math.min(Math.max(k, minMonth), maxMonth);
+      return monthFromKey(c);
     },
-    [minMonth, maxMonth, minDate, maxDate],
+    [minMonth, maxMonth],
   );
 
   // "Today" per decision D16: an injected date wins, then a business
@@ -1309,9 +1368,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
 
   // --- Days grid model -----------------------------------------------------
   const daysGrid = React.useMemo(() => {
-    const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
+    const first = ymd(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
     const lead = (first.getDay() - weekStart + 7) % 7;
-    const daysInMonth = new Date(
+    const daysInMonth = ymd(
       viewMonth.getFullYear(),
       viewMonth.getMonth() + 1,
       0,
@@ -1319,7 +1378,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     const cells: (Date | null)[] = [];
     for (let i = 0; i < lead; i++) cells.push(null);
     for (let d = 1; d <= daysInMonth; d++) {
-      cells.push(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), d));
+      cells.push(ymd(viewMonth.getFullYear(), viewMonth.getMonth(), d));
     }
     while (cells.length % 7 !== 0) cells.push(null);
     return cells;
@@ -1340,7 +1399,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     // 2024-06-02 was a Sunday; offset from it to label each column.
     const labels: { short: string; long: string }[] = [];
     for (let i = 0; i < 7; i++) {
-      const day = new Date(2024, 5, 2 + ((weekStart + i) % 7));
+      const day = ymd(2024, 5, 2 + ((weekStart + i) % 7));
       labels.push({
         short: weekdayFmt.format(day),
         long: weekdayLongFmt.format(day),
@@ -1372,12 +1431,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     // predicate is stable for a given open session in practice.
   }, [focusDay, value, viewMonth, daysGrid]);
 
-  const canPrevMonth = minMonth === null || monthKey(viewMonth) > minMonth;
-  const canNextMonth = maxMonth === null || monthKey(viewMonth) < maxMonth;
+  const canPrevMonth = monthKey(viewMonth) > minMonth;
+  const canNextMonth = monthKey(viewMonth) < maxMonth;
 
   const shiftMonth = (delta: number) => {
     setViewMonth((m) =>
-      clampMonth(new Date(m.getFullYear(), m.getMonth() + delta, 1)),
+      clampMonth(ymd(m.getFullYear(), m.getMonth() + delta, 1)),
     );
   };
 
@@ -1399,13 +1458,13 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   // Clamp day-of-month when stepping by month/year so 31 Jan + 1 month
   // lands on 28/29 Feb rather than overflowing into March.
   const addCalendarMonths = (d: Date, delta: number): Date => {
-    const target = new Date(d.getFullYear(), d.getMonth() + delta, 1);
-    const last = new Date(
+    const target = ymd(d.getFullYear(), d.getMonth() + delta, 1);
+    const last = ymd(
       target.getFullYear(),
       target.getMonth() + 1,
       0,
     ).getDate();
-    return new Date(
+    return ymd(
       target.getFullYear(),
       target.getMonth(),
       Math.min(d.getDate(), last),
@@ -1425,28 +1484,28 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     let next: Date;
     switch (e.key) {
       case "ArrowLeft":
-        next = new Date(
+        next = ymd(
           base.getFullYear(),
           base.getMonth(),
           base.getDate() - horiz,
         );
         break;
       case "ArrowRight":
-        next = new Date(
+        next = ymd(
           base.getFullYear(),
           base.getMonth(),
           base.getDate() + horiz,
         );
         break;
       case "ArrowUp":
-        next = new Date(
+        next = ymd(
           base.getFullYear(),
           base.getMonth(),
           base.getDate() - 7,
         );
         break;
       case "ArrowDown":
-        next = new Date(
+        next = ymd(
           base.getFullYear(),
           base.getMonth(),
           base.getDate() + 7,
@@ -1465,7 +1524,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       case "Home": {
         // Start of the locale week containing `base`.
         const dist = (base.getDay() - weekStart + 7) % 7;
-        next = new Date(
+        next = ymd(
           base.getFullYear(),
           base.getMonth(),
           base.getDate() - dist,
@@ -1475,7 +1534,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       case "End": {
         // End of the locale week containing `base`.
         const dist = (base.getDay() - weekStart + 7) % 7;
-        next = new Date(
+        next = ymd(
           base.getFullYear(),
           base.getMonth(),
           base.getDate() + (6 - dist),
@@ -1496,12 +1555,13 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     }
     e.preventDefault();
     const k = monthKey(next);
-    if (minMonth !== null && k < minMonth) return;
-    if (maxMonth !== null && k > maxMonth) return;
+    // Written as a positive range test so a NaN key (a step past the
+    // representable range) is rejected too.
+    if (!(k >= minMonth && k <= maxMonth)) return;
     keyboardNavRef.current = true;
     setFocusDay(next);
     if (k !== monthKey(viewMonth)) {
-      setViewMonth(new Date(next.getFullYear(), next.getMonth(), 1));
+      setViewMonth(ymd(next.getFullYear(), next.getMonth(), 1));
     }
   };
 
@@ -1531,6 +1591,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
 
   // --- Months / years grids ------------------------------------------------
   const yearNow = today.getFullYear();
+  const viewYear = viewMonth.getFullYear();
   const yearsRange = React.useMemo(() => {
     // Without an explicit minDate the year grid used to start at the
     // CURRENT year, which quietly made past years unreachable through the
@@ -1540,29 +1601,46 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     // dropdowns conventionally offer. Month navigation and typed entry
     // were never limited; this widens only the year GRID. Selection
     // stays governed solely by shouldDisableDate either way.
-    const from = minDate ? minDate.getFullYear() : yearNow - 120;
-    const to = maxDate ? maxDate.getFullYear() : yearNow + 2;
+    let from = minDate ? minDate.getFullYear() : yearNow - 120;
+    let to = maxDate ? maxDate.getFullYear() : yearNow + 2;
+    // The open year is always in its own list. A value (or
+    // defaultCalendarMonth) outside the default window used to leave the
+    // year pill naming a year the list did not contain, with nothing marked
+    // current and nothing for the open-scroll to bring into view. Explicit
+    // bounds already contain it: the view is clamped to them.
+    if (!minDate) from = Math.min(from, viewYear);
+    if (!maxDate) to = Math.max(to, viewYear);
+    // One button per year: bounds centuries apart would otherwise render
+    // thousands of them. Keep a window around the open year instead.
+    if (to - from + 1 > MAX_YEAR_OPTIONS) {
+      let start = Math.max(from, viewYear - MAX_YEAR_OPTIONS / 2);
+      let end = start + MAX_YEAR_OPTIONS - 1;
+      if (end > to) {
+        end = to;
+        start = to - MAX_YEAR_OPTIONS + 1;
+      }
+      from = start;
+      to = end;
+    }
     const years: number[] = [];
     for (let y = from; y <= to; y++) years.push(y);
     return years;
-  }, [minDate, maxDate, yearNow]);
+  }, [minDate, maxDate, yearNow, viewYear]);
   const yearMin = yearsRange[0];
   const yearMax = yearsRange[yearsRange.length - 1];
 
   const monthEnabled = (year: number, month: number): boolean => {
     const k = year * 12 + month;
-    if (minMonth !== null && k < minMonth) return false;
-    if (maxMonth !== null && k > maxMonth) return false;
-    return true;
+    return k >= minMonth && k <= maxMonth;
   };
 
   const inputText = draft !== null ? draft : formatDisplay(value);
-  const prevMonthDate = new Date(
+  const prevMonthDate = ymd(
     viewMonth.getFullYear(),
     viewMonth.getMonth() - 1,
     1,
   );
-  const nextMonthDate = new Date(
+  const nextMonthDate = ymd(
     viewMonth.getFullYear(),
     viewMonth.getMonth() + 1,
     1,
@@ -1573,7 +1651,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const headerPrev = () => {
     if (view === "months") {
       setViewMonth((m) =>
-        clampMonth(new Date(m.getFullYear() - 1, m.getMonth(), 1)),
+        clampMonth(ymd(m.getFullYear() - 1, m.getMonth(), 1)),
       );
     } else {
       shiftMonth(-1);
@@ -1582,7 +1660,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const headerNext = () => {
     if (view === "months") {
       setViewMonth((m) =>
-        clampMonth(new Date(m.getFullYear() + 1, m.getMonth(), 1)),
+        clampMonth(ymd(m.getFullYear() + 1, m.getMonth(), 1)),
       );
     } else {
       shiftMonth(1);
@@ -1847,7 +1925,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                         type="button"
                         disabled={!enabled}
                         aria-label={monthLongFmt.format(
-                          new Date(viewMonth.getFullYear(), m, 15),
+                          ymd(viewMonth.getFullYear(), m, 15),
                         )}
                         {...slotProps(
                           "month",
@@ -1857,13 +1935,13 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                         data-current={isCurrent || undefined}
                         onClick={() => {
                           setViewMonth(
-                            clampMonth(new Date(viewMonth.getFullYear(), m, 1)),
+                            clampMonth(ymd(viewMonth.getFullYear(), m, 1)),
                           );
                           setView("days");
                         }}
                       >
                         {monthShortFmt.format(
-                          new Date(viewMonth.getFullYear(), m, 15),
+                          ymd(viewMonth.getFullYear(), m, 15),
                         )}
                       </button>
                     );
@@ -1888,7 +1966,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                         data-current={isCurrent || undefined}
                         onClick={() => {
                           setViewMonth(
-                            clampMonth(new Date(y, viewMonth.getMonth(), 1)),
+                            clampMonth(ymd(y, viewMonth.getMonth(), 1)),
                           );
                           setView("months");
                         }}
