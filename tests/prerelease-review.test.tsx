@@ -122,3 +122,31 @@ describe("onBlur reports the latest commit (RV-05)", () => {
     );
   });
 });
+
+describe("first-letter casing is titlecase, not upper case (RV-04)", () => {
+  const isMkhedruli = (s: string) => {
+    const cp = s.codePointAt(0) ?? 0;
+    return cp >= 0x10d0 && cp <= 0x10ff;
+  };
+
+  it("Georgian keeps Mkhedruli; Mtavruli is an all-caps display script", () => {
+    const h = renderPicker({ initialValue: localDate(2026, 5, 17), locale: "ka" });
+    const echo = document.querySelector('[data-part="echo"]')!.textContent ?? "";
+    expect(
+      isMkhedruli(echo),
+      `echo starts with U+${echo.codePointAt(0)?.toString(16)}`,
+    ).toBe(true);
+    fireEvent.mouseDown(trigger());
+    expect(h.queryDialog()).not.toBeNull();
+    const pill = document.querySelector('[data-part="month-pill"]')!.textContent ?? "";
+    expect(isMkhedruli(pill), `month pill starts with U+${pill.codePointAt(0)?.toString(16)}`).toBe(
+      true,
+    );
+  });
+
+  it("a cased script still gets its first letter upper-cased", () => {
+    renderPicker({ initialValue: localDate(2026, 5, 17), locale: "es" });
+    const echo = document.querySelector('[data-part="echo"]')!.textContent ?? "";
+    expect(echo.startsWith("Miércoles")).toBe(true);
+  });
+});

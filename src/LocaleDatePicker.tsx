@@ -427,6 +427,19 @@ function isElement(value: unknown): value is HTMLElement {
   );
 }
 
+// One letter in title case. JavaScript only has the upper-case mapping, and
+// the two differ where it shows: Georgian Mkhedruli has no title case at all
+// (its upper case is Mtavruli, an all-caps display script, so a Georgian echo
+// began "Ოთხშაბათი" — CSS capitalize, which uses title case, never did that),
+// and the Latin digraph letters have title-case forms of their own (ǆ → ǅ).
+const TITLECASE_DIGRAPH: Record<string, string> = {
+  "Ǆ": "ǅ", "ǆ": "ǅ", "Ǉ": "ǈ", "ǉ": "ǈ", "Ǌ": "ǋ", "ǌ": "ǋ", "Ǳ": "ǲ", "ǳ": "ǲ",
+};
+const titlecaseLetter = (letter: string, lang: string | undefined): string => {
+  if (/^[\u10D0-\u10FF]$/.test(letter)) return letter;
+  return TITLECASE_DIGRAPH[letter] ?? letter.toLocaleUpperCase(lang);
+};
+
 // Join class fragments, skipping empty ones — keeps the package free of a
 // classnames-style dependency.
 const cx = (...parts: Array<string | false | null | undefined>): string =>
@@ -1354,14 +1367,14 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     }
   }, [resolvedLocale]);
 
-  // First letter in the locale's upper case, the rest exactly as Intl wrote
-  // it — CLDR's "titlecase-firstword", its casing for menu items and for the
-  // start of a sentence. This replaces CSS text-transform: capitalize, which
-  // upper-cased every word: the Spanish echo "miércoles, 17 de junio de 2026"
-  // painted as "Miércoles, 17 De Junio De 2026".
+  // First letter in title case, the rest exactly as Intl wrote it — CLDR's
+  // "titlecase-firstword", its casing for menu items and for the start of a
+  // sentence. This replaces CSS text-transform: capitalize, which upper-cased
+  // every word: the Spanish echo "miércoles, 17 de junio de 2026" painted as
+  // "Miércoles, 17 De Junio De 2026".
   const sentenceCase = (s: string): string => {
     const [first = "", ...rest] = Array.from(s);
-    return first.toLocaleUpperCase(langTag) + rest.join("");
+    return titlecaseLetter(first, langTag) + rest.join("");
   };
 
   // calendar: "gregory" is pinned on every formatter so the long-form echo
