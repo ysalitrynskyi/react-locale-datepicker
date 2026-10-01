@@ -81,22 +81,28 @@ long-form date echo from `Intl.DateTimeFormat` at runtime, so adding a language
 means passing a different string.
 
 - **Localization with no locale files.** Names, week start and echo from `Intl`.
-- **RTL by construction.** Arabic and Hebrew lay out correctly.
+- **RTL by construction.** Arabic and Hebrew lay out correctly, following the
+  page's direction or, with `direction="auto"`, the locale's.
 - **One tap to select.** Clicking a day commits and closes — no confirm step.
 - **Business-timezone "today".** `timeZone="America/New_York"` (or a `today`
   Date) anchors the today marker and default view to the seller's calendar
   day; `todayInTimeZone` is exported for matching `shouldDisableDate` rules.
   Values stay local-midnight `Date`s — never converted.
 - **Typing that survives mobile.** Digits mask into `dd.MM.yyyy`; localized
-  digits normalize to ASCII for every numbering system `Intl` knows;
-  separators (`.` `,` `/` `-`, Arabic and ideographic commas) close and pad
-  the segment; the open calendar follows a fully typed date live.
+  digits normalize to ASCII for every numbering system `Intl` knows; the
+  separator keys of Latin, Arabic, CJK and Cyrillic layouts close and pad the
+  segment; year-first pastes (`2026-07-17`) are reordered; an edit inside the
+  text can never turn into a different date; the open calendar follows a
+  fully typed date live.
 - **Readable echo.** The committed date is restated in words under the field.
 - **Timezone-safe values.** Local-midnight `Date` objects — never a silent
   day-shift from a UTC round trip.
 - **Caller-owned disabled days.** `shouldDisableDate` is the single authority.
-- **Accessible.** Keyboard map (arrows, Page/Shift+Page, Home/End, Enter,
-  Escape), ARIA pass-through, focus returns to the input on close.
+- **Accessible.** Combobox-style keyboard model with a full keymap in the
+  days, months and years views; focus never falls to the page body while the
+  calendar is open and returns to the field on close; ARIA that passes axe on
+  the whole widget; text, focus rings and state rings at WCAG AA contrast on
+  every shipped theme, plus forced-colours support.
 - **Self-contained CSS.** `--rldp-*` tokens, light/dark (OS + class/attribute),
   `classNames` / `icons` overrides. Zero runtime dependencies.
 
@@ -116,10 +122,12 @@ means passing a different string.
 | `disabled` | `boolean` | |
 | `hasError` | `boolean` | Visual only. |
 | `showEcho` / `showWeekdayHeader` / `showTodayMarker` | `boolean` | Opt out of a built-in. All default to `true` — today's behaviour. |
-| `onBlur` | `(current: Date \| null) => void` | Receives the **just-committed** value. |
-| `onDisabledOpenAttempt` | `() => void` | Fires when a disabled picker is tapped. |
+| `onBlur` | `(current: Date \| null) => void` | Fires once when focus leaves the field and calendar, with the **just-committed** value. |
+| `onDisabledOpenAttempt` | `() => void` | Fires when someone tries to open a disabled picker (press on the field or icon, or ArrowDown). |
 | `onValidationError` | `(reason) => void` | Why a typed entry did not commit: `"missing"`, `"impossible-date"`, `"not-selectable"`. |
-| `aria-label` / `aria-invalid` / `aria-describedby` | | Pass through to the input. |
+| `aria-label` / `aria-labelledby` / `aria-invalid` / `aria-describedby` | | Pass through to the input. `aria-label` also names the dialog and the calendar trigger. |
+| `id` | `string` | Forwarded to the input, for `<label htmlFor>`. Prefer this to wrapping the picker in a `<label>`. |
+| `direction` | `"ltr" \| "rtl" \| "auto"` | Omitted: inherit the page's direction. `"auto"`: from the locale. |
 | `className` | `string` | Root element. |
 | `themeName` | `"default" \| "minimal" \| "soft" \| "high-contrast"` | Selects a shipped theme. Unset inherits an ancestor's. |
 | `classNames` | `Partial<Record<Slot, string>>` | Per-slot class overrides (appended after built-ins). |
@@ -146,8 +154,10 @@ pick a day      → closes, no keyboard
 The field carries `inputMode="none"` until that second tap. **Typing is never
 removed** — `inputMode` governs only the *virtual* keyboard, so hardware
 keyboards, paste and every a11y affordance keep working, and a fine pointer is
-unaffected entirely. Pointer type is read live from `(pointer: coarse)`, so a
-hybrid device is judged per interaction, not once at mount.
+unaffected entirely. Each press is classified from its own `pointerdown`, so a
+hybrid device is judged per interaction, not once at mount, and Safari's
+mislabelled touch clicks (WebKit bug 282988) are read correctly. A pen counts
+as a finger.
 
 Pass `manualEntryOnTouch="immediate"` for the pre-0.5 behaviour, where any tap
 on the field raises the keyboard.
@@ -199,7 +209,7 @@ Worked example for a Ukrainian UI (the rest of the calendar still follows
   onChange={setValue}
   locale="ua"
   placeholder="дд.мм.рррр"
-  aria-label="Дата початку подорожі"
+  aria-label="Дата початку"
   labels={{
     keyboardHelp:
       "Клавіші зі стрілками — між днями, Page Up/Down — місяць, Enter — вибір.",
@@ -231,6 +241,11 @@ Default stays in-tree so existing layouts do not reflow. Keyboard model,
 Escape-to-close and outside-click close keep working with either mode. Inside
 a cross-origin iframe the portal targets the **iframe's** document (the only
 document the script can reach).
+
+A portaled popover follows the field through scrolling and layout changes,
+stays inside the viewport, and keeps the field's theme, font and direction
+live. It is no longer inside your markup, though: style it with `classNames`
+or unscoped `[data-part]` selectors, not `.my-form [data-part="day"]`.
 
 ### Constraints example
 
@@ -276,7 +291,7 @@ Dark mode is CSS-only:
 
 - follows the OS via `color-scheme` + `light-dark()`;
 - override with a `.dark` / `.light` class or `[data-theme="dark|light"]` on an
-  ancestor (compatible with next-themes and similar).
+  ancestor (compatible with next-themes and similar); the nearest one wins.
 
 ### Tailwind v4
 
@@ -376,21 +391,29 @@ contract.
 
 ## Keyboard
 
+The field and its calendar behave like a combobox and its popup.
+
 | Key | Action |
 | --- | --- |
-| Arrow keys | Move by day / week (RTL-aware) |
-| PageUp / PageDown | Previous / next month |
+| ArrowDown (in the field) | Open; pressed again, move into the days grid or the month/year options |
+| Tab / Shift+Tab (in the field) | Close the calendar and move on, as in any form |
+| Enter (in the field) | Commit a typed date; with nothing typed and the calendar closed, submit the form |
+| Arrow keys | Move by day / week (RTL-aware); in the month and year views, among the options |
+| PageUp / PageDown | Previous / next month (days); previous / next year (months); twelve years (years) |
 | Shift+PageUp / PageDown | Previous / next year |
-| Home / End | Start / end of locale week |
-| Enter / Space | Commit focused day |
-| Escape | Close and return focus to the input |
-| ArrowDown (from input) | Open, then enter the grid |
+| Home / End | Start / end of the locale's week; first / last option in the month and year views |
+| Enter / Space | Commit the focused day |
+| Escape | Close and return focus to the field |
 
 ## Display format
 
-Today the typed/display format is fixed **`dd.MM.yyyy`**. A locale-derived or
-custom format contract is on the roadmap ([`docs/ROADMAP.md`](docs/ROADMAP.md)).
-Always set `placeholder` to match.
+Today the typed/display format is fixed **`dd.MM.yyyy`** (year padded to four
+digits). A locale-derived or custom format contract is on the roadmap
+([`docs/ROADMAP.md`](docs/ROADMAP.md)). Always set `placeholder` to match.
+
+Numbers render in Latin digits everywhere, matching the field; a locale tag
+with a `-u-nu-` extension (`"ar-u-nu-arab"`) switches every rendered number,
+but not the typed field, to that system.
 
 ## Browser support
 
@@ -428,7 +451,8 @@ npm run build && cd examples && npm install && npm run dev
 | [`docs/PLAN.md`](docs/PLAN.md) | Implementation plan and status |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Design decisions |
 | [`docs/EXTRACTION.md`](docs/EXTRACTION.md) | Parity contract (must not regress) |
-| [`docs/TESTING.md`](docs/TESTING.md) | Required test matrix |
+| [`docs/TESTING.md`](docs/TESTING.md) | Running the suite, its layout, and the rules for a test |
+| [`docs/bug-hunts/2026-09-30.md`](docs/bug-hunts/2026-09-30.md) | An 86-finding external review and how each finding was resolved |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Feature and theming roadmap |
 | [`docs/RELEASING.md`](docs/RELEASING.md) | Versioning and release process |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed in each release |
