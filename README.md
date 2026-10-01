@@ -243,8 +243,8 @@ a cross-origin iframe the portal targets the **iframe's** document (the only
 document the script can reach).
 
 A portaled popover follows the field through scrolling and layout changes,
-stays inside the viewport, and keeps the field's theme, font and direction
-live. It is no longer inside your markup, though: style it with `classNames`
+keeps to its side of the field (scrolling inside when there is not room for
+all of it), and keeps the field's theme, font and direction live. It is no longer inside your markup, though: style it with `classNames`
 or unscoped `[data-part]` selectors, not `.my-form [data-part="day"]`.
 
 ### Constraints example
@@ -452,7 +452,7 @@ npm run build && cd examples && npm install && npm run dev
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Design decisions |
 | [`docs/EXTRACTION.md`](docs/EXTRACTION.md) | Parity contract (must not regress) |
 | [`docs/TESTING.md`](docs/TESTING.md) | Running the suite, its layout, and the rules for a test |
-| [`docs/bug-hunts/2026-09-30.md`](docs/bug-hunts/2026-09-30.md) | An 86-finding external review and how each finding was resolved |
+| [`docs/bug-hunts/`](docs/bug-hunts/) | External reviews (an 86-finding bug hunt, a pre-release review of 0.6.0) and how each finding was resolved |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Feature and theming roadmap |
 | [`docs/RELEASING.md`](docs/RELEASING.md) | Versioning and release process |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed in each release |

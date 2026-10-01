@@ -80,7 +80,9 @@ exited zero rather than reading the tail of piped output.
   another checkout's harness. TESTING.md has the workaround.
 - **The field and its calendar are one widget** (D21): `onBlur` fires when
   focus leaves both, Tab closes the calendar, ArrowDown enters it. Code that
-  listens for the input's own blur is almost always wrong here.
+  listens for the input's own blur is almost always wrong here, and closing
+  the calendar under a focused control fires no blur at all: whatever closes
+  it has to report the exit itself.
 - **A test proves nothing until it has failed.** Twelve findings of the
   2026-09-30 review were tests that passed with their behaviour deleted;
   break the guarded code and watch the test go red before trusting it.

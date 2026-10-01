@@ -38,7 +38,7 @@ ordinary inherited custom properties.
 | `--rldp-hover` | Nav and pill hover |
 | `--rldp-accent` | Selected day, focused field border |
 | `--rldp-accent-hover` | Selected day hover |
-| `--rldp-accent-foreground` | Text on the accent, and the focus ring drawn on an accent-filled cell |
+| `--rldp-accent-foreground` | Text on the accent, and the band drawn inside the focus ring on an accent-filled cell |
 | `--rldp-accent-soft` | Day hover, active pill |
 | `--rldp-accent-soft-foreground` | Text on the soft accent |
 | `--rldp-today-ring` | Today's ring |
@@ -66,7 +66,7 @@ Measured in Chromium against the shipped stylesheet and pinned by
 | --- | --- |
 | Placeholder and weekday headers on their background | 4.5:1 (7:1 in `high-contrast`) |
 | Selected day and open month text on the accent | 4.5:1 (7:1 in `high-contrast`) |
-| Focus ring on an accent-filled cell | 3:1 |
+| Focus on an accent-filled cell: the band against the fill, the ring against the popover | 3:1 |
 | `hasError` border and the today ring on their background | 3:1 |
 
 The open year uses the same accent pair as the open month.

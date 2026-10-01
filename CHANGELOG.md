@@ -28,7 +28,13 @@ this without choosing to. Read *Changed* before upgrading.
   commits at that moment. It used to fire on every input blur: moving into
   the calendar, the second tap's refocus and Tab into the header each ran
   the parent's validation in the middle of an interaction. Leaving the
-  widget also closes the calendar.
+  widget also closes the calendar. A close that leaves focus on nothing
+  counts as leaving: a press outside from inside the calendar, and a finger
+  pick on a browser that focuses the tapped day (Android), fire `onBlur`
+  with the committed date.
+- **A press outside commits a finished typed date** even when the press does
+  not take focus (page chrome, a heading, the touchstart of a scroll). It
+  used to close the calendar and leave the date uncommitted.
 - **Escape is marked handled** (`preventDefault`), so a surrounding native
   `<dialog>`, or a modal library that checks `defaultPrevented`, closes the
   calendar only.
@@ -44,22 +50,28 @@ this without choosing to. Read *Changed* before upgrading.
   the month title used the locale's digits beside a year pill and day cells
   in Latin digits. Every formatter now writes Latin digits unless the tag
   asks for a system (`ar-u-nu-arab`), and then all of them use it.
-- **Only the first letter is upper-cased** in the echo, the month pill and
-  the months view, using the locale's rules. `text-transform: capitalize`
-  is gone; it upper-cased every word ("Miércoles, 17 De Junio De 2026").
+- **Only the first letter is capitalised** in the echo, the month pill and
+  the months view, in its title-case form with the locale's rules (Georgian,
+  which has no capitals in running text, is left as written).
+  `text-transform: capitalize` is gone; it upper-cased every word
+  ("Miércoles, 17 De Junio De 2026").
 - **Accessibility attributes moved.** `aria-expanded` is on the trigger
   (with `aria-haspopup` and `aria-controls`), not on the textbox, which does
   not support it. The trigger's name leads with the field's `aria-label`
   ("Start date, Open calendar"). The dialog is labelled by the visible
   month and year when there is no `aria-label`. The echo is `aria-hidden`.
   Tests that query these by role and name may need updating.
-- **Text and rings meet WCAG AA on every shipped theme.** Changed: the placeholder
-  (now the faint token), faint text in dark mode, the default theme's light
-  error border and today ring, its dark selected-day pair and hover, the
-  today ring in the minimal and soft themes, the soft theme's dark hover,
-  and the focus ring on a filled cell. The values
-  are in [`docs/THEMING.md`](docs/THEMING.md). Overridden tokens are
-  untouched.
+- **Text and rings meet WCAG AA on every shipped theme.** Changed: the
+  placeholder (now the faint token), faint text in dark mode, the default
+  theme's light error border and today ring, its dark selected-day pair and
+  hover, the today ring in the minimal and soft themes, and the soft theme's
+  dark hover. The focus indicator on the selected day and the open month or
+  year is the ring plus a band in the fill's foreground colour just inside
+  it. The values are in [`docs/THEMING.md`](docs/THEMING.md). Overridden
+  tokens are untouched.
+- **The field shows a focus ring when it has an error or is disabled**: in
+  the error colour, or neutral. 0.5.1 drew none, so a form that styles the
+  field's border itself will now see a ring on top of it when focused.
 - **`.dark` and `.light` resolve to the nearest ancestor.** A dark card on a
   `.light` page used to stay light, because the later of two descendant
   rules always won.
@@ -71,6 +83,23 @@ this without choosing to. Read *Changed* before upgrading.
   to re-flow "15.03.2026" into "11.05.0320"); a fourth group is rejected
   instead of joining the year; a year-first paste such as `2026-07-17` is
   reordered; the Arabic, CJK fullwidth and ideographic separators separate.
+- **`"missing"` is reported only when no date is committed.** Clearing the
+  text of a field that still has a value restores the value and reports
+  nothing; 0.5.1 reported `"missing"` beside a date that was still there.
+- **Opening with nothing chosen** lands on `defaultCalendarMonth`, then
+  today's month, then the first month with a selectable day (within two
+  years). It used to stop on today's month even when every day in it was
+  disabled.
+- **A portaled calendar keeps to its side of the field.** When the space
+  between the field and the viewport edge is shorter than the calendar, its
+  height is capped and it scrolls inside; it never covers the field. 0.5.1
+  let it run off the viewport.
+- **`resolveLocale` returns the canonical tag**: `"en-us"` → `"en-US"`,
+  `"iw"` → `"he"`, `"sh"` → `"sr-Latn"`, and `ua` is matched in any case
+  and with a region (`"UA"` → `"uk"`, `"ua-UA"` → `"uk-UA"`; those used to
+  format in the host's language). 0.5.1 returned any tag `Intl` accepted
+  unchanged, so code comparing the result to a fixed string should compare
+  canonical forms.
 - **The draft follows the value.** A new `value` from the parent,
   `form.reset()` and `disabled` each drop the typed draft instead of letting
   the next blur write it back. A disabled field closes its calendar.
@@ -93,28 +122,22 @@ this without choosing to. Read *Changed* before upgrading.
   form the field could not read back; a `Date` from another realm (an
   iframe) was ignored; a `Date` near the edge of the representable range
   crashed the header; the year list could omit the open year.
-- `resolveLocale("UA")` and `"ua-UA"` formatted in the host's language
-  instead of Ukrainian.
 - Japanese, Chinese and Korean day names lost their unit characters
   ("31 土曜日 1 2026"); the echo and calendar now carry `lang`.
-- A chevron left the keyboard cursor on the previous month's date; opening
-  with nothing chosen could land on a month with no selectable day; a
+- A chevron left the keyboard cursor on the previous month's date; a
   predicate that changed while open left the grid without a tab stop.
 - Switching to the month or year view dropped focus on `<body>`.
 - Opening the year list scrolled the page.
-- A press outside committed a finished draft only when its target took
-  focus. Closing from the icon left focus in the calendar. A press on the
-  field's padding did nothing.
+- Closing from the icon left focus in the calendar. A press on the field's
+  padding did nothing.
 - A portaled calendar fell behind its field after a layout change above it,
-  kept a stale theme, missed the field's font and the border-box reset, and
-  could open with its top off-screen.
+  kept a stale theme, and missed the field's font and the border-box reset.
 - In right-to-left layouts the calendar now opens from the field's start
   edge.
 - Safari 18.2+ reports a touch click as a mouse (WebKit bug 282988); the
   pointer type is read from the `pointerdown` of the same tap.
-- Clearing a field that still had a value reported it missing; a throwing
-  `shouldDisableDate` wiped the typed text and skipped `onBlur`; IME
-  composition was masked mid-composition.
+- A throwing `shouldDisableDate` wiped the typed text and skipped `onBlur`;
+  IME composition was masked mid-composition.
 - An empty string in `labels` left a control unnamed.
 - Forced-colours mode lost the field's focus cue and drew disabled days as
   enabled; selected and current cells printed without their fill; a
@@ -124,7 +147,7 @@ this without choosing to. Read *Changed* before upgrading.
 
 ### Tests
 
-- 298 unit tests (185 before) and new real-browser guards in
+- 305 unit tests (185 before) and new real-browser guards in
   `e2e/bughunt.spec.ts` and `e2e/bughunt-styles.spec.ts`.
 - Twelve findings were existing tests that passed with the behaviour they
   named deleted. Each was rewritten and seen to fail against the broken

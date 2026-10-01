@@ -64,7 +64,7 @@ options around the open year.
 |---|---|---|
 | `disabled` | `boolean` | The field is read-only and nothing commits. Turning it on while the calendar is open closes it and drops an uncommitted typed date. |
 | `hasError` | `boolean` | Visual only. The component never decides validity. |
-| `onBlur` | `(current: Date \| null) => void` | Fires when focus **leaves the widget** (field and calendar together), with the just-committed value. See § Blur ordering. |
+| `onBlur` | `(current: Date \| null) => void` | Fires once when focus **leaves the widget** (field and calendar together), with the just-committed value — including when the calendar closes under a focused control and leaves focus on nothing (a press outside from inside the calendar; a finger pick on a browser that focuses the tapped day). See § Blur ordering. |
 | `onDisabledOpenAttempt` | `() => void` | Fires when a user tries to open a disabled picker (a press on the field, its padding or the calendar icon, or ArrowDown in the field), so the form can point them at the field they must fill first. |
 | `onValidationError` | `(reason: ValidationErrorReason) => void` | Reports why a **typed** entry did not commit. The component classifies and reports; the consumer renders. Never fires for calendar clicks, and never for an edit the mask discarded (a letter, a stray separator). |
 
@@ -191,8 +191,10 @@ Two related behaviours are **not** configurable, because both were defects:
   iframe's body).
 
 A portaled popover follows the field through scrolling, resizing and any
-layout change that moves it; is clamped into the viewport (and scrolls inside
-when taller than it); keeps the field's theme tokens, colour scheme, font and
+layout change that moves it; keeps to its side of the field, so it never
+covers it (when the space between the field and the viewport edge is shorter
+than the calendar, its height is capped and it scrolls inside); keeps the
+field's theme tokens, colour scheme, font and
 direction live; and is still part of the widget for outside-press, Escape and
 focus handling, including in an iframe's document. Because it is no longer a
 DOM descendant of the root, a selector scoped under one of your ancestors
@@ -278,9 +280,10 @@ case is Ukrainian written as `ua` (a country code) where `Intl` expects `uk`;
 passing `ua` straight through throws a `RangeError` that, in the source product,
 crashed hydration of the entire surrounding form.
 
-`resolveLocale` canonicalizes the tag, maps known aliases on its **language
-subtag** (so `UA`, `ua-UA` and `ua` all resolve; the region is kept), and falls
-back to `"en"` on anything `Intl` rejects. **Never pass a caller-supplied locale
+`resolveLocale` returns the canonical form of the tag (`"en-us"` becomes
+`"en-US"`, the deprecated `"iw"` becomes `"he"`), maps known aliases on its
+**language subtag** (so `UA`, `ua-UA` and `ua` all resolve; the region is
+kept), and falls back to `"en"` on anything `Intl` rejects. **Never pass a caller-supplied locale
 string directly into `Intl.DateTimeFormat` without it.**
 
 ### Numerals
@@ -302,8 +305,10 @@ major.
 ### Casing and language
 
 Text `Intl` produces is shown as `Intl` wrote it, except that the echo, the
-month pill and the month options upper-case their first letter with the
-locale's rules (CLDR's titlecase-firstword). The stylesheet never title-cases
+month pill and the month options capitalise their first letter (CLDR's
+titlecase-firstword), using the letter's title-case form with the locale's
+rules: Georgian, which has no capitals in running text, is left as written.
+The stylesheet never title-cases
 `Intl` text; its only `text-transform` upper-cases the weekday column
 headers. The echo and the popover carry `lang` set to the language `Intl`
 actually formatted in.
