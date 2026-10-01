@@ -78,6 +78,9 @@ exited zero rather than reading the tail of piped output.
   how to fake a pointer type in a unit test.
 - **`npm run test:e2e` reuses any server already on port 5173**, which may be
   another checkout's harness. TESTING.md has the workaround.
+- **A green local type-check can still fail on CI** if a parent directory
+  holds `node_modules/@types` (TypeScript searches upward). Both tsconfigs
+  pin `types` for that reason; keep them pinned (see D6).
 - **The field and its calendar are one widget** (D21): `onBlur` fires when
   focus leaves both, Tab closes the calendar, ArrowDown enters it. Code that
   listens for the input's own blur is almost always wrong here, and closing

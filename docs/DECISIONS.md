@@ -141,6 +141,14 @@ Decided at agent level during Phase 4 packaging prep: non-blocking, matches
 the recommendation already in this file, and is required to produce a
 verifiable tarball without waiting on D3.
 
+**Dev-only addition, 2026-10-01: `@types/node`.** The tests and the e2e
+config use Node built-ins and are type-checked by `tsc -p
+tsconfig.test.json`. Without the package that check passed only on a machine
+with a stray copy in a parent directory (TypeScript searches upward for
+`@types`) and failed on CI. It is a development dependency and never reaches
+the published package. Both tsconfigs now list their `types` explicitly, so
+nothing above the repository can make a local run differ from CI again.
+
 ---
 
 ## D7 — Does the source product consume the package?
