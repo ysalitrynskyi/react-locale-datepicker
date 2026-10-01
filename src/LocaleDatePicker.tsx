@@ -953,6 +953,44 @@ const usableDate = (d: unknown): Date | null => {
   return d instanceof Date ? d : new Date(t);
 };
 
+// Elements Tab would stop on, in document order. Deliberately layout-light so
+// it works without a layout engine: disabled, inert, hidden and tabindex=-1
+// controls are excluded by attribute, and the rendered check is skipped where
+// no element has boxes at all (jsdom).
+const FOCUSABLE =
+  'a[href],button,input,select,textarea,[tabindex],[contenteditable="true"]';
+const focusablesIn = (root: ParentNode | null | undefined): HTMLElement[] => {
+  if (!root) return [];
+  const doc = (root as Node).ownerDocument ?? (root as Document);
+  const hasLayout =
+    !!doc?.documentElement &&
+    doc.documentElement.getClientRects().length > 0;
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) =>
+      el.tabIndex >= 0 &&
+      !(el as HTMLButtonElement).disabled &&
+      el.getAttribute("type") !== "hidden" &&
+      !el.closest("[hidden],[inert]") &&
+      (!hasLayout || el.getClientRects().length > 0),
+  );
+};
+// The first focusable that follows `anchor` in its document, skipping
+// anything `skip` claims (the popover, wherever a portal put it).
+const nextFocusableAfter = (
+  anchor: HTMLElement | null,
+  skip: (el: HTMLElement) => boolean,
+): HTMLElement | null => {
+  if (!anchor) return null;
+  return (
+    focusablesIn(anchor.ownerDocument).find(
+      (el) =>
+        !anchor.contains(el) &&
+        !skip(el) &&
+        (anchor.compareDocumentPosition(el) & 4) !== 0, // FOLLOWING
+    ) ?? null
+  );
+};
+
 export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   value: rawValue,
   onChange,
@@ -1083,6 +1121,25 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   // DOM focus only follows focusDay after keyboard navigation — opening the
   // popup with the mouse must NOT steal focus from the text input.
   const keyboardNavRef = React.useRef(false);
+
+  // The option (month index or year) holding the roving tabindex in the
+  // months and years views; null means "the current one".
+  const [rovingOption, setRovingOption] = React.useState<number | null>(null);
+  // Where keyboard focus goes once a view switch has rendered (see
+  // switchView). Set only when focus was already inside the popover, so a
+  // mouse user's focus stays in the input.
+  const pendingFocusRef = React.useRef<"grid" | "option" | null>(null);
+  // True for the length of the second tap's own blur/focus pair, which
+  // raises the on-screen keyboard and is not the visitor leaving the field.
+  const refocusingRef = React.useRef(false);
+  // A date an outside press committed, for the blur that follows it.
+  const justCommittedRef = React.useRef<Date | undefined>(undefined);
+  // The latest render's handlers, for document listeners and deferred checks
+  // that would otherwise run a stale closure.
+  const latestRef = React.useRef({
+    commitTyped: (): Date | undefined => undefined,
+    leaveWidget: (): void => {},
+  });
 
   // Touch only: has this visitor asked to type, by tapping the text a second
   // time while the calendar is open? Reset on every close, so the intent lasts
@@ -1275,6 +1332,17 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     return localToday();
   };
 
+  // Whether shouldDisableDate allows at least one day of a month.
+  const monthHasEnabledDay = (month: Date): boolean => {
+    const y = month.getFullYear();
+    const m = month.getMonth();
+    const days = ymd(y, m + 1, 0).getDate();
+    for (let d = 1; d <= days; d++) {
+      if (!shouldDisableDate(ymd(y, m, d))) return true;
+    }
+    return false;
+  };
+
   const openPopup = () => {
     if (disabled) {
       onDisabledOpenAttempt?.();
@@ -1285,9 +1353,27 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     // was just typed, not the stale committed one.
     const typed = draft !== null ? parseTyped(draft) : null;
     const base = typed || value || defaultCalendarMonth || resolveToday();
-    setViewMonth(clampMonth(startOfDay(base)));
+    let month = clampMonth(startOfDay(base));
+    // With nothing chosen and no defaultCalendarMonth the grid opens on
+    // today's month — and used to stop there even when every day in it was
+    // disabled (a lead time that blanks the rest of the month), leaving a
+    // keyboard user on a grid with nothing to pick. The documented chain is
+    // defaultCalendarMonth, then today, then the first enabled month: walk
+    // forward to it, within maxDate, for up to two years.
+    if (!typed && !value && !defaultCalendarMonth) {
+      let probe = month;
+      for (let i = 0; i < 24 && !monthHasEnabledDay(probe); i++) {
+        const next = clampMonth(ymd(probe.getFullYear(), probe.getMonth() + 1, 1));
+        if (monthKey(next) === monthKey(probe)) break; // reached maxDate
+        probe = next;
+      }
+      if (monthHasEnabledDay(probe)) month = probe;
+    }
+    setViewMonth(month);
     setFocusDay(typed ? startOfDay(typed) : value ? startOfDay(value) : null);
     setView("days");
+    setRovingOption(null);
+    justCommittedRef.current = undefined;
     keyboardNavRef.current = false;
     setGridHelpShown(false);
     // A fresh open re-decides which side to open toward; it stays frozen from
@@ -1309,6 +1395,29 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     if (refocus) inputRef.current?.focus();
   }, []);
 
+  // Is this node part of the widget: the field side (the root) or the
+  // popover, which a portal moves outside the root's DOM subtree. Duck-typed
+  // so a node from another document (an iframe portal) is answered too.
+  const insideWidget = React.useCallback((node: unknown): boolean => {
+    if (!node || typeof (node as Node).nodeType !== "number") return false;
+    return !!(
+      rootRef.current?.contains(node as Node) ||
+      popupRef.current?.contains(node as Node)
+    );
+  }, []);
+
+  // The documents the widget lives in. Usually one; two when the popover is
+  // portaled into an iframe's document, where the visitor's presses and keys
+  // then land — document-level listeners on the rendering document alone
+  // never heard them, so Escape and an outside press there did nothing.
+  const widgetDocuments = React.useCallback((): Document[] => {
+    const docs = new Set<Document>();
+    if (typeof document !== "undefined") docs.add(document);
+    if (rootRef.current) docs.add(rootRef.current.ownerDocument);
+    if (popupRef.current) docs.add(popupRef.current.ownerDocument);
+    return Array.from(docs);
+  }, []);
+
   // Outside interaction closes the popup. `mousedown` (not click) so the
   // popup is gone before any other control processes the press. When the
   // popover is portaled it is no longer a DOM descendant of the root, so
@@ -1317,34 +1426,50 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   React.useEffect(() => {
     if (!open) return;
     const onDocDown = (e: MouseEvent | TouchEvent) => {
-      const t = e.target as Node;
-      if (rootRef.current?.contains(t) || popupRef.current?.contains(t)) {
-        return;
-      }
+      if (insideWidget(e.target)) return;
+      // A press that only dismissed the calendar left a finished draft
+      // uncommitted whenever the target did not take focus (empty page
+      // chrome, a heading; any tap on iOS that does not blur the field): the
+      // field showed one date and the value was another. Commit it here; the
+      // blur that usually follows finds nothing left to commit.
+      const committed = latestRef.current.commitTyped();
+      if (committed) justCommittedRef.current = committed;
       close();
     };
-    document.addEventListener("mousedown", onDocDown);
-    document.addEventListener("touchstart", onDocDown);
+    const docs = widgetDocuments();
+    for (const doc of docs) {
+      doc.addEventListener("mousedown", onDocDown);
+      doc.addEventListener("touchstart", onDocDown);
+    }
     return () => {
-      document.removeEventListener("mousedown", onDocDown);
-      document.removeEventListener("touchstart", onDocDown);
+      for (const doc of docs) {
+        doc.removeEventListener("mousedown", onDocDown);
+        doc.removeEventListener("touchstart", onDocDown);
+      }
     };
-  }, [open, close]);
+  }, [open, close, insideWidget, widgetDocuments]);
 
   // Escape must close no matter where focus sits. Safari does not focus
   // buttons on click, so after tapping a calendar control the keydown fires
   // on <body> and an element-level handler would never see it.
+  //
+  // preventDefault marks the key as handled, so a surrounding native
+  // <dialog> (whose cancel is Escape's default action) or a modal library
+  // that checks defaultPrevented closes the calendar only, not itself.
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        close(true);
-      }
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      close(true);
     };
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
-  }, [open, close]);
+    const docs = widgetDocuments();
+    for (const doc of docs) doc.addEventListener("keydown", onKey, true);
+    return () => {
+      for (const doc of docs) doc.removeEventListener("keydown", onKey, true);
+    };
+  }, [open, close, widgetDocuments]);
 
   // form.reset() puts every native control back to its default. This one's
   // visible text is a React draft, which reset cannot see, so the typed text
@@ -1584,6 +1709,55 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     return d;
   };
 
+  // Focus has left the widget — field and popover both. This, not the
+  // input's own blur, is when the draft is committed and the parent hears
+  // onBlur. The input's blur used to do both, so moving INTO the picker (the
+  // second tap that raises the keyboard, ArrowDown into the grid, Tab into the
+  // header) committed or wiped a half-typed date and fired the parent's
+  // validation mid-interaction — the false-"required" flash the onBlur
+  // contract exists to prevent. Leaving also closes the calendar, which
+  // otherwise stayed open over whatever the keyboard had moved on to.
+  //
+  // finally: a shouldDisableDate (or onChange) that throws inside commitTyped
+  // must not also cost the parent its blur.
+  const leaveWidget = () => {
+    let committed: Date | undefined;
+    try {
+      committed = commitTyped();
+    } finally {
+      if (open) close();
+      const pending = justCommittedRef.current;
+      justCommittedRef.current = undefined;
+      onBlur?.(committed ?? pending ?? value);
+    }
+  };
+
+  useIsoLayoutEffect(() => {
+    latestRef.current = { commitTyped, leaveWidget };
+  });
+
+  // React delivers blur from every descendant here, including a portaled
+  // popover (synthetic events follow the React tree, not the DOM tree).
+  const onWidgetBlur = (e: React.FocusEvent) => {
+    if (refocusingRef.current) return;
+    if (insideWidget(e.relatedTarget)) return;
+    const target = e.target as HTMLElement;
+    if (e.relatedTarget || target === inputRef.current) {
+      leaveWidget();
+      return;
+    }
+    // A popover control lost focus with no destination. Either the visitor
+    // left for the page itself, or a re-render unmounted the focused control
+    // (a shorter month dropping a row) and the view effects re-place focus.
+    // Decide once that has settled: a control that is gone was ours.
+    const doc = target.ownerDocument;
+    queueMicrotask(() => {
+      if (!target.isConnected) return;
+      if (insideWidget(doc.activeElement)) return;
+      latestRef.current.leaveWidget();
+    });
+  };
+
   // --- Days grid model -----------------------------------------------------
   const daysGrid = React.useMemo(() => {
     const first = ymd(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
@@ -1634,29 +1808,32 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   // selected and today is disabled — routine for pickers whose rules
   // disable today and everything before it — making keyboard selection
   // impossible.
-  const roveTarget = React.useMemo(() => {
+  //
+  // Recomputed every render: it reads shouldDisableDate and today, which an
+  // open calendar can see change (availability arriving after the calendar
+  // opened). A memo keyed only on the grid kept the tab stop on the old
+  // predicate's answer, so no enabled day had tabindex 0 once the real rules
+  // arrived. It costs at most 42 predicate calls, as the grid itself does.
+  const roveTarget = ((): Date | null => {
     const inView = (d: Date | null) =>
       !!d && monthKey(d) === monthKey(viewMonth);
-    if (inView(focusDay)) return focusDay!;
-    if (inView(value)) return startOfDay(value!);
+    if (focusDay && inView(focusDay)) return focusDay;
+    if (value && inView(value)) return startOfDay(value);
     if (inView(today) && !shouldDisableDate(today)) return today;
     for (const d of daysGrid) {
       if (d && !shouldDisableDate(d)) return d;
     }
+    // Nothing selectable in this month. Keep a tab stop anyway (disabled days
+    // stay focusable), so a keyboard user can get in and page to a month
+    // that has something to pick.
+    for (const d of daysGrid) {
+      if (d) return d;
+    }
     return null;
-    // shouldDisableDate and today are intentionally omitted: the roving
-    // target only needs to recompute when the grid or selection moves; the
-    // predicate is stable for a given open session in practice.
-  }, [focusDay, value, viewMonth, daysGrid]);
+  })();
 
   const canPrevMonth = monthKey(viewMonth) > minMonth;
   const canNextMonth = monthKey(viewMonth) < maxMonth;
-
-  const shiftMonth = (delta: number) => {
-    setViewMonth((m) =>
-      clampMonth(ymd(m.getFullYear(), m.getMonth() + delta, 1)),
-    );
-  };
 
   const isRTL = () =>
     typeof document !== "undefined" &&
@@ -1795,22 +1972,54 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     btn?.focus();
   }, [focusDay, open, view, viewMonth]);
 
+  // Finish a view switch started by switchView: put keyboard focus into the
+  // view that just rendered.
+  React.useEffect(() => {
+    const pending = pendingFocusRef.current;
+    if (!pending || !open) return;
+    pendingFocusRef.current = null;
+    const pop = popupRef.current;
+    if (!pop) return;
+    if (pending === "grid") {
+      keyboardNavRef.current = true;
+      pop.querySelector<HTMLElement>('[data-day][tabindex="0"]')?.focus();
+    } else {
+      pop
+        .querySelector<HTMLElement>(
+          '[data-part="month"][tabindex="0"],[data-part="year"][tabindex="0"]',
+        )
+        ?.focus();
+    }
+  }, [view, open]);
+
   // The year span runs a century-plus back by default, so the years grid
   // must bring the current view year into sight when it opens — otherwise
   // the list opens at the oldest year and the user scrolls for decades.
-  // scrollIntoView is optional-chained because jsdom does not implement it.
+  //
+  // The list itself is scrolled, not the current year scrolled into view:
+  // scrollIntoView moves every scrollable ancestor too, so opening the year
+  // list on a long form (a birth date, typically) jumped the whole page to
+  // centre one button and took the field off screen.
   React.useEffect(() => {
     if (view !== "years") return;
-    const el = popupRef.current?.querySelector<HTMLElement>(
+    const list = popupRef.current?.querySelector<HTMLElement>(
+      '[data-part="years"]',
+    );
+    const el = list?.querySelector<HTMLElement>(
       '[data-part="year"][data-current]',
     );
-    el?.scrollIntoView?.({ block: "center" });
+    if (!list || !el) return;
+    const lr = list.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    list.scrollTop += er.top - lr.top - (list.clientHeight - er.height) / 2;
   }, [view]);
 
   // --- Months / years grids ------------------------------------------------
   const yearNow = today.getFullYear();
   const viewYear = viewMonth.getFullYear();
-  const yearsRange = React.useMemo(() => {
+  // At most MAX_YEAR_OPTIONS numbers; recomputed per render, which is cheaper
+  // than proving to the compiler that `today` is never mutated.
+  const yearsRange = ((): number[] => {
     // Without an explicit minDate the year grid used to start at the
     // CURRENT year, which quietly made past years unreachable through the
     // year view — hostile to the birth-date use case, where a 1967 entry
@@ -1843,7 +2052,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     const years: number[] = [];
     for (let y = from; y <= to; y++) years.push(y);
     return years;
-  }, [minDate, maxDate, yearNow, viewYear]);
+  })();
   const yearMin = yearsRange[0];
   const yearMax = yearsRange[yearsRange.length - 1];
 
@@ -1866,23 +2075,126 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
 
   // Header chevrons: in days view they step months; in months view they
   // step YEARS (clamped to the year range, labelled with the year).
-  const headerPrev = () => {
-    if (view === "months") {
-      setViewMonth((m) =>
-        clampMonth(ymd(m.getFullYear() - 1, m.getMonth(), 1)),
-      );
-    } else {
-      shiftMonth(-1);
+  //
+  // The keyboard cursor moves with the view. Day buttons are reused across
+  // months (keyed by position), so a focused day stayed focused while it
+  // showed a different date, and Enter or the next arrow still acted on the
+  // previous month's date. The cursor now steps by the same number of
+  // months, and DOM focus follows it when it was in the grid.
+  const stepView = (deltaMonths: number) => {
+    const target = clampMonth(
+      ymd(viewMonth.getFullYear(), viewMonth.getMonth() + deltaMonths, 1),
+    );
+    const moved = monthKey(target) - monthKey(viewMonth);
+    if (moved === 0) return;
+    setViewMonth(target);
+    if (focusDay) setFocusDay(addCalendarMonths(focusDay, moved));
+    const doc = popupRef.current?.ownerDocument;
+    if (doc && gridRef.current?.contains(doc.activeElement)) {
+      keyboardNavRef.current = true;
     }
   };
-  const headerNext = () => {
-    if (view === "months") {
-      setViewMonth((m) =>
-        clampMonth(ymd(m.getFullYear() + 1, m.getMonth(), 1)),
-      );
-    } else {
-      shiftMonth(1);
+  const headerPrev = () => stepView(view === "months" ? -12 : -1);
+  const headerNext = () => stepView(view === "months" ? 12 : 1);
+
+  // Switching views unmounts the view that held focus. When focus was inside
+  // the popover (a keyboard user's day or option), it is parked on the
+  // control that triggered the switch — which survives it — and moved into
+  // the new view once that has rendered. Focus used to fall to <body> with
+  // the calendar still open. A pointer press leaves focus where it was: in
+  // the field, so typing is never interrupted.
+  const switchView = (
+    next: "days" | "months" | "years",
+    via: HTMLElement | null,
+  ) => {
+    const doc = popupRef.current?.ownerDocument;
+    const active = doc?.activeElement ?? null;
+    const fromInside = !!active && !!popupRef.current?.contains(active);
+    if (fromInside && via && active !== via) via.focus();
+    setRovingOption(null);
+    setView(next);
+    if (fromInside) pendingFocusRef.current = next === "days" ? "grid" : "option";
+  };
+  const pillOf = (part: "month-pill" | "year-pill") =>
+    popupRef.current?.querySelector<HTMLElement>(`[data-part="${part}"]`) ??
+    null;
+
+  // Second ArrowDown from the field: into whichever view is showing.
+  const moveFocusIntoView = () => {
+    if (view === "days") {
+      if (roveTarget) focusGridDay(roveTarget);
+      return;
     }
+    popupRef.current
+      ?.querySelector<HTMLElement>(
+        '[data-part="month"][tabindex="0"],[data-part="year"][tabindex="0"]',
+      )
+      ?.focus();
+  };
+
+  // Arrow keys among the month or year options, on the days grid's model:
+  // one tab stop, arrows move it (three columns), Home/End jump to the ends,
+  // PageUp/PageDown move a page — a year of months, or twelve years. Every
+  // option used to be its own tab stop, so with the year list running a
+  // century back, reaching 1967 from 2026 took sixty Tab presses.
+  const onOptionsKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const buttons = Array.from(
+      e.currentTarget.querySelectorAll<HTMLButtonElement>("button"),
+    );
+    const from = buttons.indexOf(e.target as HTMLButtonElement);
+    if (from < 0) return;
+    if (view === "months" && (e.key === "PageUp" || e.key === "PageDown")) {
+      e.preventDefault();
+      stepView(e.key === "PageUp" ? -12 : 12);
+      return;
+    }
+    const horiz = isRTL() ? -1 : 1;
+    let next: number;
+    let step: number;
+    switch (e.key) {
+      case "ArrowLeft":
+        step = -horiz;
+        next = from + step;
+        break;
+      case "ArrowRight":
+        step = horiz;
+        next = from + step;
+        break;
+      case "ArrowUp":
+        step = -3;
+        next = from + step;
+        break;
+      case "ArrowDown":
+        step = 3;
+        next = from + step;
+        break;
+      case "PageUp":
+        step = -12;
+        next = Math.max(0, from + step);
+        break;
+      case "PageDown":
+        step = 12;
+        next = Math.min(buttons.length - 1, from + step);
+        break;
+      case "Home":
+        step = 1;
+        next = 0;
+        break;
+      case "End":
+        step = -1;
+        next = buttons.length - 1;
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+    // Months outside minDate/maxDate are disabled and cannot take focus;
+    // keep travelling in the same direction past them.
+    while (next >= 0 && next < buttons.length && buttons[next].disabled) {
+      next += step;
+    }
+    if (next < 0 || next >= buttons.length || next === from) return;
+    buttons[next].focus();
   };
   const headerPrevDisabled =
     view === "years" ||
@@ -1928,6 +2240,27 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
               onMouseDown={(e) => {
                 if ((e.target as HTMLElement).tagName !== "INPUT") {
                   e.preventDefault();
+                }
+              }}
+              // A portaled popover is not where the field is in the document,
+              // so Tab out of its last control or Shift+Tab out of its first
+              // is routed back to field order by hand. In-tree, the DOM order
+              // is already right.
+              onKeyDown={(e) => {
+                if (e.key !== "Tab" || !usePortal) return;
+                const items = focusablesIn(popupRef.current);
+                if (items.length === 0) return;
+                if (e.shiftKey && e.target === items[0]) {
+                  e.preventDefault();
+                  inputRef.current?.focus();
+                } else if (!e.shiftKey && e.target === items[items.length - 1]) {
+                  const next = nextFocusableAfter(rootRef.current, (el) =>
+                    insideWidget(el),
+                  );
+                  if (next) {
+                    e.preventDefault();
+                    next.focus();
+                  }
                 }
               }}
               data-placement={pos.up ? "top" : "bottom"}
@@ -1990,8 +2323,11 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                     {...slotProps("monthPill", "rldp-pill")}
                     data-active={view === "months" || undefined}
                     aria-expanded={view === "months"}
-                    onClick={() =>
-                      setView(view === "months" ? "days" : "months")
+                    onClick={(e) =>
+                      switchView(
+                        view === "months" ? "days" : "months",
+                        e.currentTarget,
+                      )
                     }
                   >
                     {monthLongFmt.format(viewMonth)}
@@ -2004,7 +2340,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                     {...slotProps("yearPill", "rldp-pill")}
                     data-active={view === "years" || undefined}
                     aria-expanded={view === "years"}
-                    onClick={() => setView(view === "years" ? "days" : "years")}
+                    onClick={(e) =>
+                      switchView(
+                        view === "years" ? "days" : "years",
+                        e.currentTarget,
+                      )
+                    }
                   >
                     {viewMonth.getFullYear()}
                     {icons?.chevronDown ?? (
@@ -2131,62 +2472,74 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                 </div>
               )}
 
-              {/* Months */}
+              {/* Months. One tab stop with arrow keys among the options
+                  (onOptionsKeyDown). The open month is marked with
+                  aria-current as well as data-current: the accent fill was
+                  the only thing that said which one was open, and a screen
+                  reader heard twelve month names and no current one. */}
               {view === "months" && (
-                <div {...slotProps("months", "rldp-months")}>
+                <div
+                  {...slotProps("months", "rldp-months")}
+                  onKeyDown={onOptionsKeyDown}
+                >
                   {Array.from({ length: 12 }, (_, m) => {
-                    const enabled = monthEnabled(viewMonth.getFullYear(), m);
+                    const enabled = monthEnabled(viewYear, m);
                     const isCurrent = m === viewMonth.getMonth();
+                    const isRove = m === (rovingOption ?? viewMonth.getMonth());
                     return (
                       <button
                         key={m}
                         type="button"
                         disabled={!enabled}
-                        aria-label={monthLongFmt.format(
-                          ymd(viewMonth.getFullYear(), m, 15),
-                        )}
+                        tabIndex={isRove ? 0 : -1}
+                        aria-label={monthLongFmt.format(ymd(viewYear, m, 15))}
+                        aria-current={isCurrent ? "true" : undefined}
                         {...slotProps(
                           "month",
                           "rldp-month",
                           isCurrent && "monthCurrent",
                         )}
                         data-current={isCurrent || undefined}
+                        onFocus={() => setRovingOption(m)}
                         onClick={() => {
-                          setViewMonth(
-                            clampMonth(ymd(viewMonth.getFullYear(), m, 1)),
-                          );
-                          setView("days");
+                          setViewMonth(clampMonth(ymd(viewYear, m, 1)));
+                          switchView("days", pillOf("month-pill"));
                         }}
                       >
-                        {monthShortFmt.format(
-                          ymd(viewMonth.getFullYear(), m, 15),
-                        )}
+                        {monthShortFmt.format(ymd(viewYear, m, 15))}
                       </button>
                     );
                   })}
                 </div>
               )}
 
-              {/* Years */}
+              {/* Years — same model as the months. */}
               {view === "years" && (
-                <div {...slotProps("years", "rldp-years")}>
+                <div
+                  {...slotProps("years", "rldp-years")}
+                  onKeyDown={onOptionsKeyDown}
+                >
                   {yearsRange.map((y) => {
-                    const isCurrent = y === viewMonth.getFullYear();
+                    const isCurrent = y === viewYear;
+                    const isRove = y === (rovingOption ?? viewYear);
                     return (
                       <button
                         key={y}
                         type="button"
+                        tabIndex={isRove ? 0 : -1}
+                        aria-current={isCurrent ? "true" : undefined}
                         {...slotProps(
                           "year",
                           "rldp-year",
                           isCurrent && "yearCurrent",
                         )}
                         data-current={isCurrent || undefined}
+                        onFocus={() => setRovingOption(y)}
                         onClick={() => {
                           setViewMonth(
                             clampMonth(ymd(y, viewMonth.getMonth(), 1)),
                           );
-                          setView("months");
+                          switchView("months", pillOf("year-pill"));
                         }}
                       >
                         {y}
@@ -2209,11 +2562,21 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       ref={rootRef}
       data-rldp-theme={themeName}
       {...slotProps("root", cx("rldp-root", className))}
+      onBlur={onWidgetBlur}
     >
       <div
         {...slotProps("field", "rldp-field")}
         data-error={hasError || undefined}
         data-disabled={disabled || undefined}
+        onMouseDown={(e) => {
+          // The padding inside the field's border is part of the visible
+          // control. A press there used to land on this div and do nothing;
+          // it now acts like a press on the text.
+          if (e.target !== e.currentTarget) return;
+          e.preventDefault();
+          inputRef.current?.focus();
+          if (!open) openPopup();
+        }}
       >
         <input
           ref={inputRef}
@@ -2287,8 +2650,15 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
               flushSync(() => setTypingIntent(true));
               const el = inputRef.current;
               if (el) {
-                el.blur();
-                el.focus();
+                // This blur is the field handing focus to itself, not the
+                // visitor leaving: it must not commit or wipe the draft.
+                refocusingRef.current = true;
+                try {
+                  el.blur();
+                  el.focus();
+                } finally {
+                  refocusingRef.current = false;
+                }
               }
             }
           }}
@@ -2320,28 +2690,34 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             // the IME; acting on it committed the half-composed text.
             if (composingRef.current || e.nativeEvent.isComposing) return;
             if (e.key === "Enter") {
+              // Enter in a closed field with nothing typed is the form's
+              // Enter, as on any text input: it submits. Swallowing it
+              // unconditionally meant a form whose submit is Enter never
+              // submitted from this field. While the calendar is open or a
+              // typed date is waiting, Enter confirms that instead —
+              // submitting then would read the parent's pre-commit state.
+              if (!open && draftRef.current === null) return;
               e.preventDefault();
               commitTyped();
               close();
             } else if (e.key === "ArrowDown") {
               e.preventDefault();
-              if (!open) {
-                openPopup();
-              } else if (roveTarget) {
-                // Second ArrowDown moves the keyboard into the grid.
-                focusGridDay(roveTarget);
-              }
-            }
-          }}
-          onBlur={() => {
-            // finally: a shouldDisableDate (or onChange) that throws inside
-            // commitTyped must not also cost the parent its blur, which is
-            // the signal it validates on.
-            let committed: Date | undefined;
-            try {
-              committed = commitTyped();
-            } finally {
-              onBlur?.(committed !== undefined ? committed : value);
+              // Second ArrowDown moves the keyboard into the open view —
+              // the days grid, or the month or year options when one of
+              // those is showing (it used to look only for a day and, in
+              // those views, swallowed the key and did nothing).
+              if (!open) openPopup();
+              else moveFocusIntoView();
+            } else if (e.key === "Tab" && open) {
+              // The calendar is entered with ArrowDown, like a combobox's
+              // popup, and Tab from the field moves on to the next field as
+              // in any form. Before, Tab walked into an in-tree calendar
+              // (it is next in document order) while a portaled one was
+              // skipped and left open over whatever received focus. Closing
+              // synchronously makes the browser's own Tab navigation run
+              // against the closed DOM; the blur that follows commits the
+              // draft and tells the parent, as leaving always does.
+              flushSync(() => close());
             }
           }}
         />
@@ -2355,8 +2731,13 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             // Runs before the document mousedown-close listener would; toggle
             // without letting the input blur first.
             e.preventDefault();
-            if (open) close();
-            else openPopup();
+            if (open) {
+              // Closing from here hands focus back to the field when it was
+              // inside the popover (a keyboard user's roving day): unmounting
+              // the focused day otherwise dropped focus on <body>.
+              const doc = popupRef.current?.ownerDocument;
+              close(!!doc && !!popupRef.current?.contains(doc.activeElement));
+            } else openPopup();
           }}
         >
           {icons?.calendar ?? (
