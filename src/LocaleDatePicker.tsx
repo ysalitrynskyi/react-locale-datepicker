@@ -735,32 +735,36 @@ const buildDigitMap = (): Map<string, string> => {
 // stripped: typing "1." pads the day to "01." and moves on to the month,
 // which is how people actually type short dates. Swallowing the separator —
 // what 0.2.0 did — made the field feel broken to anyone who typed one.
-// Recognized separators cover the scripts the component ships for: dot,
-// comma, slash, hyphen, Arabic comma, ideographic comma — plus whitespace and
-// the two Cyrillic-layout phantoms below.
+//
+// Recognized separators are the keys a typist presses meaning "next field" on
+// the layouts this component ships for: dot, comma, slash, hyphen and
+// whitespace; the Arabic comma, decimal and thousands separators (U+060C,
+// U+066B, U+066C — the decimal key on an Arabic keypad is not ".");
+// the ideographic comma and full stop; the fullwidth dot, comma, slash and
+// hyphen that a CJK IME's fullwidth mode emits next to the fullwidth digits the
+// digit map already accepts; and the two Cyrillic-layout phantoms below. Each
+// of these used to be dropped as junk, so the digits around it closed up and
+// "1.8.2026" typed with one of them became "18.20.26" — a different date, shown
+// as if the user had typed it.
 //
 // Why "ю" and "б" are in a date mask: on a Cyrillic (ЙЦУКЕН) layout the
-// physical QWERTY period and comma keys emit "ю" and "б". They were dropped as
-// letters, so the surrounding digits closed up and "1ю8ю2026" became
-// "18.20.26" — a different date, shown as if the user had typed it. Space did
-// the same. A rejection would have been survivable; silently changing the date
-// is not, and Ukrainian and Russian typists are a large share of this
-// component's users.
+// physical QWERTY period and comma keys emit "ю" and "б". A rejection would
+// have been survivable; silently changing the date is not, and Ukrainian and
+// Russian typists are a large share of this component's users.
 //
 // This stays an allowlist rather than "any non-digit is a separator", because
-// interleaved junk from mid-string editing and paste must still be STRIPPED so
-// the digits close up — see the mid-string editing test. Those two rules
-// genuinely conflict, and the allowlist is what lets both hold: characters a
-// user pressed meaning "next field" separate, characters that arrive as noise
-// are dropped.
-const SEPARATOR_CHAR = /[.,/\-،、\sюбЮБ]/;
+// interleaved junk from editing and paste must still be STRIPPED so the digits
+// close up. Those two rules genuinely conflict, and the allowlist is what lets
+// both hold: characters a user pressed meaning "next field" separate,
+// characters that arrive as noise are dropped.
+const SEPARATOR_CHAR = /[.,/\-،٫٬、。．，／－\sюбЮБ]/;
 const SEGMENT_MAX = [2, 2, 4] as const;
-const maskTyped = (raw: string): string => {
-  // Segments: day, month, year. Digits fill the current segment and roll
-  // into the next when it is full (so pure-digit typing behaves exactly as
-  // before); a separator closes the current segment early, padding a
-  // single-digit day or month to two.
-  const segments: string[] = [""];
+
+// Digits normalized to ASCII (from any decimal numbering system Intl knows),
+// recognized separators kept as markers, everything else dropped.
+type TypedToken = { kind: "digit"; ascii: string } | { kind: "sep" };
+const tokenize = (raw: string): TypedToken[] => {
+  const tokens: TypedToken[] = [];
   for (const char of raw) {
     let ascii: string | undefined;
     if (char >= "0" && char <= "9") {
@@ -771,39 +775,139 @@ const maskTyped = (raw: string): string => {
       // majority, never pays for constructing ~60 Intl.NumberFormats.
       ascii = (digitMap ??= buildDigitMap()).get(char);
     }
-    if (ascii !== undefined) {
-      let idx = segments.length - 1;
+    if (ascii !== undefined) tokens.push({ kind: "digit", ascii });
+    else if (SEPARATOR_CHAR.test(char)) tokens.push({ kind: "sep" });
+  }
+  return tokens;
+};
+const digitsOf = (tokens: TypedToken[]): string =>
+  tokens.map((t) => (t.kind === "digit" ? t.ascii : "")).join("");
+
+// The typing path: digits fill day, month and year and roll into the next
+// segment when one is full; a separator closes the current segment early,
+// padding a single-digit day or month to two.
+//
+// A separator that arrives once the year has started but is not complete
+// means the input has more groups than a date does ("1.2.3.2026"). That used
+// to be ignored, so the next group's digits were appended to the year and the
+// field showed — and blur committed — 1 February 3202. The extra group is now
+// kept as typed after a separator, which parseTyped rejects, so the mistake is
+// visible and reported instead of turned into a real date.
+const maskTokens = (tokens: TypedToken[]): string => {
+  const segments: string[] = [""];
+  let overflow = "";
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (overflow) {
+      overflow += token.kind === "digit" ? token.ascii : ".";
+      continue;
+    }
+    let idx = segments.length - 1;
+    if (token.kind === "digit") {
       if (segments[idx].length >= SEGMENT_MAX[idx]) {
         if (idx === 2) break; // year full: the date is complete
         segments.push("");
         idx++;
       }
-      segments[idx] += ascii;
-    } else if (SEPARATOR_CHAR.test(char)) {
-      const idx = segments.length - 1;
-      // Only meaningful after at least one digit and before the year; an
-      // empty or trailing-position separator is swallowed as before.
-      if (idx < 2 && segments[idx].length >= 1) {
+      segments[idx] += token.ascii;
+    } else if (idx < 2) {
+      // Only meaningful after at least one digit; a leading separator is
+      // swallowed as before.
+      if (segments[idx].length >= 1) {
         if (segments[idx].length === 1) segments[idx] = `0${segments[idx]}`;
         segments.push("");
       }
+    } else if (segments[2].length > 0 && segments[2].length < 4) {
+      overflow = ".";
     }
-    // Other letters and symbols: dropped, so interleaved editing junk closes up.
+    // A separator after a complete year (or before any year digit) is
+    // swallowed: "01.02.2026." is still the date it shows.
   }
   let out = segments[0];
   if (segments.length > 1) out += `.${segments[1]}`;
   if (segments.length > 2) out += `.${segments[2]}`;
-  return out;
+  return out + overflow.replace(/\.+/g, ".");
 };
 
-// Accepts dd.MM.yyyy with . , / - separators (plus the Arabic and
-// ideographic commas maskTyped accepts) and 1-digit day/month — pasted
-// text can carry its own separators; masked input always matches.
+// A year-first date (ISO 8601 and everything machine-generated: "2026-07-17",
+// "2026/07/17", "2026-07-17T14:30:00Z") arrives whole, by paste. The typing
+// mask reads digits left to right as day, month, year, so it rolled "2012"
+// into day 20 and month 12 and committed 20 December 315. A four-digit first
+// group can never be a day, so it is unambiguous: reorder it instead. Junk is
+// a boundary here (the "T" before an ISO time), unlike in the typing mask.
+const yearFirst = (raw: string): string | null => {
+  let shape = "";
+  for (const char of raw) {
+    if (char >= "0" && char <= "9") shape += char;
+    else if (/^\p{Nd}$/u.test(char)) {
+      shape += (digitMap ??= buildDigitMap()).get(char) ?? "x";
+    } else shape += SEPARATOR_CHAR.test(char) ? "." : "x";
+  }
+  const m = shape.match(/^\.*(\d{4})\.+(\d{1,2})\.+(\d{1,2})(?!\d)/);
+  if (!m) return null;
+  return `${m[3].padStart(2, "0")}.${m[2].padStart(2, "0")}.${m[1]}`;
+};
+
+// An edit that changes digits somewhere other than at the end. The typing mask
+// rebuilds every segment from the digit stream, which is right while the
+// visitor types forward and wrong here: inserting "1" at the start of
+// "15.03.2026" re-flowed the digits into "11.05.0320", and blur committed
+// 11 May 320. When the edit leaves separators in place, they are now treated
+// as fixed boundaries: groups are kept as typed and never padded (padding
+// would move the caret under the visitor's next keystroke). A group that no
+// longer fits — "115" as a day, a fourth group — is left on screen exactly as
+// typed, so parseTyped rejects it and blur reports it instead of inventing a
+// date.
+const explicitGroups = (tokens: TypedToken[]): string => {
+  const groups: string[] = [];
+  let current = "";
+  let seenDigit = false;
+  let trailingSep = false;
+  for (const token of tokens) {
+    if (token.kind === "digit") {
+      current += token.ascii;
+      seenDigit = true;
+      trailingSep = false;
+    } else if (seenDigit && !trailingSep) {
+      groups.push(current);
+      current = "";
+      trailingSep = true;
+    }
+  }
+  if (!trailingSep) groups.push(current);
+  const fits =
+    groups.length <= 3 &&
+    groups.every((g, i) => g.length <= SEGMENT_MAX[i]);
+  if (!fits) return trailingSep ? `${groups.join(".")}.` : groups.join(".");
+  return groups.join(".") + (trailingSep && groups.length < 3 ? "." : "");
+};
+
+// The text the field should show after the visitor turned `prev` into `raw`.
+const nextTypedText = (prev: string, raw: string): string => {
+  const iso = yearFirst(raw);
+  if (iso) return iso;
+  const tokens = tokenize(raw);
+  // Typing forward, or a fresh paste into an empty field: the classic mask.
+  if (prev === "" || raw.startsWith(prev)) return maskTokens(tokens);
+  const prevTokens = tokenize(prev);
+  // Only separators or junk changed — a deleted dot, a stray letter. The
+  // date's digits are untouched, so the date is too: keep what was shown.
+  if (digitsOf(tokens) === digitsOf(prevTokens)) return prev;
+  // A replacement with no separators at all (select-all and type, or paste a
+  // bare digit string) is new input from scratch: mask it.
+  if (!tokens.some((t) => t.kind === "sep")) return maskTokens(tokens);
+  return explicitGroups(tokens);
+};
+
+// Accepts d.M.yyyy and dd.MM.yyyy — the shapes the mask produces — with any
+// recognized separator read as a dot, so pasted text that kept its own
+// separators parses too.
 const parseTyped = (raw: string): Date | null => {
-  const m = raw
-    .trim()
-    .replace(/[,،、]/g, ".")
-    .match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  let normalized = "";
+  for (const char of raw.trim()) {
+    normalized += SEPARATOR_CHAR.test(char) ? "." : char;
+  }
+  const m = normalized.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   if (!m) return null;
   const day = parseInt(m[1], 10);
   const month = parseInt(m[2], 10);
@@ -943,7 +1047,23 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     startOfDay(value || defaultCalendarMonth || new Date()),
   );
   // Text shown in the input while the user is typing; null = mirror value.
-  const [draft, setDraft] = React.useState<string | null>(null);
+  //
+  // Mirrored in a ref because more than one handler can act on the same
+  // draft within one event: an outside press commits it and the blur that
+  // follows must see it as already committed, not commit (or report) it a
+  // second time from a stale render's closure.
+  const [draft, setDraftState] = React.useState<string | null>(null);
+  const draftRef = React.useRef<string | null>(null);
+  const setDraft = React.useCallback((next: string | null) => {
+    draftRef.current = next;
+    setDraftState(next);
+  }, []);
+  // Render-phase updates below go through setDraftState (a ref cannot be
+  // written during render); this brings the ref back in line before any
+  // handler can run.
+  useIsoLayoutEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
   // Day that owns the roving tabindex inside the grid.
   const [focusDay, setFocusDay] = React.useState<Date | null>(null);
   // Measured after render: whether the popup flips above the field, the
@@ -1108,6 +1228,40 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     [minMonth, maxMonth],
   );
 
+  // The field is controlled: a new `value` from the parent wins over whatever
+  // the visitor had typed but not committed, and an open grid moves to it.
+  // Before, a parent reset (or any other setValue) left the old draft on
+  // screen, and the next blur committed that draft straight back over the
+  // parent's correction; an open grid kept showing the previous month, with
+  // the roving day ready to commit the stale date on Enter. Derived during
+  // render (React's documented pattern) so no frame shows the stale draft.
+  const valueKey = value ? value.getTime() : null;
+  const [seenValueKey, setSeenValueKey] = React.useState(valueKey);
+  if (valueKey !== seenValueKey) {
+    setSeenValueKey(valueKey);
+    if (draft !== null) setDraftState(null);
+    if (open && value) {
+      setViewMonth(clampMonth(startOfDay(value)));
+      setFocusDay(startOfDay(value));
+    }
+  }
+
+  // A field disabled while it holds an uncommitted draft drops it: a disabled
+  // field shows its committed value, and the draft could otherwise still be
+  // committed by the next Enter or blur.
+  if (disabled && draft !== null) setDraftState(null);
+
+  // `disabled` set while the calendar is open closes it: the day buttons on
+  // screen would otherwise still be there to pick from. Derived here rather
+  // than in an effect so no frame shows a pickable grid on a disabled field.
+  // (The refs close() also resets are reset again by the next openPopup.)
+  if (disabled && open) {
+    setOpen(false);
+    setView("days");
+    setGridHelpShown(false);
+    setTypingIntent(false);
+  }
+
   // "Today" per decision D16: an injected date wins, then a business
   // timezone, then the visitor's own clock.
   const resolveToday = (): Date => {
@@ -1191,6 +1345,18 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     document.addEventListener("keydown", onKey, true);
     return () => document.removeEventListener("keydown", onKey, true);
   }, [open, close]);
+
+  // form.reset() puts every native control back to its default. This one's
+  // visible text is a React draft, which reset cannot see, so the typed text
+  // stayed on screen over the unchanged value until the next blur committed
+  // it. Dropping the draft on reset restores the committed value.
+  React.useEffect(() => {
+    const form = inputRef.current?.form;
+    if (!form) return;
+    const onReset = () => setDraft(null);
+    form.addEventListener("reset", onReset);
+    return () => form.removeEventListener("reset", onReset);
+  }, [setDraft]);
 
   // Copy --rldp-* custom properties and color-scheme from the component
   // root onto a portaled popover. Portaling detaches the node from the
@@ -1307,6 +1473,10 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   }, [open, view, viewMonth, usePortal, syncPortaledTheme]);
 
   const commit = (date: Date, by: "keyboard" | "touch" | "mouse" = "keyboard") => {
+    // `disabled` can arrive while the calendar is already on screen (a form
+    // that disables the field when a prerequisite changes). The day click and
+    // the grid's Enter/Space all land here, so one check covers them.
+    if (disabled) return;
     onChange(startOfDay(date));
     setDraft(null);
     // Swallow clicks for a beat after the popup unmounts: the second click
@@ -1339,25 +1509,73 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     close(by !== "touch");
   };
 
+  // IME composition in progress, and the text shown when it began.
+  const composingRef = React.useRef(false);
+  const composeBaseRef = React.useRef("");
+
+  // Turn what the visitor typed into the field's next text (see
+  // nextTypedText) and follow it in the open calendar.
+  const applyTyped = (raw: string, prev: string) => {
+    const next = nextTypedText(prev, raw);
+    // An edit the mask throws away entirely (a letter, a stray separator)
+    // leaves the visible text as it was. It must not create a draft either:
+    // a draft is what blur commits, and committing text the visitor did not
+    // change rewrote the stored value or reported an error for a date that
+    // was already on screen.
+    if (draftRef.current === null && next === formatDisplay(value)) return;
+    setDraft(next);
+    // Follow the typing in the open calendar: once the draft names a complete
+    // date, navigate the grid to it and hand it the roving target. DOM focus
+    // stays in the input (keyboardNavRef is untouched) so typing is never
+    // interrupted, and clampMonth keeps the min/max navigation bounds
+    // authoritative. Partial drafts do not navigate — guessing the year wrong
+    // and yanking the view around mid-entry is worse than waiting.
+    if (open) {
+      const parsed = parseTyped(next);
+      if (parsed) {
+        setViewMonth(clampMonth(startOfDay(parsed)));
+        setFocusDay(startOfDay(parsed));
+      }
+    }
+  };
+
   // Returns the newly committed Date, or undefined when nothing changed —
   // the blur handler forwards the effective value to the parent.
+  //
+  // Reads the draft from draftRef, so a second call in the same event (an
+  // outside press, then the blur it causes) is a no-op rather than a second
+  // commit or a second report.
   const commitTyped = (): Date | undefined => {
-    if (draft === null) return undefined;
-    if (draft.trim() === "") {
+    const typed = draftRef.current;
+    if (typed === null) return undefined;
+    // A field disabled since the draft was typed takes no commit from it;
+    // the draft is dropped back to the committed value.
+    if (disabled) {
+      setDraft(null);
+      return undefined;
+    }
+    if (typed.trim() === "") {
       // Field cleared by typing: keep the previous committed value and just
       // resync the text. Typing never commits null — a parent that supports
       // clearing does it from outside through value/onChange.
       setDraft(null);
-      onValidationError?.("missing");
+      // "missing" means the field is left empty. With a committed value the
+      // resync puts that value straight back, so reporting "missing" would
+      // put an error beside a date that is still there.
+      if (value === null) onValidationError?.("missing");
       return undefined;
     }
-    const parsed = parseTyped(draft);
-    setDraft(null); // invalid input reverts to the committed value
+    const parsed = parseTyped(typed);
     if (!parsed) {
+      setDraft(null); // invalid input reverts to the committed value
       onValidationError?.("impossible-date");
       return undefined;
     }
-    if (shouldDisableDate(parsed)) {
+    // Evaluated before the draft is cleared: a predicate that throws must
+    // leave the visitor's text on screen, not wipe it and then fail.
+    const rejected = shouldDisableDate(parsed);
+    setDraft(null);
+    if (rejected) {
       onValidationError?.("not-selectable");
       return undefined;
     }
@@ -2076,24 +2294,31 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           }}
           onChange={(e) => {
             if (disabled) return;
-            const masked = maskTyped(e.target.value);
-            setDraft(masked);
-            // Follow the typing in the open calendar: once the draft names
-            // a complete date, navigate the grid to it and hand it the
-            // roving target. DOM focus stays in the input (keyboardNavRef
-            // is untouched) so typing is never interrupted, and clampMonth
-            // keeps the min/max navigation bounds authoritative. Partial
-            // drafts do not navigate — guessing the year wrong and yanking
-            // the view around mid-entry is worse than waiting.
-            if (open) {
-              const parsed = parseTyped(masked);
-              if (parsed) {
-                setViewMonth(clampMonth(startOfDay(parsed)));
-                setFocusDay(startOfDay(parsed));
-              }
+            // Mid-composition text is provisional (an IME's candidate, not a
+            // digit yet). Masking it would delete it under the IME and lose
+            // the confirm; it is shown as-is and masked at compositionend.
+            if (
+              composingRef.current ||
+              (e.nativeEvent as InputEvent).isComposing
+            ) {
+              setDraft(e.target.value);
+              return;
             }
+            applyTyped(e.target.value, inputText);
+          }}
+          onCompositionStart={() => {
+            composingRef.current = true;
+            composeBaseRef.current = inputText;
+          }}
+          onCompositionEnd={(e) => {
+            composingRef.current = false;
+            if (disabled) return;
+            applyTyped(e.currentTarget.value, composeBaseRef.current);
           }}
           onKeyDown={(e) => {
+            // Enter (or an arrow) that confirms an IME candidate belongs to
+            // the IME; acting on it committed the half-composed text.
+            if (composingRef.current || e.nativeEvent.isComposing) return;
             if (e.key === "Enter") {
               e.preventDefault();
               commitTyped();
@@ -2109,8 +2334,15 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             }
           }}
           onBlur={() => {
-            const committed = commitTyped();
-            onBlur?.(committed !== undefined ? committed : value);
+            // finally: a shouldDisableDate (or onChange) that throws inside
+            // commitTyped must not also cost the parent its blur, which is
+            // the signal it validates on.
+            let committed: Date | undefined;
+            try {
+              committed = commitTyped();
+            } finally {
+              onBlur?.(committed !== undefined ? committed : value);
+            }
           }}
         />
         <button
