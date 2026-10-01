@@ -2,9 +2,9 @@
 
 Identity: BUGHUNT-react-locale-datepicker-2026-09-30
 
-Hunt status: sixth pass added BH-064 through BH-070. BH-015 is the same defect as BH-014 and is not a second fix.
+Hunt status: seventh pass added BH-071 through BH-080. BH-015 is the same defect as BH-014 and is not a second fix. BH-039 and BH-068 each gained a repro and were not given a new id.
 
-Reviewed BH-001 through BH-063. Combined BH-014 and BH-015 only: both are input `onBlur` running `commitTyped` while focus stays inside the picker. These pairs are related and stay separate:
+Reviewed BH-001 through BH-070. Combined BH-014 and BH-015 only: both are input `onBlur` running `commitTyped` while focus stays inside the picker. These pairs are related and stay separate:
 
 - BH-003 and BH-035 — extra group, versus an edit inside a complete date
 - BH-004 and BH-005 — unpadded year, versus the 0–99 `Date` mapping
@@ -12,18 +12,21 @@ Reviewed BH-001 through BH-063. Combined BH-014 and BH-015 only: both are input 
 - BH-009 and BH-017 — pen, versus Safari reporting a finger as `pointerType` `"mouse"`
 - BH-010 and BH-039 — disabled trigger never receives `mousedown`, versus `disabled` set while already open
 - BH-012, BH-040, and BH-046 — stale day after a chevron, focus dropped when the trigger closes, year view has no keymap
-- BH-013, BH-019, BH-020, BH-021, and BH-049 — different holes in the portaled popover
+- BH-013, BH-019, BH-020, BH-021, BH-049, and BH-080 — different holes in the portaled popover. BH-080 is a listener on the rendering document, so Escape and an outside press in the portal's document do nothing
 - BH-018 and BH-043 — outside press skips the commit, versus clear reports `missing` and then restores
-- BH-022 and BH-044 — selected-day ring, versus the field error border
+- BH-022, BH-044, and BH-078 — the ring matches the fill in minimal and high-contrast, versus the field error border, versus a different ring colour that is still under 3:1 against the selected fill in default and soft
 - BH-037 and BH-055 — open never leaves a month with no selectable day, versus a later predicate change inside that month
 - BH-047 and BH-051 — focus can leave a dialog that stays open, versus Tab from the field never entering a portaled dialog
 - BH-003 and BH-064 — a fourth group appended to the year, versus day and month rolling as soon as they hold two digits
 - BH-004 and BH-064 — an unpadded year on display, versus a year-first paste that commits the wrong year. After `2012-03-15` commits year 315, the field paints `20.12.315` because of BH-004
-- BH-035, BH-043, BH-065, and BH-041 — a mid-string edit, a cleared field, a mask that drops a character and still sets a draft, and Enter during composition
-- BH-039 and BH-065 — `disabled` does not stop `commitTyped`, versus a draft created when the visible text did not change
+- BH-035, BH-043, BH-065, BH-041, and BH-071 — a mid-string edit, a cleared field, a mask that drops a character and still sets a draft, Enter during composition, and an open composition rewritten before `compositionend`
+- BH-038 and BH-072 — a parent `value` change leaves the draft, versus `form.reset()` leaving the draft while `value` stays
+- BH-039 and BH-065 — `disabled` does not stop `commit`, `commitTyped`, or a focused day's Space/Enter, versus a draft created when the visible text did not change
 - BH-054 and BH-067 — locale digits versus Latin `getFullYear()`, versus an accessible name that drops Intl `literal` parts
-- BH-045, BH-046, and BH-068 — `scrollIntoView` moves the page, the year list has no arrow keymap, and the list omits a value year outside today−120..today+2
+- BH-045, BH-046, and BH-068 — `scrollIntoView` moves the page, the year list has no arrow keymap, and the list omits a year outside today−120..today+2, whether that year came from `value` or from `defaultCalendarMonth`
 - BH-007 and BH-069 — no `direction` prop, versus no `lang` from `locale`
+- BH-021 and BH-079 — a portaled popover misses the border-box reset and overflows at 320px, versus a 200% root font size pushing the in-tree header past a 320px viewport
+- BH-056, BH-074, BH-075, and BH-076 — the dialog has no name, the textbox carries an illegal `aria-expanded`, a wrapping label absorbs the calendar, and the trigger name ignores the field's `aria-label`
 
 BH-011 and BH-024 through BH-034 are tests that stay green. They are not copies of the product bugs they fail to catch.
 
@@ -441,13 +444,15 @@ Checked again on 2026-09-30 against the same tree, excluding BH-001 through BH-0
 ### BH-039
 
 - **File:** `src/LocaleDatePicker.tsx:1810` (day `onClick`) and `src/LocaleDatePicker.tsx:1054` (`openPopup`)
-- **What is wrong:** `disabled` is checked when opening and when typing. A day click checks `shouldDisableDate` only. `commitTyped` (`src/LocaleDatePicker.tsx:1273`) never reads `disabled` either, and Enter (`src/LocaleDatePicker.tsx:2007`) and blur (`src/LocaleDatePicker.tsx:2021`) both call it. Turning `disabled` on while a draft or the dialog is already open does not close the dialog, does not drop the draft, and choosing a day or pressing Enter still commits. The input is `readOnly` while disabled (`src/LocaleDatePicker.tsx:1941`), so a new keystroke does not start a draft. A draft that already exists still commits.
+- **What is wrong:** `disabled` is checked when opening and when typing. A day click checks `shouldDisableDate` only. `commitTyped` (`src/LocaleDatePicker.tsx:1273`) never reads `disabled` either, and Enter (`src/LocaleDatePicker.tsx:2007`) and blur (`src/LocaleDatePicker.tsx:2021`) both call it. `commit` (`src/LocaleDatePicker.tsx:1238`) does not read it either, and Space and Enter on a focused day both call `commit` (`src/LocaleDatePicker.tsx:1473`). Turning `disabled` on while a draft or the dialog is already open does not close the dialog, does not drop the draft, and choosing a day, pressing Enter in the field, or pressing Space or Enter on a focused day still commits. The grid path then closes the dialog, because `commit` always closes. The input is `readOnly` while disabled (`src/LocaleDatePicker.tsx:1941`), so a new keystroke does not start a draft. A draft that already exists still commits. A guard only on the day `onClick` misses the field and the grid keys. A `disabled` check at the start of `commit` covers the click and both grid keys; `commitTyped` still needs its own.
 - **Why it matters:** A form that disables this field because a prerequisite changed can still take a date from the calendar that is already on screen.
 - **How to reproduce:**
   1. Open on July 2026 with `disabled={false}`.
   2. Set `disabled` to true. The dialog is still present.
   3. Click the button whose `data-day` is `2026-6-20`. `onChange` fires with 20 July 2026 and the dialog closes.
   4. Separate path: value 17 July 2026, change the input to `18.07.2026`, then rerender with `disabled` true without blurring. Keydown Enter. `onChange` fires with 18 July 2026.
+  5. Value 15 July 2026, `today` the same day. Focus the input and press ArrowDown twice. Rerender with `disabled` true. The input is `readOnly` and the dialog is still open. Focus the day `2026-6-15` and press Space. `onChange` fires with 15 July 2026 and the dialog closes.
+  6. The same steps with Enter instead of Space. `onChange` fires with 15 July 2026. Enter and Space are one `case`.
 
 ### BH-040
 
@@ -701,7 +706,7 @@ Checked again on 2026-09-30. Items already in BH-001 through BH-056 were not ref
 
 ## Sixth pass
 
-Checked again on 2026-09-30 against BH-001 through BH-063. Each item below was reproduced with a jsdom render. Korean was checked and is not BH-067: the month part is already `1월`, so the day name `31 토요일 1월 2026` still contains the unit. A pointer click on a disabled day does not fill the keyboard-help region. The popover's screen-reader text does not widen the page. Selected-day and active-pill text clear 4.5:1 in the shipped themes (default selected day 5.17:1). Those were not filed.
+Checked again on 2026-09-30 against BH-001 through BH-063. Each item below was reproduced with a jsdom render. Korean was checked and is not BH-067: the month part is already `1월`, so the day name `31 토요일 1월 2026` still contains the unit. A pointer click on a disabled day does not fill the keyboard-help region. The popover's screen-reader text does not widen the page. Selected-day and active-pill text clear 4.5:1 in the default light theme (selected day 5.17:1). Default dark selected text is BH-077. Those light passes were not filed.
 
 ### BH-064
 
@@ -748,12 +753,13 @@ Checked again on 2026-09-30 against BH-001 through BH-063. Each item below was r
 ### BH-068
 
 - **File:** `src/LocaleDatePicker.tsx:1522` (`yearsRange`) and `src/LocaleDatePicker.tsx:1512` (scroll)
-- **What is wrong:** With no `minDate` or `maxDate` the year buttons run from today's year minus 120 through today's year plus 2. The open year's button is not added when the value sits outside that window. `data-current` and the scroll effect only match `viewMonth`'s year, so the list opens at the oldest year and nothing is marked current. Today 15 June 2026 and value 15 June 2029: the year pill contains `2029`, there are 123 buttons from `1906` through `2028`, `2029` is absent, and no `[data-part=year][data-current]` exists.
+- **What is wrong:** With no `minDate` or `maxDate` the year buttons run from today's year minus 120 through today's year plus 2. The open year's button is not added when that year sits outside the window. `data-current` and the scroll effect only match `viewMonth`'s year, so the list opens at the oldest year and nothing is marked current. Today 15 June 2026 and value 15 June 2029: the year pill contains `2029`, there are 123 buttons from `1906` through `2028`, `2029` is absent, and no `[data-part=year][data-current]` exists. The same window is used when there is no value and `defaultCalendarMonth` is 1 January 2030: the buttons still run from `1906` to `2028`, `2030` is absent, and no year button has `data-current`. The missing current mark is how that second run shows the open year is outside the list.
 - **Why it matters:** The year list is how a keyboard user jumps to the committed year. The year on the pill is not in the list, and the scroll that was supposed to bring the current year into view has no element to scroll. This is not BH-045 (that scroll moves the page when the element exists). Not BH-046 (the list has no arrow keymap even when the year is present). Days-grid chevrons are not capped by this window. Only the year list is.
 - **How to reproduce:**
   1. `today` 15 June 2026, `value` 15 June 2029. Open via the `/Change date/` trigger, then click `[data-part=year-pill]`.
   2. The pill text contains `2029`.
   3. The year buttons' texts run from `1906` to `2028`. `2029` is not among them. No year button has `data-current`.
+  4. Separate path: `value` null, `today` 15 June 2026, `defaultCalendarMonth` 1 January 2030. Open, then click `[data-part=year-pill]`. The year buttons run from `1906` to `2028`. `2030` is not among them. No year button has `data-current`.
 
 ### BH-069
 
@@ -774,3 +780,123 @@ Checked again on 2026-09-30 against BH-001 through BH-063. Each item below was r
   1. Value 17 July 2026. Open and activate the month pill.
   2. The button with `data-part="month"` and `data-current` is July.
   3. Its `aria-current`, `aria-selected`, and `aria-pressed` are all null. The same three are null on the current year button.
+
+## Seventh pass
+
+Checked again on 2026-09-30 against BH-001 through BH-070. BH-039 and BH-068 gained one repro each and were not given new ids. Each item below was reproduced in jsdom, or in Chromium where the entry says so. jsdom composition is not a real IME.
+
+Rechecked and not filed:
+
+- `minDate` after `maxDate` (1 June 2026 and 15 January 2020, today 30 September 2026) does not throw. The year list is empty and the months-view previous control stays enabled, then a click snaps the view to June 2026. That prop pair is invalid. It is not BH-068.
+- Month and year pills set `aria-expanded` and do not set `aria-controls`. `aria-expanded` is allowed on a button.
+- The month live region is born already filled. That is intentional. The keyboard-help region is the one that must be born empty.
+- The next-month button's name is the destination month.
+- The echo is not referenced by `aria-describedby`.
+- Padding cells, a disabled day's `aria-selected="false"`, and a focused day button without `aria-selected` match the shipped grid. Selection is on the gridcell because a button does not allow `aria-selected`.
+- English `DEFAULT_LABELS` for `locale="uk"` are the documented default.
+- The weekday headers that were checked matched their columns. `zz-ZZ` does not throw. An ArrowRight inside an iframe portal moved one day from the open value; the focused button had not replaced `focusDay` yet (BH-012).
+- A pointer press on a disabled day does not fill keyboard help, because the popover `mousedown` keeps focus in the input. The screen-reader help text does not widen the page. Active-pill text, echo text, and the disabled field at opacity 0.6 stay at or above 4.5:1.
+
+The default light selected day at 5.17:1, named in the sixth pass, is the light scheme. Dark is BH-077.
+
+### BH-071
+
+- **File:** `src/LocaleDatePicker.tsx:1987` (`onChange`) and `src/LocaleDatePicker.tsx:705` (`maskTyped`, fullwidth digits at `:715`)
+- **What is wrong:** There is no `onCompositionStart` or `onCompositionEnd` handler. A composition `input` is masked immediately, and React writes that string back while the composition is still open. `compositionend`'s `data` is never read. An empty field given `に` during composition becomes `""`. The same composition ended with `data` `"2"` and no follow-up `input` stays `""`. Fullwidth `１５` during composition becomes `"15"`.
+- **Why it matters:** An IME inserts provisional text that is not yet the committed digit. Masking it mid-composition deletes the provisional text, and a confirm that is not followed by another `input` never reaches the field. This is not BH-065. There the visible text does not change and a later blur commits or reports `missing`. Here the visible text changes while the composition is open. Not BH-041. These repros never press Enter. A later non-composing change of `"2"` does mask to `"2"`.
+- **How to reproduce:**
+  1. Empty field. `compositionstart`, then an `input` whose value is `に`. The input becomes `""`.
+  2. `compositionend` with `data` `"2"` and no further `input`. The input stays `""`.
+  3. A new composition whose `input` value is `１５`. The input becomes `"15"`.
+
+### BH-072
+
+- **File:** `src/LocaleDatePicker.tsx:1547` (`inputText`) and `src/LocaleDatePicker.tsx:1939` (`value={inputText}`)
+- **What is wrong:** The input shows the draft whenever `draft !== null`. Nothing listens for `reset`. `form.reset()` does not clear the draft, does not call `onChange`, and does not call `onValidationError`. The field keeps the uncommitted text. The parent value stays the previous date.
+- **Why it matters:** A form reset is how a page returns every control to the last submitted value. This control keeps what the visitor typed. This is not BH-038. There the parent replaced `value` and the draft stayed. Here `value` does not change. It is also not the roadmap clear control: reset is not being asked to commit `null`.
+- **How to reproduce:**
+  1. Committed value 17 July 2026. Change the input to `18.07.2026`.
+  2. Call `form.reset()`.
+  3. The input stays `18.07.2026`. The committed date stays 17 July 2026. `onChange` is not called.
+
+### BH-073
+
+- **File:** `src/LocaleDatePicker.tsx:1587` (`previousMonth ??`) and `src/LocaleDatePicker.tsx:1592` (`nextMonth ??`)
+- **What is wrong:** `??` only skips `null` and `undefined`. `labels.previousMonth: ""` is kept, so the previous-month button's `aria-label` is `""` instead of the Intl month title. `nextMonth` uses the same operator. An empty `nextMonth` was not given its own assertion.
+- **Why it matters:** The button is in the dialog and has no visible text of its own. An empty accessible name leaves it unnamed. A non-empty override still works: `previousMonth: "Prev"` on a `ja` picker left the month pill containing `1月` and the 31 January day name containing `土曜日`. An empty string is not that override.
+- **How to reproduce:**
+  1. Value 15 July 2026. `labels={{ previousMonth: "" }}`.
+  2. Open with mousedown on the trigger named `/Change date/`.
+  3. `[data-part='nav-previous']` has `aria-label` `""`.
+
+### BH-074
+
+- **File:** `src/LocaleDatePicker.tsx:1947` (`aria-expanded={open}`)
+- **What is wrong:** The input's implicit role is `textbox`. It always sets `aria-expanded` to the open flag, and it sets `aria-haspopup="dialog"`. It does not set `aria-controls`. The dialog's `id` is `""` (`src/LocaleDatePicker.tsx:1616` sets `aria-label` only). Axe on the open picker, with `aria-label="Departure"`, reports `aria-allowed-attr` for `aria-expanded="true"`. The trigger (`src/LocaleDatePicker.tsx:2026`, `tabIndex={-1}`) has no `aria-expanded`, `aria-haspopup`, or `aria-controls`. The closed attribute is `aria-expanded="false"`, which is the same disallowed attribute; the axe run was while open.
+- **Why it matters:** The suite's axe check is scoped to the dialog (`tests/accessibility.test.tsx:72`) and its comment calls the input's `aria-expanded` a known Track-5 item. `docs/ROADMAP.md` marks Track 5 complete. The attribute still ships, and the published check never sees it. This is not BH-056. The dialog can be named and axe still reports the textbox. Not BH-047 or BH-051.
+- **How to reproduce:**
+  1. Value 15 July 2026, `aria-label="Departure"`. Open with the `/Change date/` trigger.
+  2. `axe` on the picker container. The violation ids include `aria-allowed-attr`.
+  3. The input's `aria-controls` is null. The dialog's `id` is `""`.
+
+### BH-075
+
+- **File:** `src/LocaleDatePicker.tsx:1900` (root, which contains the input, the echo at `:2049`, and the in-tree dialog)
+- **What is wrong:** A wrapping `<label>` names the textbox from everything inside the label. With one picker, `en-GB`, value 17 June 2026, and the label text `Departure`, the closed accessible name is exactly `Departure Wednesday 17 June 2026`. The echo's long date is part of the field name, so the date is spoken as well as the field's own `17.06.2026`. Opening in-tree makes the name longer and adds another `June 2026`. The pass that measured the full string got `Departure Wednesday 17 June 2026 June 2026 June 2026 June 2026`: the live region, the month and year pills, and the grid label. `portal` leaves the dialog outside the label, and that same pass kept the closed name. Two pickers inside one `<label>Dates</label>` were measured in that pass only: the first textbox name was `Dates Wednesday 17 June 2026 02.07.2026 Thursday 2 July 2026` and the second name was empty.
+- **Why it matters:** The name is how the field is announced. Opening the calendar appends the month, the year, and the grid label to it, and a second picker in the same label loses its name. This is not BH-036 (capitalisation) and not BH-056 (the dialog's own name).
+- **How to reproduce:**
+  1. Wrap one picker in `<label>Departure …</label>`, `locale="en-GB"`, value 17 June 2026.
+  2. The closed textbox name is `Departure Wednesday 17 June 2026`.
+  3. Mousedown `[data-part=trigger]`. The open name is longer than the closed name and contains `June 2026`.
+
+### BH-076
+
+- **File:** `src/LocaleDatePicker.tsx:1603` (`triggerLabel`)
+- **What is wrong:** The trigger name is `Open calendar` when there is no value, and `Change date` plus the formatted value when there is one. It never includes the input's `aria-label`. The trigger is `tabIndex={-1}` and is still in the accessibility tree.
+- **Why it matters:** Two fields labelled `Start date` and `End date` expose triggers named `Open calendar` and `Change date, …`. The empty ones share one name. The textbox names stay correct. The fix is not the label walk in BH-075: that one is the contents of a wrapping `<label>`, and this one is the string built for the trigger.
+- **How to reproduce:**
+  1. Two pickers. The first has `aria-label="Start date"` and `value={null}`. The second has `aria-label="End date"` and value 2 July 2026.
+  2. The first trigger's `aria-label` is `Open calendar`.
+  3. The second trigger's `aria-label` contains `Change date` and does not contain `End date`.
+
+### BH-077
+
+- **File:** `src/styles.css:50` (`--rldp-accent-base`), `src/styles.css:52` (`--rldp-accent-foreground-base`), painted at `src/styles.css:576` and `src/styles.css:623`
+- **What is wrong:** In the default dark scheme the selected day is white, `rgb(255, 255, 255)`, on `rgb(59, 130, 246)`. Relative luminance gives 3.68:1. The text is 14px at weight 600, under the large-text cutoff, so the bar is 4.5:1. The current month and the current year use the same accent and accent-foreground pair and fail at the same ratio. The dark accent is `oklch(0.6231 0.188 259.81)` and the dark accent-foreground is `oklch(1 0 0)`. Soft dark hover is the same kind of pair at `src/styles.css:582`: foreground `oklch(0.2077 0.0398 265.75)` (`src/styles.css:186`) on hover accent `oklch(0.5854 0.2041 277.12)` (`src/styles.css:185`), measured as `rgb(15, 23, 42)` on `rgb(99, 102, 241)`, ratio 3.997. That hover figure is the Chromium pass. This session remeasured the default dark selected day only.
+- **Why it matters:** The selected day, the open month, and the open year are the marked cells. Their text is the part a reader has to see. Default light selected text at 5.17:1, named in the sixth pass, clears 4.5:1. This is the dark scheme. Not BH-022 (the ring matches the fill in minimal and high-contrast). Not BH-059 (the light error border).
+- **How to reproduce:**
+  1. Default theme, `html { color-scheme: dark }`, viewport wide enough for the 14px step. Wait until the 150ms background transition has settled.
+  2. A selected day's used color is white and its used background is `rgb(59, 130, 246)`. The contrast ratio is 3.68:1.
+  3. A `[data-current]` month or year computes the same two colors.
+
+### BH-078
+
+- **File:** `src/styles.css:642` (inset `outline`) and `src/styles.css:576` (selected fill)
+- **What is wrong:** Focus-visible draws `--rldp-ring` with `outline-offset` equal to the negative focus width, so the ring sits on the selected day's fill. In the default and soft themes that ring is under 3:1 against the fill. Default light: ring `rgb(59, 130, 246)` on fill `rgb(37, 99, 235)`, ratio 1.41, 2px inset. The same Chromium pass measured default dark, soft light, and soft dark in the 1.41–1.50 range. A screenshot of the focused selected day shows the outer 2px as the ring colour and the pixels inside it as the fill, so the negative offset does not clip the ring away. Minimal and high-contrast still match the fill exactly (ratio 1), which is BH-022. Against the popover background the same ring passes 3:1. The lowest of those is default light, 3.68.
+- **Why it matters:** The ring is the keyboard focus cue, and on the selected day it is drawn in a colour that barely differs from the cell. This is not BH-022. There the ring and the fill are the same colour. Here they differ, and the difference is still under 3:1. The ring ratios are that Chromium pass. This session remeasured the default dark text pair and the 200% overflow, which matched that pass, and did not remeasure these ring pixels.
+- **How to reproduce:**
+  1. Default theme, light scheme. Focus a selected day after the background transition has settled.
+  2. The outline colour resolves to `rgb(59, 130, 246)` and the fill to `rgb(37, 99, 235)`.
+  3. The contrast ratio is 1.41:1. The outer 2px of the button are the ring colour.
+
+### BH-079
+
+- **File:** `src/styles.css:407` (popover `max-width`), `src/styles.css:444` (header `nowrap`), and `src/styles.css:487` (pill `min-width` stays `auto`)
+- **What is wrong:** The popover caps at `calc(100vw - 1rem)`. The header does not wrap. Below 768px each nav button is one cell, `2.75rem` (`src/styles.css:64` and `src/styles.css:452`). The pills do not shrink below their text. At a 320×800 viewport with the root font size at 32px (200% of 16px), an `es` header whose month pill reads `septiembre` extends 17.73px past the popover's right edge. The year pill extends 182.92px past it and the next-month button 207.38px past it. `documentElement.scrollWidth` is 495 and `clientWidth` is 320. The popover's own right edge is at 288. The same measurement at 16px on a 320px viewport, at 16px on a 640px viewport, at 32px on a 1280px viewport, and at 16px on a 767px viewport does not push the pill past the popover. A scan of long month names in that Chromium pass put Akan `Ayɛwohomumu` 78.61px past the popover, with `scrollWidth` 556. That name was not remeasured this session.
+- **Why it matters:** 200% text is a normal page zoom. The month stays partly visible and the year and the next month are off the viewport, and the page scrolls sideways. This is not BH-021. That one is a portaled popover missing the border-box reset at the normal 16px root size. This one is in-tree, border-box, and only fails when the root font size doubles. `rem` follows the `html` font size. Setting the font size on `body` leaves `rem` at 16px and hides this.
+- **How to reproduce:**
+  1. Viewport 320×800. `html { font-size: 32px }`. In-tree popover, month label `septiembre`, year `2026`, both nav buttons present.
+  2. The month pill's right edge is 17.73px past the popover's right edge.
+  3. `documentElement.scrollWidth` is 495. `clientWidth` is 320.
+
+### BH-080
+
+- **File:** `src/LocaleDatePicker.tsx:1120` (Escape) and `src/LocaleDatePicker.tsx:1101` (outside `mousedown` and `touchstart`)
+- **What is wrong:** Both listeners are added to the document that rendered the picker. `portal` may be an element in another document. The comment on `portalTarget` (`src/LocaleDatePicker.tsx:916`) names an iframe host as a valid target. Escape dispatched on that iframe's document leaves the dialog open. A `mousedown` on a button in that iframe, outside the portal host, also leaves it open. Escape dispatched on the parent `document.body` closes the dialog. `touchstart` is registered beside `mousedown` and was not given its own event. A matcher that inspects the iframe node throws `Cannot read properties of undefined (reading 'name')` before it asserts anything. Compare the query result in the test realm.
+- **Why it matters:** The calendar was portaled into the other document so that document is where the visitor's keys and presses land. They never reach `close`. This is not BH-048. That one is two dialogs in one document and `stopPropagation` rather than `stopImmediatePropagation`. Not BH-051 (Tab from the field skips a portaled dialog). Not BH-013 (portaled `dir`).
+- **How to reproduce:**
+  1. Append an iframe, append a div to its document, and pass that div as `portal`. Value 15 July 2026.
+  2. Mousedown `[data-part=trigger]`. The dialog is in the iframe.
+  3. Inside `act`, dispatch Escape on the iframe document. The dialog stays.
+  4. Inside `act`, dispatch `mousedown` on a button in the iframe outside the host. The dialog stays.
+  5. Inside `act`, dispatch Escape on the parent `document.body`. The dialog is gone.
