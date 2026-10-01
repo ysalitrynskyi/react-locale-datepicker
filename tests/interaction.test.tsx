@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent } from "@testing-library/react";
+import { fireEvent, within } from "@testing-library/react";
 import { renderPicker, localDate, isoLocal } from "./helpers";
 
 describe("interaction: one-tap commit and close", () => {
@@ -73,9 +73,54 @@ describe("interaction: shouldDisableDate authority", () => {
       minDate: localDate(2026, 6, 1),
       maxDate: localDate(2026, 6, 31),
       shouldDisableDate: disabled,
+      locale: "en",
       onChange,
     });
-    await h.openViaClick();
+    await h.openViaKeyboard();
+    const gridName = () =>
+      within(h.dialog()).getByRole("grid").getAttribute("aria-label");
+    const activeDay = () => document.activeElement?.getAttribute("data-day");
+
+    // Bounded navigation, pointer half: the window is the month of July, so
+    // both header chevrons already sit at their limit and must not be
+    // pressable. A chevron that stays enabled is a way out of the range.
+    expect(h.headerPrev(), "June is before minDate").toBeDisabled();
+    expect(h.headerNext(), "August is after maxDate").toBeDisabled();
+
+    // Bounded navigation, keyboard half. ArrowDown enters the grid on the
+    // selected 15 July (data-day is month-indexed: July is 6).
+    await h.user.keyboard("{ArrowDown}");
+    expect(activeDay()).toBe("2026-6-15");
+
+    // Upper bound: a key that would land past maxDate is swallowed, and both
+    // the cursor and the visible month stay where they were.
+    await h.user.keyboard("{PageDown}"); // 15 August: past maxDate
+    expect(gridName(), "PageDown must not leave the allowed month").toBe(
+      "July 2026",
+    );
+    expect(activeDay()).toBe("2026-6-15");
+    await h.user.keyboard("{ArrowDown}{ArrowDown}"); // 22, then 29 July
+    expect(activeDay()).toBe("2026-6-29");
+    await h.user.keyboard("{ArrowDown}"); // 5 August: past maxDate
+    expect(gridName(), "ArrowDown must not roll into August").toBe(
+      "July 2026",
+    );
+    expect(activeDay()).toBe("2026-6-29");
+
+    // Lower bound, the same two ways.
+    await h.user.keyboard("{PageUp}"); // 29 June: before minDate
+    expect(gridName(), "PageUp must not leave the allowed month").toBe(
+      "July 2026",
+    );
+    expect(activeDay()).toBe("2026-6-29");
+    await h.user.keyboard("{ArrowUp}{ArrowUp}{ArrowUp}{ArrowUp}"); // 22, 15, 8, 1
+    expect(activeDay()).toBe("2026-6-1");
+    await h.user.keyboard("{ArrowUp}"); // 24 June: before minDate
+    expect(gridName(), "ArrowUp must not roll back into June").toBe(
+      "July 2026",
+    );
+    expect(activeDay()).toBe("2026-6-1");
+
     // Day 20 is inside min/max but disabled by predicate — still blocked.
     fireEvent.click(h.dayButton(20));
     expect(onChange).not.toHaveBeenCalled();
@@ -169,41 +214,73 @@ describe("interaction: month and year grids", () => {
       initialValue: localDate(2026, 5, 10),
       minDate: localDate(2024, 0, 1),
       maxDate: localDate(2028, 11, 31),
+      locale: "en",
     });
     await h.openViaClick();
-    // Open months grid via the month pill (aria-expanded).
-    const pills = () =>
-      Array.from(h.dialog().querySelectorAll("button[aria-expanded]"));
-    fireEvent.click(pills()[0]);
-    // Month grid: 12 buttons with month aria-labels, no data-day.
-    const monthButtons = Array.from(
-      h.dialog().querySelectorAll("button"),
-    ).filter(
-      (b) =>
-        !b.hasAttribute("data-day") &&
-        b.getAttribute("aria-expanded") === null &&
-        b.getAttribute("aria-label") &&
-        !/^\d{4}$/.test(b.textContent?.trim() ?? "") &&
-        b.getAttribute("aria-label") !==
-          h.headerPrev().getAttribute("aria-label") &&
-        b.getAttribute("aria-label") !==
-          h.headerNext().getAttribute("aria-label"),
-    );
-    // Simpler: after opening months view, count enabled/disabled month cells
-    // by their short-name text content length and grid.
-    const gridMonths = Array.from(h.dialog().querySelectorAll("button")).filter(
-      (b) => b.getAttribute("aria-label") && !b.hasAttribute("data-day"),
-    );
-    // 12 month cells + 2 header chevrons + 2 pills = 16; require ≥ 12 month labels.
-    const monthLabels = gridMonths.filter((b) => {
-      const label = b.getAttribute("aria-label") ?? "";
-      return !/^\d{4}$/.test(label) && !/\d{4}/.test(label);
-    });
-    expect(monthLabels.length).toBeGreaterThanOrEqual(12);
-    void monthButtons;
+    // Looked up by published data-part: the grids are what the anatomy says
+    // they are, wherever the DOM happens to nest them. Matching on dialog
+    // text instead cannot work here — the header already prints "2026".
+    const part = (name: string) =>
+      h.dialog().querySelector(`[data-part="${name}"]`);
+    const parts = (name: string) =>
+      Array.from(h.dialog().querySelectorAll(`[data-part="${name}"]`));
+    const label = (el: Element) => el.getAttribute("aria-label");
 
-    // Open years via the year pill.
-    fireEvent.click(pills()[1]);
-    expect(h.dialog().textContent).toMatch(/2024|2025|2026/);
+    // Days first: neither explicit grid is on screen yet.
+    expect(part("grid"), "the calendar opens on the days grid").not.toBeNull();
+    expect(part("months")).toBeNull();
+    expect(part("years")).toBeNull();
+
+    // The month pill swaps the days grid for twelve month buttons.
+    const monthPill = part("month-pill")!;
+    fireEvent.click(monthPill);
+    expect(monthPill).toHaveAttribute("aria-expanded", "true");
+    expect(
+      part("months"),
+      "the month pill must open a months grid",
+    ).not.toBeNull();
+    expect(part("grid"), "the months grid replaces the days grid").toBeNull();
+    expect(part("years")).toBeNull();
+    expect(
+      parts("year"),
+      "two explicit grids, not one list: no years among the months",
+    ).toHaveLength(0);
+    const monthNames = Array.from({ length: 12 }, (_, m) =>
+      new Intl.DateTimeFormat("en", { month: "long" }).format(
+        localDate(2026, m, 15),
+      ),
+    );
+    expect(parts("month").map(label)).toEqual(monthNames);
+    expect(
+      parts("month")
+        .filter((b) => b.hasAttribute("data-current"))
+        .map(label),
+      "the visible month (June) is the current one",
+    ).toEqual(["June"]);
+
+    // The year pill swaps that for a years grid spanning minDate..maxDate.
+    const yearPill = part("year-pill")!;
+    fireEvent.click(yearPill);
+    expect(yearPill).toHaveAttribute("aria-expanded", "true");
+    expect(part("years"), "the year pill must open a years grid").not.toBeNull();
+    expect(part("months"), "the years grid replaces the months grid").toBeNull();
+    expect(part("grid"), "and the days grid stays gone").toBeNull();
+    expect(
+      parts("month"),
+      "two explicit grids, not one list: no months among the years",
+    ).toHaveLength(0);
+    expect(parts("year").map((b) => b.textContent)).toEqual([
+      "2024",
+      "2025",
+      "2026",
+      "2027",
+      "2028",
+    ]);
+    expect(
+      parts("year")
+        .filter((b) => b.hasAttribute("data-current"))
+        .map((b) => b.textContent),
+      "the visible year is the current one",
+    ).toEqual(["2026"]);
   });
 });
