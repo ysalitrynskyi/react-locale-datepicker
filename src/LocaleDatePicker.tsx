@@ -308,6 +308,22 @@ export interface LocaleDatePickerProps {
    * fix, on the tap that *selected* a day and closed the calendar.
    */
   manualEntryOnTouch?: "second-tap" | "immediate";
+  /**
+   * Layout direction of the field and the calendar.
+   *
+   * - omitted (default): inherit the page's direction from the nearest
+   *   ancestor, as before — the page owns its layout, and a picker should not
+   *   flip on its own inside a form laid out the other way.
+   * - `"auto"`: derive it from `locale` (Arabic, Hebrew, Persian, Urdu and the
+   *   other right-to-left scripts lay out right to left) — for a picker whose
+   *   locale differs from the page's.
+   * - `"ltr"` / `"rtl"`: explicit.
+   *
+   * Whichever applies is also stamped on the popover, so a portaled calendar
+   * keeps the field's direction (a portal leaves the ancestor that set it).
+   * See docs/DECISIONS.md D19.
+   */
+  direction?: "ltr" | "rtl" | "auto";
 }
 
 /**
@@ -548,6 +564,30 @@ const ChevronDown: React.FC<IconProps> = ({ className, "data-part": part }) => (
 // useLayoutEffect warns during SSR; the popup only exists client-side.
 const useIsoLayoutEffect =
   typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
+
+// Text direction of a locale's script, for direction="auto". Intl.Locale
+// exposes it as textInfo (older engines: a property; newer: getTextInfo());
+// engines with neither fall back to the languages written right to left.
+const RTL_LANGUAGES = new Set([
+  "ar", "arc", "ckb", "dv", "fa", "he", "iw", "ks", "ps", "sd", "syr", "ug",
+  "ur", "yi",
+]);
+function localeDirection(locale: string): "ltr" | "rtl" {
+  try {
+    const l = new Intl.Locale(locale) as Intl.Locale & {
+      textInfo?: { direction?: string };
+      getTextInfo?: () => { direction?: string };
+    };
+    const info =
+      typeof l.getTextInfo === "function" ? l.getTextInfo() : l.textInfo;
+    if (info?.direction === "rtl" || info?.direction === "ltr") {
+      return info.direction;
+    }
+    return RTL_LANGUAGES.has(l.language) ? "rtl" : "ltr";
+  } catch {
+    return "ltr";
+  }
+}
 
 // First day of week as a JS day index (0=Sun..6=Sat). Uses Intl weekInfo
 // where available (Chrome/Safari property, Firefox method), else Monday —
@@ -1037,6 +1077,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   icons,
   portal = false,
   manualEntryOnTouch = "second-tap",
+  direction,
 }) => {
   const resolvedLocale = resolveLocale(locale);
 
@@ -1197,6 +1238,23 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         ? portal
         : null;
   const usePortal = portalTarget !== null;
+
+  // Direction (prop `direction`, decision D19). An explicit or locale-derived
+  // direction is stamped on the root; an inherited one is read from the
+  // root's computed style when the popover is measured, because only layout
+  // knows what an ancestor's dir (including dir="auto") resolved to.
+  const localeDir = React.useMemo(
+    () => localeDirection(resolvedLocale),
+    [resolvedLocale],
+  );
+  const explicitDir =
+    direction === "auto"
+      ? localeDir
+      : direction === "ltr" || direction === "rtl"
+        ? direction
+        : undefined;
+  const [inheritedDir, setInheritedDir] = React.useState<"ltr" | "rtl">("ltr");
+  const effectiveDir = explicitDir ?? inheritedDir;
 
   const weekStart = React.useMemo(
     () => firstDayOfWeek(resolvedLocale),
@@ -1504,24 +1562,96 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     return () => form.removeEventListener("reset", onReset);
   }, [setDraft]);
 
-  // Copy --rldp-* custom properties and color-scheme from the component
-  // root onto a portaled popover. Portaling detaches the node from the
-  // root's inheritance chain, so without this an ancestor theme (or a
-  // token set on a form card) would silently stop applying to the calendar.
+  // Copy --rldp-* custom properties, color-scheme and the inherited
+  // typography from the component root onto a portaled popover. Portaling
+  // detaches the node from the root's inheritance chain, so without this an
+  // ancestor theme (or a token set on a form card) would silently stop
+  // applying to the calendar, and it would paint in the page's font instead
+  // of the form's. Tokens that disappear from the root (a theme removed) are
+  // removed again, and nothing is rewritten that has not changed.
+  const copiedTokensRef = React.useRef<Set<string>>(new Set());
   const syncPortaledTheme = React.useCallback(() => {
     const root = rootRef.current;
     const pop = popupRef.current;
-    if (!root || !pop) return;
-    const cs = getComputedStyle(root);
+    const win = root?.ownerDocument.defaultView;
+    if (!root || !pop || !win) return;
+    const cs = win.getComputedStyle(root);
+    const seen = new Set<string>();
     for (let i = 0; i < cs.length; i++) {
       const name = cs.item(i);
-      if (name.startsWith("--rldp")) {
-        pop.style.setProperty(name, cs.getPropertyValue(name));
+      if (!name.startsWith("--rldp")) continue;
+      seen.add(name);
+      const v = cs.getPropertyValue(name);
+      if (pop.style.getPropertyValue(name) !== v) pop.style.setProperty(name, v);
+    }
+    for (const name of copiedTokensRef.current) {
+      if (!seen.has(name)) pop.style.removeProperty(name);
+    }
+    copiedTokensRef.current = seen;
+    for (const prop of [
+      "color-scheme",
+      "font-family",
+      "line-height",
+      "letter-spacing",
+    ]) {
+      const v = cs.getPropertyValue(prop);
+      if (v && pop.style.getPropertyValue(prop) !== v) {
+        pop.style.setProperty(prop, v);
       }
     }
-    const scheme = cs.colorScheme;
-    if (scheme) pop.style.colorScheme = scheme;
   }, []);
+
+  // Keep those copies live. A theme toggled while the calendar is open (a
+  // .dark class on an ancestor, themeName, the OS scheme) used to leave a
+  // portaled calendar on the colours copied when it opened. Changes inside
+  // the popover itself are ignored: syncing writes there.
+  React.useEffect(() => {
+    if (!open || !usePortal) return;
+    const root = rootRef.current;
+    const doc = root?.ownerDocument;
+    const win = doc?.defaultView;
+    if (!root || !doc || !win) return;
+    let frame = 0;
+    const schedule = () => {
+      if (frame) return;
+      frame = win.requestAnimationFrame(() => {
+        frame = 0;
+        syncPortaledTheme();
+      });
+    };
+    const Observer = (win as Window & typeof globalThis).MutationObserver;
+    const observer = Observer
+      ? new Observer((records) => {
+          if (records.some((r) => !popupRef.current?.contains(r.target))) {
+            schedule();
+          }
+        })
+      : null;
+    observer?.observe(doc.documentElement, {
+      attributes: true,
+      subtree: true,
+      attributeFilter: [
+        "class",
+        "style",
+        "data-theme",
+        "data-rldp-theme",
+        "dir",
+        "lang",
+      ],
+    });
+    let scheme: MediaQueryList | null = null;
+    try {
+      scheme = win.matchMedia?.("(prefers-color-scheme: dark)") ?? null;
+    } catch {
+      scheme = null;
+    }
+    scheme?.addEventListener?.("change", schedule);
+    return () => {
+      observer?.disconnect();
+      scheme?.removeEventListener?.("change", schedule);
+      if (frame) win.cancelAnimationFrame(frame);
+    };
+  }, [open, usePortal, syncPortaledTheme]);
 
   // Position the popup from its real rendered size: flip above the field
   // when the space below is too small, and shift (or, when portaled, place)
@@ -1558,12 +1688,25 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       const fits = spaceBelow < ph + 8 && r.top > spaceBelow;
       const up = flipRef.current ?? fits;
       flipRef.current = up;
+      // In a right-to-left layout the calendar opens from the field's start
+      // edge, which is its right. It used to be placed by a physical left in
+      // both directions, so in RTL it hung off the far end of a wide field.
+      const rtl = explicitDir
+        ? explicitDir === "rtl"
+        : window.getComputedStyle(root).direction === "rtl";
+      if (!explicitDir) setInheritedDir(rtl ? "rtl" : "ltr");
+      const maxLeft = window.innerWidth - 8 - pw;
       if (usePortal) {
-        let left = r.left;
-        const maxLeft = window.innerWidth - 8 - pw;
+        let left = rtl ? r.right - pw : r.left;
         if (left > maxLeft) left = maxLeft;
         if (left < 8) left = 8;
-        const top = up ? r.top - ph - 4 : r.bottom + 4;
+        // Clamped vertically too. A flip above a field low on a short screen
+        // put the top of the calendar — the month it opened to show — above
+        // the viewport, and a fixed box cannot be scrolled to. When it is
+        // taller than the viewport, CSS caps its height and it scrolls inside.
+        let top = up ? r.top - ph - 4 : r.bottom + 4;
+        if (top > window.innerHeight - 8 - ph) top = window.innerHeight - 8 - ph;
+        if (top < 8) top = 8;
         setPos((p) =>
           p.up === up && p.top === top && p.left === left && p.shift === 0
             ? p
@@ -1571,9 +1714,8 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
         );
         syncPortaledTheme();
       } else {
-        let shift = 0;
-        const maxLeft = window.innerWidth - 8 - pw;
-        if (r.left > maxLeft) shift = maxLeft - r.left;
+        let shift = rtl ? r.width - pw : 0;
+        if (r.left + shift > maxLeft) shift = maxLeft - r.left;
         if (r.left + shift < 8) shift = 8 - r.left;
         setPos((p) =>
           p.up === up && p.shift === shift && p.top === 0 && p.left === 0
@@ -1591,32 +1733,30 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     measure();
 
     if (!usePortal) return;
-    // Capture-phase scroll catches overflow containers between the field and
-    // the viewport — window scroll alone would leave the fixed calendar behind.
+    // A fixed popover has to follow the field on its own: scrolling (of the
+    // page or of any container between the field and the viewport),
+    // resizing, and every layout change that moves or grows the field — an
+    // error message inserted above it, the echo appearing under it — which
+    // fire no event at all. Scroll and resize listeners caught only the
+    // first two, so the calendar detached from a field that moved.
     //
-    // Coalesced to one measure per frame. `measure` reads
-    // getBoundingClientRect + offsetHeight + offsetWidth, so it forces layout
-    // three times; scroll fires far faster than a frame on a touch device, and
-    // this component's whole reason to exist is running on checkout forms,
-    // where a janky calendar during a scroll is very visible. Positioning can
-    // only be observed once per paint anyway, so the extra work bought nothing.
+    // One getBoundingClientRect per frame while the calendar is open, and a
+    // full measure (three forced layouts) only on frames where the field's
+    // box or the viewport actually changed.
     let frame = 0;
-    const onScrollOrResize = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        // The popup can unmount between the event and the frame.
-        if (popupRef.current) measure();
-      });
+    let last = "";
+    const track = () => {
+      frame = requestAnimationFrame(track);
+      if (!popupRef.current) return;
+      const r = root.getBoundingClientRect();
+      const key = `${r.top} ${r.left} ${r.width} ${r.height} ${window.innerWidth} ${window.innerHeight}`;
+      if (key === last) return;
+      last = key;
+      measure();
     };
-    window.addEventListener("scroll", onScrollOrResize, true);
-    window.addEventListener("resize", onScrollOrResize);
-    return () => {
-      if (frame) cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onScrollOrResize, true);
-      window.removeEventListener("resize", onScrollOrResize);
-    };
-  }, [open, view, viewMonth, usePortal, syncPortaledTheme]);
+    frame = requestAnimationFrame(track);
+    return () => cancelAnimationFrame(frame);
+  }, [open, view, viewMonth, usePortal, syncPortaledTheme, explicitDir]);
 
   // Swallow the second click of an accidental double-click on a day: once the
   // popup unmounts it would land on whatever control renders underneath and
@@ -1877,9 +2017,14 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const canPrevMonth = monthKey(viewMonth) > minMonth;
   const canNextMonth = monthKey(viewMonth) < maxMonth;
 
-  const isRTL = () =>
-    typeof document !== "undefined" &&
-    (rootRef.current?.closest("[dir]") as HTMLElement | null)?.dir === "rtl";
+  // Live, for the key handlers: the computed direction, so an ancestor's
+  // dir="auto" counts (the element's own .dir property only says "auto").
+  const isRTL = (): boolean => {
+    if (explicitDir) return explicitDir === "rtl";
+    const root = rootRef.current;
+    const win = root?.ownerDocument.defaultView;
+    return !!root && !!win && win.getComputedStyle(root).direction === "rtl";
+  };
 
   const focusGridDay = (d: Date) => {
     keyboardNavRef.current = true;
@@ -2274,6 +2419,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const popoverTree = !open ? null : (
             <div
               ref={popupRef}
+              dir={effectiveDir}
               role="dialog"
               aria-label={ariaLabel}
               // Keep focus in the input while clicking inside the popup: a
@@ -2602,6 +2748,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   return (
     <div
       ref={rootRef}
+      dir={explicitDir}
       data-rldp-theme={themeName}
       {...slotProps("root", cx("rldp-root", className))}
       onBlur={onWidgetBlur}

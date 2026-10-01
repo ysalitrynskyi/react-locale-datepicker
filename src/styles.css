@@ -314,11 +314,15 @@
    * Scoped to the component's own subtree so it cannot leak into consumer
    * markup, and inside :where() so a consumer who deliberately wants
    * content-box on a part can still say so.
+   *
+   * The popover is listed separately because a portal moves it out of the
+   * root's subtree; without it a portaled calendar went back to content-box
+   * and overflowed a 320px viewport by the same ten pixels.
    */
-  :where(.rldp-root),
-  :where(.rldp-root) :where(*),
-  :where(.rldp-root) :where(*)::before,
-  :where(.rldp-root) :where(*)::after {
+  :where(.rldp-root, .rldp-popover),
+  :where(.rldp-root, .rldp-popover) :where(*),
+  :where(.rldp-root, .rldp-popover) :where(*)::before,
+  :where(.rldp-root, .rldp-popover) :where(*)::after {
     box-sizing: border-box;
   }
 
@@ -432,6 +436,12 @@
     position: fixed;
     margin-top: 0;
     margin-bottom: 0;
+    /* A fixed box cannot be scrolled into view, so on a viewport shorter
+     * than the calendar it scrolls inside instead (the component clamps its
+     * top into the viewport). dvh where supported: mobile toolbars. */
+    max-height: calc(100vh - 1rem);
+    max-height: calc(100dvh - 1rem);
+    overflow-y: auto;
   }
   :where(.rldp-popover[data-portaled][data-placement="bottom"]),
   :where(.rldp-popover[data-portaled][data-placement="top"]) {

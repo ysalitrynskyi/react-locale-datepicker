@@ -31,6 +31,13 @@ type HarnessConfig = {
   overflowHidden: boolean;
   /** Opt into the portal escape (`portal={true}` on the component). */
   portal: boolean;
+  /** The component's own `direction` prop. */
+  direction: "ltr" | "rtl" | "auto" | undefined;
+  /** Wrap the picker in an element with this literal dir attribute
+   *  ("auto" is given a right-to-left first strong character). */
+  wrapDir: string | null;
+  /** Wrap the picker in an element with this font-family. */
+  ancestorFont: string | null;
 };
 
 function parseIsoLocal(iso: string | null): Date | null {
@@ -69,6 +76,10 @@ function readConfig(): HarnessConfig {
     showTodayMarker: params.get("showTodayMarker") !== "0",
     overflowHidden: params.get("overflowHidden") === "1",
     portal: params.get("portal") === "1",
+    direction:
+      (params.get("direction") as HarnessConfig["direction"]) ?? undefined,
+    wrapDir: params.get("wrapDir"),
+    ancestorFont: params.get("ancestorFont"),
   };
 }
 
@@ -103,6 +114,21 @@ function App() {
           data-testid="accent-wrapper"
           style={{ ["--rldp-accent" as string]: cfg.ancestorAccent }}
         >
+          {out}
+        </div>
+      );
+    }
+    if (cfg.ancestorFont) {
+      out = (
+        <div data-testid="font-wrapper" style={{ fontFamily: cfg.ancestorFont }}>
+          {out}
+        </div>
+      );
+    }
+    if (cfg.wrapDir) {
+      out = (
+        <div data-testid="dir-wrapper" dir={cfg.wrapDir}>
+          {cfg.wrapDir === "auto" ? <span>مرحبا</span> : null}
           {out}
         </div>
       );
@@ -160,6 +186,7 @@ function App() {
           showWeekdayHeader={cfg.showWeekdayHeader}
           showTodayMarker={cfg.showTodayMarker}
           portal={cfg.portal}
+          direction={cfg.direction}
           onBlur={(current) => setLastBlur(toIsoLocal(current))}
           onDisabledOpenAttempt={() => setDisabledAttempts((n) => n + 1)}
         />,
