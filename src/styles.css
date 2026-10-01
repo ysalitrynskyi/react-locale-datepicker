@@ -41,19 +41,19 @@
     --rldp-background-base: light-dark(oklch(1 0 0), oklch(0.2101 0.0318 264.66));
     --rldp-foreground-base: light-dark(oklch(0.2101 0.0318 264.66), oklch(0.9846 0.0017 247.84));
     --rldp-muted-foreground-base: light-dark(oklch(0.4461 0.0263 256.8), oklch(0.7137 0.0192 261.32));
-    --rldp-faint-foreground-base: light-dark(oklch(0.551 0.0234 264.36), oklch(0.551 0.0234 264.36));
+    --rldp-faint-foreground-base: light-dark(oklch(0.551 0.0234 264.36), oklch(0.6075 0.0234 264.36));
     --rldp-disabled-foreground-base: light-dark(oklch(0.7137 0.0192 261.32), oklch(0.4461 0.0263 256.8));
     --rldp-border-base: light-dark(oklch(0.9276 0.0058 264.53), oklch(0.3729 0.0306 259.73));
     --rldp-border-strong-base: light-dark(oklch(0.8717 0.0093 258.34), oklch(0.4461 0.0263 256.8));
     --rldp-surface-base: light-dark(oklch(0.9846 0.0017 247.84), oklch(0.2781 0.0296 256.85));
     --rldp-hover-base: light-dark(oklch(0.967 0.0029 264.54), oklch(0.2781 0.0296 256.85));
     --rldp-accent-base: light-dark(oklch(0.5461 0.2152 262.88), oklch(0.6231 0.188 259.81));
-    --rldp-accent-hover-base: light-dark(oklch(0.4882 0.2172 264.38), oklch(0.5461 0.2152 262.88));
-    --rldp-accent-foreground-base: light-dark(oklch(1 0 0), oklch(1 0 0));
+    --rldp-accent-hover-base: light-dark(oklch(0.4882 0.2172 264.38), oklch(0.7137 0.1434 254.62));
+    --rldp-accent-foreground-base: light-dark(oklch(1 0 0), oklch(0.2101 0.0318 264.66));
     --rldp-accent-soft-base: light-dark(oklch(0.9705 0.0142 254.6), oklch(0.3462 0.0736 256.04));
     --rldp-accent-soft-foreground-base: light-dark(oklch(0.4882 0.2172 264.38), oklch(0.8823 0.0571 254.13));
-    --rldp-today-ring-base: light-dark(oklch(0.7137 0.1434 254.62), oklch(0.6231 0.188 259.81));
-    --rldp-error-base: light-dark(oklch(0.7106 0.1661 22.22), oklch(0.7106 0.1661 22.22));
+    --rldp-today-ring-base: light-dark(oklch(0.6231 0.188 259.81), oklch(0.6231 0.188 259.81));
+    --rldp-error-base: light-dark(oklch(0.5771 0.2152 27.33), oklch(0.7106 0.1661 22.22));
     --rldp-ring-base: light-dark(oklch(0.6231 0.188 259.81), oklch(0.7137 0.1434 254.62));
 
     /* Shape, type and layout knobs. */
@@ -68,7 +68,7 @@
     --rldp-shadow-base:
       0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
-    color-scheme: light dark;
+    color-scheme: var(--rldp-color-scheme, light dark);
     position: relative;
     width: 100%;
     font-family: var(--rldp-font, var(--rldp-font-base));
@@ -77,8 +77,12 @@
   /* Fine-pointer/desktop density, matching the original responsive sizing
    * (44px cells below 768px, 36px above). Setting the -base value, not the
    * public token, so a consumer's --rldp-cell-size still wins at every
-   * width rather than only below the breakpoint. */
-  @media (min-width: 768px) {
+   * width rather than only below the breakpoint.
+   *
+   * Only for a fine primary pointer. On a tablet at 768px and up the field
+   * used to drop to 14px, and mobile Safari zooms the page when a focused
+   * input's text is under 16px; touch devices also keep the 44px targets. */
+  @media (min-width: 768px) and (pointer: fine) {
     :where(.rldp-root) {
       --rldp-cell-size-base: 2.25rem;
       --rldp-font-size-base: 0.875rem;
@@ -88,14 +92,19 @@
   /* App-managed theme override: the nearest .dark/.light ancestor or
    * [data-theme] wins over the OS preference. Both class and attribute
    * spellings are honoured for compatibility with common theme togglers.
-   * Forcing color-scheme flips every light-dark() pair above at once. */
-  :where(.dark, [data-theme="dark"]) :where(.rldp-root),
-  :where(.rldp-root):where(.dark, [data-theme="dark"]) {
-    color-scheme: dark;
+   * Forcing color-scheme flips every light-dark() pair above at once.
+   *
+   * Expressed as an inherited custom property the root reads, because
+   * "nearest ancestor wins" is what inheritance does. Two descendant rules
+   * (.dark .rldp-root, .light .rldp-root) both matched whenever both classes
+   * were present, and the later one won regardless of which was nearer — a
+   * dark card on a .light page rendered light. A consumer can also set
+   * --rldp-color-scheme directly. */
+  :where(.dark, [data-theme="dark"]) {
+    --rldp-color-scheme: dark;
   }
-  :where(.light, [data-theme="light"]) :where(.rldp-root),
-  :where(.rldp-root):where(.light, [data-theme="light"]) {
-    color-scheme: light;
+  :where(.light, [data-theme="light"]) {
+    --rldp-color-scheme: light;
   }
 
   /* --- Named themes -----------------------------------------------------
@@ -148,7 +157,7 @@
     --rldp-background: light-dark(oklch(1 0 0), oklch(0.1695 0.022 267.28));
     --rldp-foreground: light-dark(oklch(0.2101 0.0318 264.66), oklch(0.9846 0.0017 247.84));
     --rldp-muted-foreground: light-dark(oklch(0.4419 0.0146 285.79), oklch(0.7118 0.0129 286.07));
-    --rldp-faint-foreground: light-dark(oklch(0.5517 0.0138 285.94), oklch(0.5517 0.0138 285.94));
+    --rldp-faint-foreground: light-dark(oklch(0.5517 0.0138 285.94), oklch(0.5875 0.0138 285.94));
     --rldp-disabled-foreground: light-dark(oklch(0.8227 0.0111 286.15), oklch(0.4154 0.0115 285.89));
     --rldp-border: transparent;
     --rldp-border-strong: transparent;
@@ -175,14 +184,14 @@
     --rldp-background: light-dark(oklch(0.9842 0.0034 247.86), oklch(0.2077 0.0398 265.75));
     --rldp-foreground: light-dark(oklch(0.2077 0.0398 265.75), oklch(0.9683 0.0069 247.9));
     --rldp-muted-foreground: light-dark(oklch(0.4455 0.0374 257.28), oklch(0.7107 0.0351 256.79));
-    --rldp-faint-foreground: light-dark(oklch(0.5544 0.0407 257.42), oklch(0.5544 0.0407 257.42));
+    --rldp-faint-foreground: light-dark(oklch(0.5544 0.0407 257.42), oklch(0.605 0.0407 257.42));
     --rldp-disabled-foreground: light-dark(oklch(0.7107 0.0351 256.79), oklch(0.4455 0.0374 257.28));
     --rldp-border: light-dark(oklch(0.9288 0.0126 255.51), oklch(0.3717 0.0392 257.29));
     --rldp-border-strong: light-dark(oklch(0.869 0.0198 252.89), oklch(0.4455 0.0374 257.28));
     --rldp-surface: light-dark(oklch(0.9683 0.0069 247.9), oklch(0.2795 0.0368 260.03));
     --rldp-hover: light-dark(oklch(0.9288 0.0126 255.51), oklch(0.3717 0.0392 257.29));
     --rldp-accent: light-dark(oklch(0.5106 0.2301 276.97), oklch(0.6801 0.1583 276.93));
-    --rldp-accent-hover: light-dark(oklch(0.4568 0.2146 277.02), oklch(0.5854 0.2041 277.12));
+    --rldp-accent-hover: light-dark(oklch(0.4568 0.2146 277.02), oklch(0.7857 0.1153 274.71));
     --rldp-accent-foreground: light-dark(oklch(1 0 0), oklch(0.2077 0.0398 265.75));
     --rldp-accent-soft: light-dark(oklch(0.9619 0.0179 272.31), oklch(0.3588 0.1354 278.7));
     --rldp-accent-soft-foreground: light-dark(oklch(0.4568 0.2146 277.02), oklch(0.8699 0.0622 274.04));
@@ -260,6 +269,8 @@
       --rldp-surface-base: #f8fafc;
       --rldp-hover-base: #f3f4f6;
       --rldp-accent-base: #2563eb;
+      --rldp-accent-foreground-base: #ffffff;
+      --rldp-error-base: #dc2626;
     }
     @media (prefers-color-scheme: dark) {
       :where(.rldp-root) {
@@ -273,6 +284,8 @@
         --rldp-surface-base: #1f2937;
         --rldp-hover-base: #1f2937;
         --rldp-accent-base: #60a5fa;
+        --rldp-accent-foreground-base: #111827;
+        --rldp-error-base: #f87171;
       }
     }
     /* The app-managed override flips color-scheme, which does nothing here,
@@ -288,6 +301,8 @@
       --rldp-surface-base: #1f2937;
       --rldp-hover-base: #1f2937;
       --rldp-accent-base: #60a5fa;
+      --rldp-accent-foreground-base: #111827;
+      --rldp-error-base: #f87171;
     }
     :where(.light, [data-theme="light"]) :where(.rldp-root),
     :where(.rldp-root):where(.light, [data-theme="light"]) {
@@ -300,6 +315,33 @@
       --rldp-surface-base: #f8fafc;
       --rldp-hover-base: #f3f4f6;
       --rldp-accent-base: #2563eb;
+      --rldp-accent-foreground-base: #ffffff;
+      --rldp-error-base: #dc2626;
+    }
+    /* Named themes are built from light-dark() pairs too, and they set the
+     * PUBLIC tokens, which a var() fallback does not rescue: a defined but
+     * unusable value is invalid at computed-value time, so the field,
+     * popover and selected day painted transparent. Here every named theme
+     * degrades to the plain theme instead, like the rest of the detail. */
+    :where([data-rldp-theme]) {
+      --rldp-background: initial;
+      --rldp-foreground: initial;
+      --rldp-muted-foreground: initial;
+      --rldp-faint-foreground: initial;
+      --rldp-disabled-foreground: initial;
+      --rldp-border: initial;
+      --rldp-border-strong: initial;
+      --rldp-surface: initial;
+      --rldp-hover: initial;
+      --rldp-accent: initial;
+      --rldp-accent-hover: initial;
+      --rldp-accent-foreground: initial;
+      --rldp-accent-soft: initial;
+      --rldp-accent-soft-foreground: initial;
+      --rldp-today-ring: initial;
+      --rldp-error: initial;
+      --rldp-ring: initial;
+      --rldp-shadow: initial;
     }
   }
 
@@ -341,15 +383,33 @@
   :where(.rldp-field:focus-within) {
     border-color: var(--rldp-accent, var(--rldp-accent-base));
   }
-  :where(.rldp-field[data-error]) {
-    border-color: var(--rldp-error, var(--rldp-error-base));
-  }
   :where(.rldp-field[data-disabled]) {
     background: var(--rldp-surface, var(--rldp-surface-base));
     opacity: 0.6;
   }
+  /* A disabled field is still focusable (it is readOnly, so its value can be
+   * selected and read), so focus must show. It used to reset the border to
+   * the plain token — transparent in the minimal theme — which left no cue
+   * at all and, coming after the error rule, also erased the error border.
+   * A neutral ring marks focus without making the field look editable. */
   :where(.rldp-field[data-disabled]:focus-within) {
     border-color: var(--rldp-border, var(--rldp-border-base));
+    outline: var(--rldp-focus-width, var(--rldp-focus-width-base)) solid
+      var(--rldp-faint-foreground, var(--rldp-faint-foreground-base));
+    outline-offset: 2px;
+  }
+  /* After the disabled rule, so an error border survives focus and
+   * disabling alike. */
+  :where(.rldp-field[data-error]) {
+    border-color: var(--rldp-error, var(--rldp-error-base));
+  }
+  /* The error colour owns the border, so focus on an errored field used to
+   * change nothing at all. A ring in the error colour outside the border
+   * marks it. */
+  :where(.rldp-field[data-error]:focus-within) {
+    outline: var(--rldp-focus-width, var(--rldp-focus-width-base)) solid
+      var(--rldp-error, var(--rldp-error-base));
+    outline-offset: 2px;
   }
 
   :where(.rldp-input) {
@@ -362,11 +422,12 @@
     color: var(--rldp-foreground, var(--rldp-foreground-base));
     touch-action: manipulation;
   }
+  /* The placeholder is the only statement of the fixed dd.MM.yyyy format on
+   * an empty field, so it is text that must be read (4.5:1). It used the
+   * disabled-day token, which is meant for inactive controls and sat near
+   * 2.5:1. */
   :where(.rldp-input)::placeholder {
-    color: var(
-      --rldp-disabled-foreground,
-      var(--rldp-disabled-foreground-base)
-    );
+    color: var(--rldp-faint-foreground, var(--rldp-faint-foreground-base));
   }
   :where(.rldp-input:read-only) {
     cursor: not-allowed;
@@ -452,10 +513,14 @@
 
   /* --- Header ----------------------------------------------------------- */
 
+  /* A three-column grid whose middle column can shrink to nothing: at 200%
+   * text on a 320px viewport (WCAG reflow) the pills used to push the year
+   * and the next-month button past the popover and scroll the page
+   * sideways. The pills now wrap, and their text breaks, instead. */
   :where(.rldp-header) {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    justify-content: space-between;
     gap: 0.25rem;
     margin-bottom: 0.5rem;
   }
@@ -494,8 +559,11 @@
 
   :where(.rldp-selects) {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: 0.375rem;
+    min-width: 0;
   }
 
   :where(.rldp-pill) {
@@ -510,6 +578,8 @@
     color: var(--rldp-foreground, var(--rldp-foreground-base));
     font-size: var(--rldp-font-size, var(--rldp-font-size-base));
     font-weight: 600;
+    max-width: 100%;
+    overflow-wrap: anywhere;
     cursor: pointer;
     touch-action: manipulation;
   }
@@ -582,19 +652,6 @@
   :where(.rldp-day:hover) {
     background: var(--rldp-accent-soft, var(--rldp-accent-soft-base));
   }
-  :where(.rldp-day[data-today]) {
-    box-shadow: inset 0 0 0 1px
-      var(--rldp-today-ring, var(--rldp-today-ring-base));
-  }
-  :where(.rldp-day[data-selected]) {
-    background: var(--rldp-accent, var(--rldp-accent-base));
-    color: var(--rldp-accent-foreground, var(--rldp-accent-foreground-base));
-    font-weight: 600;
-    box-shadow: none;
-  }
-  :where(.rldp-day[data-selected]:hover) {
-    background: var(--rldp-accent-hover, var(--rldp-accent-hover-base));
-  }
   :where(.rldp-day[data-disabled]) {
     color: var(
       --rldp-disabled-foreground,
@@ -602,6 +659,26 @@
     );
     cursor: not-allowed;
     background: transparent;
+  }
+  :where(.rldp-day[data-today]) {
+    box-shadow: inset 0 0 0 1px
+      var(--rldp-today-ring, var(--rldp-today-ring-base));
+  }
+  /* After the disabled rule: the committed value can be a day the predicate
+   * now rejects (a rule added after the date was stored), and it must still
+   * read as the selection, not fade into a 2.5:1 inactive day. Printed with
+   * its colours (print-color-adjust), because a printer's default drops
+   * backgrounds and left the selected day the faintest cell on the page. */
+  :where(.rldp-day[data-selected]) {
+    background: var(--rldp-accent, var(--rldp-accent-base));
+    color: var(--rldp-accent-foreground, var(--rldp-accent-foreground-base));
+    font-weight: 600;
+    box-shadow: none;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  :where(.rldp-day[data-selected]:hover) {
+    background: var(--rldp-accent-hover, var(--rldp-accent-hover-base));
   }
 
   :where(.rldp-months),
@@ -635,6 +712,8 @@
     background: var(--rldp-accent, var(--rldp-accent-base));
     color: var(--rldp-accent-foreground, var(--rldp-accent-foreground-base));
     font-weight: 600;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
   :where(.rldp-month:disabled) {
     color: var(
@@ -659,12 +738,42 @@
     );
   }
 
+  /* On a filled cell (the selected day, the open month or year) the ring is
+   * drawn in the fill's own foreground colour, one ring-width further in, so
+   * fill, ring and fill read as a band. In the ring colour it matched the
+   * fill exactly in minimal and high-contrast and sat near 1.4:1 on it in
+   * the default and soft themes: keyboard focus on the selection, which is
+   * where entering the grid puts it, was invisible. */
+  :where(
+      .rldp-day[data-selected],
+      .rldp-month[data-current],
+      .rldp-year[data-current]
+    ):where(:focus-visible) {
+    outline-color: var(
+      --rldp-accent-foreground,
+      var(--rldp-accent-foreground-base)
+    );
+    outline-offset: calc(
+      -2 * var(--rldp-focus-width, var(--rldp-focus-width-base))
+    );
+  }
+
   @media (forced-colors: active) {
     :where(.rldp-day[data-selected]) {
       border: 2px solid SelectedItem;
     }
     :where(.rldp-day[data-today]) {
       border: 1px dashed CanvasText;
+    }
+    /* Windows contrast themes drop author colours, which removed the
+     * field's only focus cue (a border colour) and drew a disabled day
+     * exactly like an enabled one. Outlines and system colours survive. */
+    :where(.rldp-field:focus-within) {
+      outline: 2px solid Highlight;
+      outline-offset: 2px;
+    }
+    :where(.rldp-day[data-disabled]) {
+      color: GrayText;
     }
   }
 
