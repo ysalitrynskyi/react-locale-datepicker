@@ -190,6 +190,48 @@ Additive optional prop; default layout behaviour is unchanged. A consumer
 that never sets `portal` sees 0.3.x stacking. Changing the default to
 always-portal would have been a major.
 
+## 0.3.3 — 2026-07-26
+
+### Fixed
+
+- **A Cyrillic keyboard could turn one date into another.** On a ЙЦУКЕН
+  layout the physical period and comma keys emit `ю` and `б`. The mask
+  dropped them as letters, so the digits around them closed up: `1ю8ю2026`
+  became `18.20.26` instead of `01.08.2026`, and a space did the same. Only
+  single-digit days and months were affected, which is why it stayed
+  invisible. `ю`, `б` (both cases) and whitespace are now separators.
+
+  This stays an allowlist on purpose. "Any non-digit separates" breaks
+  mid-string editing, where interleaved junk must be stripped so the digits
+  close up; the existing test caught that version.
+
+### Pinned
+
+- `tests/ukrainian-input.test.tsx` locks down behaviour that was already
+  correct: `today` derived in `Europe/Kyiv` rather than the host zone, the
+  legacy `Europe/Kiev` spelling, an invalid zone falling back instead of
+  throwing, the `ua` alias, and Ukrainian month names from `Intl`.
+
+## 0.3.2 — 2026-07-26
+
+Bug-fix release from an external review of 0.1.0. No API change.
+
+### Fixed
+
+- **An unusable `Date` crashed the host tree.** `new Date("nope")` makes
+  every `Intl.DateTimeFormat.format()` call throw, and thrown during render
+  that unmounted everything above the picker. Every `Date` prop (`value`,
+  `today`, `defaultCalendarMonth`, `minDate`, `maxDate`) is now normalized
+  at the boundary; an unusable one is treated as no date, and an unusable
+  bound as no bound.
+- **The popover overflowed a 320px viewport.** The stylesheet never set
+  `box-sizing`, so the popover measured 330px. A border-box reset scoped to
+  the component's own subtree brings it to 304px with 8px clear each side.
+- **The picker rendered transparent where `light-dark()` is unsupported**
+  (Safari < 17.5, Chrome < 123, Firefox < 120). An `@supports not` block
+  restores the ten tokens that decide whether the component can be read and
+  operated.
+
 ## 0.3.1 — 2026-07-26
 
 Prompted by a field report against a consumer product whose users could not
