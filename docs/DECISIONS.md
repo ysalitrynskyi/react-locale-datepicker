@@ -558,10 +558,10 @@ widget, with the keyboard model of a combobox and its popup (APG):
 - The draft is committed, the calendar closed and `onBlur` fired once, when
   focus leaves the widget — not when it moves between the field and the
   calendar. A close that unmounts the focused control counts as leaving
-  too, because an unmounted control fires no blur: a press outside from
-  inside the calendar, or a finger pick on a browser that focuses the
-  tapped day, reports it directly. Leaving is reported once, whatever blur
-  events follow it, until focus comes back.
+  too, because an unmounted control fires no blur: a press outside, or a
+  finger pick, while focus is inside the calendar reports it directly.
+  Leaving is reported once, whatever blur events follow it, until focus
+  comes back.
 - The calendar stays non-modal: no `aria-modal`, no focus trap, because the
   field remains operable while it is open.
 - A view switch first parks focus on a control that survives it, then moves

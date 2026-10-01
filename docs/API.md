@@ -64,7 +64,7 @@ options around the open year.
 |---|---|---|
 | `disabled` | `boolean` | The field is read-only and nothing commits. Turning it on while the calendar is open closes it and drops an uncommitted typed date. |
 | `hasError` | `boolean` | Visual only. The component never decides validity. |
-| `onBlur` | `(current: Date \| null) => void` | Fires once when focus **leaves the widget** (field and calendar together), with the just-committed value — including when the calendar closes under a focused control and leaves focus on nothing (a press outside from inside the calendar; a finger pick on a browser that focuses the tapped day). See § Blur ordering. |
+| `onBlur` | `(current: Date \| null) => void` | Fires once when focus **leaves the widget** (field and calendar together), with the just-committed value — including when the calendar closes under a focused control and leaves focus on nothing (a press outside, or a finger pick, while focus is inside the calendar). See § Blur ordering. |
 | `onDisabledOpenAttempt` | `() => void` | Fires when a user tries to open a disabled picker (a press on the field, its padding or the calendar icon, or ArrowDown in the field), so the form can point them at the field they must fill first. |
 | `onValidationError` | `(reason: ValidationErrorReason) => void` | Reports why a **typed** entry did not commit. The component classifies and reports; the consumer renders. Never fires for calendar clicks, and never for an edit the mask discarded (a letter, a stray separator). |
 

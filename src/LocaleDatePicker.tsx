@@ -1991,9 +1991,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     // trying to see. Reported from a live checkout. A mouse is unaffected:
     // there is no virtual keyboard to raise, and the focus return is free.
     //
-    // A finger that focused the day it tapped (Android does; iOS leaves focus
-    // in the field) is left on nothing once the calendar closes, which is
-    // leaving the widget, so the parent hears onBlur with the picked date.
+    // A finger pick made while focus is inside the calendar (a visitor who
+    // arrowed into the grid and then tapped a day) leaves focus on nothing
+    // once the calendar closes. That is leaving the widget, so the parent
+    // hears onBlur with the picked date. A tap does not move focus there by
+    // itself: the popover cancels mousedown, so focus is normally still in
+    // the field and nothing is reported until it leaves.
     if (by === "touch" && focusInPopover()) {
       latestRef.current.leaveWidget();
       return;

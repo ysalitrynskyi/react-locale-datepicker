@@ -29,9 +29,8 @@ this without choosing to. Read *Changed* before upgrading.
   the calendar, the second tap's refocus and Tab into the header each ran
   the parent's validation in the middle of an interaction. Leaving the
   widget also closes the calendar. A close that leaves focus on nothing
-  counts as leaving: a press outside from inside the calendar, and a finger
-  pick on a browser that focuses the tapped day (Android), fire `onBlur`
-  with the committed date.
+  counts as leaving: a press outside while focus is inside the calendar, and
+  a finger pick made while it is, fire `onBlur` with the committed date.
 - **A press outside commits a finished typed date** even when the press does
   not take focus (page chrome, a heading, the touchstart of a scroll). It
   used to close the calendar and leave the date uncommitted.
