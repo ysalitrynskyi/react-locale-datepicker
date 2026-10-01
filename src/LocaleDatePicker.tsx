@@ -589,6 +589,19 @@ function localeDirection(locale: string): "ltr" | "rtl" {
   }
 }
 
+// The direction an element inherits. A layout engine resolves dir (including
+// dir="auto") and the CSS direction property into computed style; an
+// environment without layout (jsdom) reports nothing there, so the nearest
+// explicit dir attribute stands in.
+function inheritedDirection(el: HTMLElement): "ltr" | "rtl" {
+  const win = el.ownerDocument.defaultView;
+  const computed = win ? win.getComputedStyle(el).direction : "";
+  if (computed === "rtl" || computed === "ltr") return computed;
+  return el.closest("[dir]")?.getAttribute("dir")?.toLowerCase() === "rtl"
+    ? "rtl"
+    : "ltr";
+}
+
 // First day of week as a JS day index (0=Sun..6=Sat). Uses Intl weekInfo
 // where available (Chrome/Safari property, Firefox method), else Monday —
 // the majority convention among the locales this component was validated
@@ -1756,7 +1769,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
       // both directions, so in RTL it hung off the far end of a wide field.
       const rtl = explicitDir
         ? explicitDir === "rtl"
-        : window.getComputedStyle(root).direction === "rtl";
+        : inheritedDirection(root) === "rtl";
       if (!explicitDir) setInheritedDir(rtl ? "rtl" : "ltr");
       const maxLeft = window.innerWidth - 8 - pw;
       if (usePortal) {
@@ -2085,8 +2098,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const isRTL = (): boolean => {
     if (explicitDir) return explicitDir === "rtl";
     const root = rootRef.current;
-    const win = root?.ownerDocument.defaultView;
-    return !!root && !!win && win.getComputedStyle(root).direction === "rtl";
+    return !!root && inheritedDirection(root) === "rtl";
   };
 
   const focusGridDay = (d: Date) => {

@@ -484,8 +484,11 @@
     width: 1.25rem;
     height: 1.25rem;
   }
-  /* Navigation arrows point backwards in right-to-left scripts. */
-  :where([dir="rtl"]) :where(.rldp-nav-icon) {
+  /* Navigation arrows point backwards in right-to-left scripts. Keyed on
+   * the popover's own dir, which the component always stamps with the
+   * direction it resolved: an outer [dir="rtl"] matched even when a nearer
+   * ancestor (or the direction prop) made the calendar left-to-right. */
+  :where(.rldp-popover[dir="rtl"]) :where(.rldp-nav-icon) {
     transform: rotate(180deg);
   }
 

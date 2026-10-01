@@ -111,14 +111,14 @@ describe("accessibility: RTL layout hooks", () => {
     h.container.setAttribute("dir", "rtl");
     await h.openViaClick();
     expect(h.queryDialog()).toBeTruthy();
-    // The scenario is only RTL if the dialog really sits under an RTL
-    // ancestor: the nearest [dir] is what the component reads and what the
-    // stylesheet's [dir="rtl"] rule matches.
+    // The scenario is only RTL if the dialog really resolved RTL from its
+    // ancestor: the component stamps the direction it resolved on the
+    // dialog, and the stylesheet's chevron rule keys off that attribute.
     expect(h.container).toHaveAttribute("dir", "rtl");
     expect(
-      h.dialog().closest("[dir]"),
-      "the dialog must sit under the RTL container",
-    ).toBe(h.container);
+      h.dialog(),
+      "the dialog must carry the RTL direction it inherits",
+    ).toHaveAttribute("dir", "rtl");
     // The navigation chevrons are the nav-icon parts, one inside each of the
     // previous and next buttons. Counting svgs would not do: the month and
     // year pills each carry a caret svg, and those two alone satisfy any
