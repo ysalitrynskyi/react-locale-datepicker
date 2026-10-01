@@ -159,34 +159,96 @@ test.describe("overflow:hidden containment", () => {
       page,
       "locale=en&defaultMonth=2026-07-01&overflowHidden=1&showEcho=0",
     );
-    const metrics = await page.evaluate(() => {
-      const card = document.querySelector("[data-testid='overflow-card']");
-      const dialog = document.querySelector("[role='dialog']");
-      if (!card || !dialog) return null;
-      const c = card.getBoundingClientRect();
-      const d = dialog.getBoundingClientRect();
-      const visibleH = Math.max(
-        0,
-        Math.min(d.bottom, c.bottom) - Math.max(d.top, c.top),
+    // This hit-tests; it does not measure. getBoundingClientRect() is layout
+    // and ignores overflow, so a calendar taller than the card overlaps the
+    // card's box whether it is clipped or painted in full beneath it — a rect
+    // comparison cannot tell the two apart. What a clip changes is what can be
+    // pointed at: elementFromPoint() skips the clipped region and returns
+    // whatever sits beneath, which is the behaviour the portal prop exists to
+    // escape.
+    const probe = await page.evaluate(async () => {
+      // The in-tree popover nudges the page from a requestAnimationFrame
+      // (scrollIntoView). Let that settle so the probe sees the state a
+      // visitor is left with, not the frame before it.
+      await new Promise((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(done)),
       );
+      const card = document.querySelector<HTMLElement>(
+        "[data-testid='overflow-card']",
+      );
+      const dialog = document.querySelector<HTMLElement>("[role='dialog']");
+      if (!card || !dialog) return null;
+
+      // The centre of every day button, and what the browser hits there.
+      const hitTestDays = () => {
+        const c = card.getBoundingClientRect();
+        const days = Array.from(
+          dialog.querySelectorAll<HTMLElement>("[data-day]"),
+        );
+        return days.map((day) => {
+          const r = day.getBoundingClientRect();
+          const x = r.left + r.width / 2;
+          const y = r.top + r.height / 2;
+          const hit = document.elementFromPoint(x, y);
+          return {
+            day: day.getAttribute("data-day"),
+            // Past the card's border box, so past its clip edge as well.
+            beyondCard: x < c.left || x > c.right || y < c.top || y > c.bottom,
+            // elementFromPoint() answers null off screen, which must not be
+            // mistaken for "clipped".
+            onScreen:
+              x >= 0 &&
+              y >= 0 &&
+              x < window.innerWidth &&
+              y < window.innerHeight,
+            hitDay: hit === day,
+            hitDialog: hit !== null && dialog.contains(hit),
+          };
+        });
+      };
+
+      const clipped = hitTestDays();
+      // Control: lift the clip and probe again. Every day must now be
+      // reachable, so a miss above is the clip and not something else (a
+      // popover with pointer-events: none would "pass" the check above too).
+      card.style.overflow = "visible";
+      const unclipped = hitTestDays();
+
       return {
-        dialogHeight: d.height,
-        visibleHeight: visibleH,
-        clipped: visibleH < d.height - 1,
         insideCard: card.contains(dialog),
         portaled: dialog.getAttribute("data-portaled"),
+        clipped,
+        unclipped,
       };
     });
-    expect(metrics, "card and dialog must both exist").toBeTruthy();
+    expect(probe, "card and dialog must both exist").toBeTruthy();
     expect(
-      metrics!.insideCard,
+      probe!.insideCard,
       "default popover is a DOM child of the overflow card",
     ).toBe(true);
+    expect(probe!.portaled).toBeNull();
+
+    // Only a day whose centre lies past the card can show a clip; one inside
+    // the card is legitimately reachable.
+    const pastCard = probe!.clipped.filter((d) => d.beyondCard && d.onScreen);
     expect(
-      metrics!.clipped,
-      "absolute popover must be clipped by overflow:hidden — if this fails, the portal prop is unnecessary and D17 should be revisited",
-    ).toBe(true);
-    expect(metrics!.portaled).toBeNull();
+      pastCard.length,
+      "most of the calendar hangs below the 72px card — without days out there the hit-test proves nothing",
+    ).toBeGreaterThan(14);
+    expect(
+      pastCard.filter((d) => d.hitDialog).map((d) => d.day),
+      "days past the card must not be hit: an absolute popover is clipped by overflow:hidden — if this fails, the portal prop is unnecessary and D17 should be revisited",
+    ).toEqual([]);
+
+    const reachable = probe!.unclipped.filter((d) => d.onScreen);
+    expect(
+      reachable.length,
+      "with the clip lifted the whole calendar must be on screen",
+    ).toBeGreaterThan(20);
+    expect(
+      reachable.filter((d) => !d.hitDay).map((d) => d.day),
+      "control: with the clip lifted every day is reachable, so the misses above are the clip",
+    ).toEqual([]);
   });
 
   test("portal=1 escapes overflow:hidden and keeps the calendar fully visible", async ({
