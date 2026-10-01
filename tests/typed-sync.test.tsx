@@ -3,7 +3,7 @@
 // full date left the grid on the old month, separators could not be typed
 // at all, and reopening the calendar ignored the uncommitted draft. Each
 // test names the behaviour it pins.
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { localDate, renderPicker } from "./helpers";
 
@@ -60,9 +60,11 @@ describe("typed input and calendar synchronization", () => {
   });
 
   it("reopening the calendar shows the uncommitted typed month (reopen bug)", async () => {
+    const onChange = vi.fn();
     const h = renderPicker({
       initialValue: localDate(2026, 6, 18),
       locale: "en",
+      onChange,
     });
     await h.openViaClick();
     fireEvent.change(h.input(), { target: { value: "10032027" } });
@@ -77,6 +79,17 @@ describe("typed input and calendar synchronization", () => {
         within(h.dialog()).getByRole("grid", { name: /March 2027/ }),
       ).toBeTruthy();
     });
+    // The month on screen is the DRAFT's, not a committed value's: a grid
+    // named "March 2027" looks the same if the trigger committed the draft on
+    // the way, so pin that nothing was committed and the draft is still the
+    // field's text. (The typed text and a committed 10 March 2027 print the
+    // same digits, which is why the committed value is checked as well.)
+    expect(
+      onChange,
+      "closing and reopening via the trigger must not commit the draft",
+    ).not.toHaveBeenCalled();
+    expect(h.committed()).toBe("2026-07-18");
+    expect(h.input()).toHaveValue("10.03.2027");
   });
 
   it("typing a separator closes the segment and pads it (dot bug)", async () => {
