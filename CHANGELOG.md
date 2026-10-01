@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.1 — 2026-10-01
+
+### Fixed
+
+- **A focused field with an error showed two red lines.** The focus ring
+  0.6.0 added to an errored field sat 2px outside its red border, so the
+  border and the ring read as two separate lines. The ring is now flush
+  against the border, and a focused errored field shows one heavier red
+  border instead.
+- **A focused disabled field had a detached grey ring** for the same reason.
+  Focus now turns its border the faint grey instead, the same kind of cue an
+  enabled field gets (whose border turns the accent colour).
+
 ## 0.6.0 — 2026-10-01
 
 Fixes for an external review that filed 86 findings in one day; every one was
