@@ -25,7 +25,7 @@ repository is private.
 
 | In source | Becomes |
 |---|---|
-| Domain-specific prop names (trip dates, entering/departure) | `value`, `minDate`, `maxDate`, `defaultCalendarMonth` |
+| Domain-specific prop names for the dates and their bounds | `value`, `minDate`, `maxDate`, `defaultCalendarMonth` |
 | The product's locale union type | `string` |
 | Product-specific class names and colour tokens | Per D3 |
 | Any reference to the product, its domain, or its business rules | Removed entirely |

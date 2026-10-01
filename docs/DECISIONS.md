@@ -378,7 +378,7 @@ contract exists to prevent. Only the derivation of "today" is affected.
 **Status:** DECIDED 2026-08-11 — opt-in `portal?: boolean | HTMLElement`.
 Default remains the in-tree `position: absolute` popover (0.3.x behaviour).
 
-**Prompt:** a live travel-insurance checkout audited the package for adoption.
+**Prompt:** a live multilingual checkout audited the package for adoption.
 Its form card is `overflow: hidden` (rounded shadow shell). An absolute
 popover inside that shell is clipped — observed in the e2e harness, not
 reasoned about: dialog height ≈ 282px, only ≈ 90px visible through a 72px

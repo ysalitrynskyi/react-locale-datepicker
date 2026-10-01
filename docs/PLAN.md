@@ -40,9 +40,9 @@ is unreviewable.
 1. Read `docs/EXTRACTION.md` in full first, especially § Parity contract.
 2. Copy the component in. Keep every comment; they encode why each behaviour
    exists.
-3. Strip product-specific naming. The generic component has no notion of travel,
-   insurance, entering or departure — those become `value`, `minDate`,
-   `maxDate`, `shouldDisableDate`.
+3. Strip product-specific naming. The generic component has no notion of the
+   source product's domain — its domain-named dates and rules become `value`,
+   `minDate`, `maxDate`, `shouldDisableDate`.
 4. Keep the exported locale-normalization helper public. It is genuinely useful
    to consumers and the source product already imports it separately.
 5. `tsc --noEmit` clean under strict mode.

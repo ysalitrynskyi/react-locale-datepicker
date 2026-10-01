@@ -120,8 +120,8 @@ Documentation only. No runtime, type or stylesheet change; `0.4.0` and
 
 ## 0.4.0 — 2026-08-11
 
-Prompted by an adoption audit from a live travel-insurance checkout (34
-locales, cross-origin `/embed`, payment path under GDPR). The package was
+Prompted by an adoption audit from a live multilingual checkout (dozens of
+locales, framed cross-origin, payment path under GDPR). The package was
 already a behavioural superset of that product's in-house picker; this
 release turns the behaviours that checkout bets on into a **published
 contract**, and adds the one escape the audit could not resolve from the

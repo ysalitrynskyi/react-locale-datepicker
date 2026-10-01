@@ -2,7 +2,7 @@
  * Published contract pins for the consumer product that adopted the package.
  *
  * These behaviours were true in 0.3.x but only incidentally guaranteed. The
- * consumer product (34 locales, cross-origin embeds, hardened browsers) needs
+ * consumer product (dozens of locales, cross-origin embeds, hardened browsers) needs
  * each one to fail the suite if a future release changes it. Prompt: adoption
  * audit against the consumer product's own date picker, 2026-08.
  */
