@@ -274,6 +274,13 @@ the signature exists because the obvious version was wrong. It fires once,
 when focus leaves the widget; moving between the field and its calendar is not
 a blur.
 
+The latest date the widget committed (a picked day, Enter, a press outside)
+is what `onBlur` carries until `value` changes, so a parent that applies a
+commit later, after a request or in a transition, is not handed its stale
+value. A parent that declines a commit receives that date on the next blur as
+well; once `value` changes, by the parent's own doing or not, `onBlur`
+reports `value`.
+
 ### Locale resolution
 
 Some applications use locale codes that are not valid BCP 47 tags. The known

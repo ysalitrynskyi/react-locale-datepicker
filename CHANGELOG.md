@@ -31,6 +31,10 @@ this without choosing to. Read *Changed* before upgrading.
   widget also closes the calendar. A close that leaves focus on nothing
   counts as leaving: a press outside while focus is inside the calendar, and
   a finger pick made while it is, fire `onBlur` with the committed date.
+  `onBlur` carries the latest date the widget committed until `value`
+  changes, so a parent that has not applied a commit yet (or declines it)
+  still receives that date on the next blur. 0.5.1 passed its own `value`
+  unless the commit happened in that same blur.
 - **A press outside commits a finished typed date** even when the press does
   not take focus (page chrome, a heading, the touchstart of a scroll). It
   used to close the calendar and leave the date uncommitted.
