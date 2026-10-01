@@ -29,6 +29,11 @@
  *   carries [data-rldp-theme]. Because they set the public token, they
  *   inherit, nest and are overridable by the consumer exactly like a
  *   hand-written override.
+ *
+ * - Every theme, in both schemes, meets WCAG AA for the pairs listed in
+ *   docs/THEMING.md (4.5:1 text, 3:1 rings and borders; 7:1 text in
+ *   high-contrast). e2e/bughunt-styles.spec.ts measures each one, because a
+ *   fix applied to the default theme alone looked finished and was not.
  */
 
 @layer rldp {
@@ -168,7 +173,7 @@
     --rldp-accent-foreground: light-dark(oklch(1 0 0), oklch(0.2103 0.0059 285.89));
     --rldp-accent-soft: light-dark(oklch(0.9674 0.0013 286.38), oklch(0.2277 0.0057 285.93));
     --rldp-accent-soft-foreground: light-dark(oklch(0.2103 0.0059 285.89), oklch(0.9851 0 0));
-    --rldp-today-ring: light-dark(oklch(0.7118 0.0129 286.07), oklch(0.4419 0.0146 285.79));
+    --rldp-today-ring: light-dark(oklch(0.5517 0.0138 285.94), oklch(0.5517 0.0138 285.94));
     --rldp-error: light-dark(oklch(0.5771 0.2152 27.33), oklch(0.7106 0.1661 22.22));
     --rldp-ring: light-dark(oklch(0.2103 0.0059 285.89), oklch(0.9851 0 0));
     --rldp-radius: 0.25rem;
@@ -195,7 +200,7 @@
     --rldp-accent-foreground: light-dark(oklch(1 0 0), oklch(0.2077 0.0398 265.75));
     --rldp-accent-soft: light-dark(oklch(0.9619 0.0179 272.31), oklch(0.3588 0.1354 278.7));
     --rldp-accent-soft-foreground: light-dark(oklch(0.4568 0.2146 277.02), oklch(0.8699 0.0622 274.04));
-    --rldp-today-ring: light-dark(oklch(0.7853 0.1041 274.71), oklch(0.5854 0.2041 277.12));
+    --rldp-today-ring: light-dark(oklch(0.5854 0.2041 277.12), oklch(0.5854 0.2041 277.12));
     --rldp-error: light-dark(oklch(0.5858 0.222 17.58), oklch(0.7192 0.169 13.43));
     --rldp-ring: light-dark(oklch(0.5854 0.2041 277.12), oklch(0.7853 0.1041 274.71));
     --rldp-radius: 0.75rem;

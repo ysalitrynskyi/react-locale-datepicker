@@ -45,78 +45,99 @@ async function openPicker(page: Page, query: string) {
   await expect(page.getByRole("dialog")).toBeVisible();
 }
 
-for (const scheme of ["light", "dark"] as const) {
-  for (const theme of ["", "minimal", "soft"]) {
-    const q = `locale=en&${JULY}${theme ? `&themeName=${theme}` : ""}`;
-    const name = `${theme || "default"} ${scheme}`;
+// Every shipped theme in both schemes, for every pair docs/THEMING.md lists.
+// The bug hunt measured some pairs in the default theme only, and fixing just
+// those left the today ring at 1.9:1 to 2.6:1 in minimal and soft: a fix for
+// a kind of colour pair has to be checked on every theme that has one.
+const THEMES = ["", "minimal", "soft", "high-contrast"];
+// high-contrast promises AAA, so its text is held to 7:1 rather than 4.5:1.
+const textFloor = (theme: string) => (theme === "high-contrast" ? 7 : 4.5);
 
-    test(`placeholder reads at 4.5:1 — ${name} (BH-057)`, async ({ page }) => {
+for (const scheme of ["light", "dark"] as const) {
+  for (const theme of THEMES) {
+    const t = theme ? `&themeName=${theme}` : "";
+    const q = `locale=en&${JULY}${t}`;
+    const name = `${theme || "default"} ${scheme}`;
+    const floor = textFloor(theme);
+
+    test(`placeholder reads at ${floor}:1 — ${name} (BH-057)`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: scheme });
-      await page.goto(`/?locale=en${theme ? `&themeName=${theme}` : ""}`);
+      await page.goto(`/?locale=en${t}`);
       const input = page.getByRole("textbox");
       const fg = await paint(page, await css(input, "color", "::placeholder"));
       const bg = await paintedColor(page.locator('[data-part="field"]'));
-      expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(fg, bg)).toBeGreaterThanOrEqual(floor);
     });
 
-    test(`weekday headers read at 4.5:1 — ${name} (BH-058)`, async ({ page }) => {
+    test(`weekday headers read at ${floor}:1 — ${name} (BH-058)`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: scheme });
       await openPicker(page, q);
       const fg = await paintedColor(page.locator(".rldp-weekday").first(), "color");
       const bg = await paintedColor(page.getByRole("dialog"));
-      expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(fg, bg)).toBeGreaterThanOrEqual(floor);
     });
 
-    test(`selected day text reads at 4.5:1 — ${name} (BH-077)`, async ({ page }) => {
+    test(`selected day text reads at ${floor}:1 — ${name} (BH-077)`, async ({ page }) => {
       await page.emulateMedia({ colorScheme: scheme });
       await openPicker(page, q);
       const day = page.locator(".rldp-day[data-selected]");
       await page.waitForTimeout(200); // background transition
       const fg = await paintedColor(day, "color");
       const bg = await paintedColor(day);
-      expect(contrast(fg, bg)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(fg, bg)).toBeGreaterThanOrEqual(floor);
+    });
+
+    test(`the open month's text reads at ${floor}:1 — ${name} (BH-077)`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await openPicker(page, q);
+      await page.locator('[data-part="month-pill"]').click();
+      const month = page.locator(".rldp-month[data-current]");
+      await expect(month).toBeVisible();
+      await page.waitForTimeout(200);
+      const fg = await paintedColor(month, "color");
+      const bg = await paintedColor(month);
+      expect(contrast(fg, bg)).toBeGreaterThanOrEqual(floor);
+    });
+
+    test(`keyboard focus on the selected day is visible — ${name} (BH-022, BH-078)`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto(`/?${q}`);
+      const input = page.getByRole("textbox");
+      await input.focus();
+      await input.press("ArrowDown");
+      await input.press("ArrowDown");
+      const day = page.locator(".rldp-day[data-selected]");
+      await expect(day).toBeFocused();
+      await page.waitForTimeout(200);
+      const ring = await paint(page, await css(day, "outline-color"));
+      const fill = await paintedColor(day);
+      expect(contrast(ring, fill)).toBeGreaterThanOrEqual(3);
+    });
+
+    test(`the error border clears 3:1 — ${name} (BH-059)`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.goto(`/?locale=en&hasError=1${t}`);
+      const field = page.locator('[data-part="field"]');
+      const border = await paintedColor(field, "borderTopColor");
+      const bg = await paintedColor(field);
+      expect(contrast(border, bg)).toBeGreaterThanOrEqual(3);
+    });
+
+    test(`the today ring clears 3:1 — ${name} (BH-082)`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme: scheme });
+      await page.clock.setFixedTime(new Date(2026, 6, 10, 12));
+      await openPicker(page, `locale=en&defaultMonth=2026-07-01${t}`);
+      const today = page.locator(".rldp-day[data-today]");
+      const shadow = await css(today, "box-shadow");
+      const color = shadow.match(/^(\S+\([^)]*\)|#\w+)/)?.[1] ?? shadow;
+      const ring = await paint(page, color);
+      const bg = await paintedColor(page.getByRole("dialog"));
+      expect(contrast(ring, bg)).toBeGreaterThanOrEqual(3);
     });
   }
 }
-
-for (const theme of ["", "minimal", "soft", "high-contrast"]) {
-  test(`keyboard focus on the selected day is visible — ${theme || "default"} (BH-022, BH-078)`, async ({
-    page,
-  }) => {
-    await page.goto(`/?locale=en&${JULY}${theme ? `&themeName=${theme}` : ""}`);
-    const input = page.getByRole("textbox");
-    await input.focus();
-    await input.press("ArrowDown");
-    await input.press("ArrowDown");
-    const day = page.locator(".rldp-day[data-selected]");
-    await expect(day).toBeFocused();
-    await page.waitForTimeout(200);
-    const ring = await paint(page, await css(day, "outline-color"));
-    const fill = await paintedColor(day);
-    expect(contrast(ring, fill)).toBeGreaterThanOrEqual(3);
-  });
-}
-
-test("the default light error border clears 3:1 (BH-059)", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.goto("/?locale=en&hasError=1");
-  const field = page.locator('[data-part="field"]');
-  const border = await paintedColor(field, "borderTopColor");
-  const bg = await paintedColor(field);
-  expect(contrast(border, bg)).toBeGreaterThanOrEqual(3);
-});
-
-test("the default light today ring clears 3:1 (BH-082)", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "light" });
-  await page.clock.setFixedTime(new Date(2026, 6, 10, 12));
-  await openPicker(page, "locale=en&defaultMonth=2026-07-01");
-  const today = page.locator(".rldp-day[data-today]");
-  const shadow = await css(today, "box-shadow");
-  const color = shadow.match(/^(\S+\([^)]*\)|#\w+)/)?.[1] ?? shadow;
-  const ring = await paint(page, color);
-  const bg = await paintedColor(page.getByRole("dialog"));
-  expect(contrast(ring, bg)).toBeGreaterThanOrEqual(3);
-});
 
 test("a nearer .dark wins over an outer .light (BH-081)", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
