@@ -403,7 +403,8 @@
     margin: 0.125rem 0 0;
     font-size: 0.75rem;
     color: var(--rldp-muted-foreground, var(--rldp-muted-foreground-base));
-    text-transform: capitalize;
+    /* No text-transform: the component writes the first letter in upper
+     * case itself (locale-aware). "capitalize" upper-cased every word. */
   }
 
   /* --- Popover ---------------------------------------------------------- */
@@ -506,7 +507,6 @@
     color: var(--rldp-foreground, var(--rldp-foreground-base));
     font-size: var(--rldp-font-size, var(--rldp-font-size-base));
     font-weight: 600;
-    text-transform: capitalize;
     cursor: pointer;
     touch-action: manipulation;
   }
@@ -622,9 +622,6 @@
     cursor: pointer;
     touch-action: manipulation;
     transition: background-color 150ms, color 150ms;
-  }
-  :where(.rldp-month) {
-    text-transform: capitalize;
   }
   :where(.rldp-month:hover:not(:disabled)),
   :where(.rldp-year:hover) {

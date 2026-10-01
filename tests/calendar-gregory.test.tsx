@@ -13,8 +13,11 @@ describe("echo calendar is pinned to gregory (D11)", () => {
     // Without calendar:"gregory", Intl ar-SA formats this as a Hijri date
     // (e.g. صفر ١٤٤٨) against a Gregorian grid — echo and grid disagreed.
     const h = renderPicker({ locale: "ar-SA", initialValue: value });
+    // Latin digits: the widget writes every number in one numbering system,
+    // Latin unless the tag asks for another (D20).
     const expected = new Intl.DateTimeFormat("ar-SA", {
       calendar: "gregory",
+      numberingSystem: "latn",
       weekday: "long",
       day: "numeric",
       month: "long",

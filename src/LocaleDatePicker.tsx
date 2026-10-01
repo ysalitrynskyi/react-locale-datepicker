@@ -1260,66 +1260,109 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
     () => firstDayOfWeek(resolvedLocale),
     [resolvedLocale],
   );
+  // The numbering system every number in the widget is written in (D20).
+  // The field is ASCII (dd.MM.yyyy), and so were the day numerals and the
+  // year pill (getDate/getFullYear) — but the formatters followed the
+  // locale's default, so under "ar" or "fa" the echo, the month title a
+  // screen reader announces and the day names said ٢٠٢٦ next to a pill that
+  // said 2026. Latin unless the locale tag asks for a system explicitly
+  // (e.g. "ar-u-nu-arab"): then the formatters, the day numerals and the
+  // years all use it. Only the typed field stays ASCII, as it must.
+  const numbering = React.useMemo(() => {
+    try {
+      return new Intl.Locale(resolvedLocale).numberingSystem ?? null;
+    } catch {
+      return null;
+    }
+  }, [resolvedLocale]);
+  const numberFmt = React.useMemo(
+    () =>
+      numbering
+        ? new Intl.NumberFormat(resolvedLocale, { useGrouping: false })
+        : null,
+    [numbering, resolvedLocale],
+  );
+  const num = (n: number): string =>
+    numberFmt ? numberFmt.format(n) : String(n);
+
+  // The language every Intl string is in, for lang= on the echo and the
+  // popover. Assistive tech otherwise pronounces a Ukrainian month name with
+  // the page's English rules. Intl's resolved locale rather than the prop,
+  // because an unknown tag formats in the host's default language.
+  const langTag = React.useMemo(() => {
+    try {
+      return new Intl.Locale(
+        new Intl.DateTimeFormat(resolvedLocale).resolvedOptions().locale,
+      ).baseName;
+    } catch {
+      return undefined;
+    }
+  }, [resolvedLocale]);
+
+  // First letter in the locale's upper case, the rest exactly as Intl wrote
+  // it — CLDR's "titlecase-firstword", its casing for menu items and for the
+  // start of a sentence. This replaces CSS text-transform: capitalize, which
+  // upper-cased every word: the Spanish echo "miércoles, 17 de junio de 2026"
+  // painted as "Miércoles, 17 De Junio De 2026".
+  const sentenceCase = (s: string): string => {
+    const [first = "", ...rest] = Array.from(s);
+    return first.toLocaleUpperCase(langTag) + rest.join("");
+  };
+
   // calendar: "gregory" is pinned on every formatter so the long-form echo
   // and grid labels always describe the same Gregorian day the grid shows.
   // Without it, ar-SA defaults to islamic-umalqura and th-TH to the Buddhist
   // era, so a selection on the Gregorian grid echoed as a Hijri/Buddhist
   // date (docs/DECISIONS.md D11). Display calendars may become opt-in later;
   // the value type stays a Gregorian-interpreted local-midnight Date.
+  const dateOpts = React.useMemo<Intl.DateTimeFormatOptions>(
+    () =>
+      numbering
+        ? { calendar: "gregory" }
+        : { calendar: "gregory", numberingSystem: "latn" },
+    [numbering],
+  );
   const monthTitleFmt = React.useMemo(
     () =>
       new Intl.DateTimeFormat(resolvedLocale, {
-        calendar: "gregory",
+        ...dateOpts,
         month: "long",
         year: "numeric",
       }),
-    [resolvedLocale],
+    [resolvedLocale, dateOpts],
   );
   const monthLongFmt = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat(resolvedLocale, {
-        calendar: "gregory",
-        month: "long",
-      }),
-    [resolvedLocale],
+    () => new Intl.DateTimeFormat(resolvedLocale, { ...dateOpts, month: "long" }),
+    [resolvedLocale, dateOpts],
   );
   const monthShortFmt = React.useMemo(
     () =>
-      new Intl.DateTimeFormat(resolvedLocale, {
-        calendar: "gregory",
-        month: "short",
-      }),
-    [resolvedLocale],
+      new Intl.DateTimeFormat(resolvedLocale, { ...dateOpts, month: "short" }),
+    [resolvedLocale, dateOpts],
   );
   const weekdayFmt = React.useMemo(
     () =>
-      new Intl.DateTimeFormat(resolvedLocale, {
-        calendar: "gregory",
-        weekday: "short",
-      }),
-    [resolvedLocale],
+      new Intl.DateTimeFormat(resolvedLocale, { ...dateOpts, weekday: "short" }),
+    [resolvedLocale, dateOpts],
   );
   // Column headers show the short weekday but are announced with the long
   // one, the role="columnheader" equivalent of the APG example's
   // <th abbr="Sunday">Su</th>.
   const weekdayLongFmt = React.useMemo(
     () =>
-      new Intl.DateTimeFormat(resolvedLocale, {
-        calendar: "gregory",
-        weekday: "long",
-      }),
-    [resolvedLocale],
+      new Intl.DateTimeFormat(resolvedLocale, { ...dateOpts, weekday: "long" }),
+    [resolvedLocale, dateOpts],
   );
   const fullDateFmt = React.useMemo(
     () =>
       new Intl.DateTimeFormat(resolvedLocale, {
-        calendar: "gregory",
+        ...dateOpts,
         weekday: "long",
         day: "numeric",
         month: "long",
         year: "numeric",
       }),
-    [resolvedLocale],
+    [resolvedLocale, dateOpts],
   );
   // Day-cell accessible names must BEGIN with the day number so voice-control
   // commands like "click 18" match. fullDateFmt leads with the weekday in
@@ -1328,24 +1371,44 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const dayNamePartsFmt = React.useMemo(
     () =>
       new Intl.DateTimeFormat(resolvedLocale, {
-        calendar: "gregory",
+        ...dateOpts,
         weekday: "long",
         month: "long",
         year: "numeric",
       }),
-    [resolvedLocale],
+    [resolvedLocale, dateOpts],
+  );
+  const dayNumberFmt = React.useMemo(
+    () => new Intl.DateTimeFormat(resolvedLocale, { ...dateOpts, day: "numeric" }),
+    [resolvedLocale, dateOpts],
   );
   const formatDayAccessibleName = React.useCallback(
     (d: Date): string => {
+      // Each part keeps the unit word Intl attaches to it directly — 2026年,
+      // 1月, 31日 in Japanese and Chinese. Joining the bare parts dropped
+      // them, and "31 土曜日 1 2026" no longer said which number was the
+      // month. A literal that begins with a space is spacing or punctuation,
+      // not a unit, and is still dropped.
+      const withUnit = (parts: Intl.DateTimeFormatPart[], type: string) => {
+        const i = parts.findIndex((p) => p.type === type);
+        if (i < 0) return "";
+        const next = parts[i + 1];
+        const unit =
+          next?.type === "literal" ? (next.value.match(/^\p{L}+/u)?.[0] ?? "") : "";
+        return parts[i].value + unit;
+      };
       const parts = dayNamePartsFmt.formatToParts(d);
-      const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
-      const month = parts.find((p) => p.type === "month")?.value ?? "";
-      const year = parts.find((p) => p.type === "year")?.value ?? "";
-      return `${d.getDate()} ${weekday} ${month} ${year}`
+      return [
+        withUnit(dayNumberFmt.formatToParts(d), "day"),
+        withUnit(parts, "weekday"),
+        withUnit(parts, "month"),
+        withUnit(parts, "year"),
+      ]
+        .join(" ")
         .replace(/\s+/g, " ")
         .trim();
     },
-    [dayNamePartsFmt],
+    [dayNamePartsFmt, dayNumberFmt],
   );
 
   // Navigation bounds as month keys (year * 12 + month): minDate/maxDate when
@@ -2394,12 +2457,12 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
   const headerPrevLabel =
     labelText.previousMonth ??
     (view === "months"
-      ? String(viewMonth.getFullYear() - 1)
+      ? num(viewYear - 1)
       : monthTitleFmt.format(prevMonthDate));
   const headerNextLabel =
     labelText.nextMonth ??
     (view === "months"
-      ? String(viewMonth.getFullYear() + 1)
+      ? num(viewYear + 1)
       : monthTitleFmt.format(nextMonthDate));
 
   // The trigger restates the committed value, so a screen-reader user who
@@ -2420,6 +2483,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
             <div
               ref={popupRef}
               dir={effectiveDir}
+              lang={langTag}
               role="dialog"
               aria-label={ariaLabel}
               // Keep focus in the input while clicking inside the popup: a
@@ -2474,6 +2538,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
               <span
                 {...slotProps("keyboardHelp", "rldp-sr-only")}
                 aria-live="polite"
+                // The built-in help is English (labels are the consumer's
+                // to translate); it must not be read with the popover's lang.
+                lang={labels?.keyboardHelp ? undefined : "en"}
               >
                 {gridHelpShown ? labelText.keyboardHelp : ""}
               </span>
@@ -2518,7 +2585,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                       )
                     }
                   >
-                    {monthLongFmt.format(viewMonth)}
+                    {sentenceCase(monthLongFmt.format(viewMonth))}
                     {icons?.chevronDown ?? (
                       <ChevronDown {...slotProps("caret", "rldp-caret")} />
                     )}
@@ -2535,7 +2602,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                       )
                     }
                   >
-                    {viewMonth.getFullYear()}
+                    {num(viewYear)}
                     {icons?.chevronDown ?? (
                       <ChevronDown {...slotProps("caret", "rldp-caret")} />
                     )}
@@ -2649,7 +2716,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                                 }}
                                 onFocus={() => setFocusDay(d)}
                               >
-                                {d.getDate()}
+                                {num(d.getDate())}
                               </button>
                             </div>
                           );
@@ -2680,7 +2747,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                         type="button"
                         disabled={!enabled}
                         tabIndex={isRove ? 0 : -1}
-                        aria-label={monthLongFmt.format(ymd(viewYear, m, 15))}
+                        aria-label={sentenceCase(
+                          monthLongFmt.format(ymd(viewYear, m, 15)),
+                        )}
                         aria-current={isCurrent ? "true" : undefined}
                         {...slotProps(
                           "month",
@@ -2694,7 +2763,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                           switchView("days", pillOf("month-pill"));
                         }}
                       >
-                        {monthShortFmt.format(ymd(viewYear, m, 15))}
+                        {sentenceCase(monthShortFmt.format(ymd(viewYear, m, 15)))}
                       </button>
                     );
                   })}
@@ -2730,7 +2799,7 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
                           switchView("months", pillOf("year-pill"));
                         }}
                       >
-                        {y}
+                        {num(y)}
                       </button>
                     );
                   })}
@@ -2947,7 +3016,9 @@ export const LocaleDatePicker: React.FC<LocaleDatePickerProps> = ({
           a day/month transposition while typing immediately visible, and
           doubles as confirmation that a typed edit was accepted. */}
       {showEcho && value && (
-        <p {...slotProps("echo", "rldp-echo")}>{fullDateFmt.format(value)}</p>
+        <p {...slotProps("echo", "rldp-echo")} lang={langTag}>
+          {sentenceCase(fullDateFmt.format(value))}
+        </p>
       )}
 
       {portaledPopover}
