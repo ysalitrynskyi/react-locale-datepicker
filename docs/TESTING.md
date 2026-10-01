@@ -35,6 +35,7 @@ Local notes:
 |---|---|
 | `tests/*.test.tsx` | Vitest + Testing Library in jsdom: behaviour, ARIA, masking, keyboard, values. |
 | `tests/bughunt-*.test.tsx` | Regression guards for the 2026-09-30 bug hunt, each naming its ledger id (see [`bug-hunts/2026-09-30.md`](bug-hunts/2026-09-30.md)). |
+| `tests/prerelease-review.test.tsx` | Guards for the 2026-10-01 pre-release review of 0.6.0, named `RV-0n` (see [`bug-hunts/2026-10-01.md`](bug-hunts/2026-10-01.md)). |
 | `tests/ssr-contract.test.tsx` | Runs under `@vitest-environment node`: the module imports and renders with no DOM. |
 | `tests/consumer-contract.test.tsx` | Promises a consuming product relies on (display format, locale resolution, timezone). |
 | `e2e/matrix.spec.ts`, `e2e/themes.spec.ts` | Real-browser behaviour, layout, theming. |
